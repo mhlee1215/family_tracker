@@ -1,0 +1,13 @@
+{
+  "name": "family_tracker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  }
+}
