@@ -1,0 +1,14 @@
+{
+  "name": "family-tracker-slack-codex-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
+

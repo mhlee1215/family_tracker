@@ -51,6 +51,31 @@ GET  /api/profile
 POST /api/profile
 ```
 
+## Pipeline
+
+GitHub, Render, and Slack automation are prepared but secrets stay outside the repo.
+
+- GitHub CI: `.github/workflows/ci.yml`
+- Render blueprint: `render.yaml`
+- Slack task intake bot: `slack-codex-bot/`
+
+Render should be connected to `mhlee1215/family_tracker` with `autoDeploy` enabled. Add runtime secrets in the Render dashboard rather than committing them:
+
+```text
+OPENAI_API_KEY
+MISTRAL_API_KEY
+```
+
+Slack command setup needs:
+
+```text
+SLACK_SIGNING_SECRET
+SLACK_BOT_TOKEN
+GITHUB_TOKEN
+GITHUB_REPO=mhlee1215/family_tracker
+GITHUB_DISPATCH_EVENT=family_tracker_slack_request
+```
+
 ## Structure
 
 ```text
@@ -60,5 +85,5 @@ src/server/db/        SQLite persistence adapter
 tests/                Node unit tests
 docs/                 Architecture and LLM contract notes
 server.js             Local static server and API
+slack-codex-bot/      Slack command to GitHub issue intake
 ```
-

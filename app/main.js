@@ -3,7 +3,17 @@ const state = {
   summary: null,
 };
 
-const quickActions = ['분유', '낮잠', '깸', '응가', '쉬', '고구마 먹음'];
+const quickActions = ['분유', '낮잠', '깸', '응가', '쉬', '이유식'];
+const tabletActions = [
+  { label: '분유', value: '분유' },
+  { label: '모유', value: '모유' },
+  { label: '이유식', value: '이유식 먹음' },
+  { label: '낮잠 시작', value: '낮잠' },
+  { label: '깸', value: '깸' },
+  { label: '응가', value: '응가' },
+  { label: '쉬', value: '쉬' },
+  { label: '메모', value: '' },
+];
 
 const logForm = document.querySelector('#log-form');
 const logInput = document.querySelector('#log-input');
@@ -12,10 +22,14 @@ const askInput = document.querySelector('#ask-input');
 const answerEl = document.querySelector('#answer');
 const timelineEl = document.querySelector('#timeline');
 const summaryEl = document.querySelector('#summary');
+const sleepStatusEl = document.querySelector('#sleep-status');
 const quickActionsEl = document.querySelector('#quick-actions');
+const tabletActionsEl = document.querySelector('#tablet-actions');
+const eventCountEl = document.querySelector('#event-count');
 const refreshButton = document.querySelector('#refresh');
 
 renderQuickActions();
+renderTabletActions();
 await loadToday();
 
 if ('serviceWorker' in navigator) {
@@ -75,6 +89,7 @@ async function loadToday() {
 
 function render() {
   renderSummary();
+  renderSleepStatus();
   renderTimeline();
 }
 
@@ -84,6 +99,22 @@ function renderQuickActions() {
     button.type = 'button';
     button.textContent = label;
     button.addEventListener('click', () => saveLog(label));
+    return button;
+  }));
+}
+
+function renderTabletActions() {
+  tabletActionsEl.replaceChildren(...tabletActions.map((action) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = action.label;
+    button.addEventListener('click', () => {
+      if (action.value) {
+        saveLog(action.value);
+        return;
+      }
+      logInput.focus();
+    });
     return button;
   }));
 }
@@ -105,7 +136,33 @@ function summaryItem(label, value) {
   return item;
 }
 
+function renderSleepStatus() {
+  const openSleep = [...state.events].reverse().find((event) => (
+    event.type === 'sleep'
+    && event.action?.value === 'start'
+    && event.status !== 'completed'
+  ));
+  if (!openSleep) {
+    sleepStatusEl.classList.add('hidden');
+    sleepStatusEl.replaceChildren();
+    return;
+  }
+
+  const startedAt = new Date(openSleep.startAt.value);
+  const elapsed = Math.max(0, Math.round((Date.now() - startedAt.getTime()) / 60000));
+  sleepStatusEl.classList.remove('hidden');
+
+  const copy = document.createElement('div');
+  copy.innerHTML = `<span>지금 낮잠 중</span><strong>${elapsed}분째</strong><small>시작 ${timeLabel(openSleep.startAt)}</small>`;
+  const wakeButton = document.createElement('button');
+  wakeButton.type = 'button';
+  wakeButton.textContent = '깸';
+  wakeButton.addEventListener('click', () => saveLog('깸'));
+  sleepStatusEl.replaceChildren(copy, wakeButton);
+}
+
 function renderTimeline() {
+  eventCountEl.textContent = `${state.events.length}개`;
   if (!state.events.length) {
     timelineEl.innerHTML = '<p class="empty">아직 오늘 기록이 없어요.</p>';
     return;
@@ -128,7 +185,10 @@ function renderEvent(event) {
   const badges = document.createElement('div');
   badges.className = 'badges';
   badges.replaceChildren(...inferredBadges(event));
-  item.replaceChildren(title, meta, raw, badges);
+  const main = document.createElement('div');
+  main.className = 'timeline-main';
+  main.replaceChildren(meta, raw);
+  item.replaceChildren(title, main, badges);
   return item;
 }
 
@@ -185,4 +245,3 @@ function escapeHtml(value) {
     "'": '&#39;',
   })[char]);
 }
-

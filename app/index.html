@@ -10,45 +10,56 @@
   </head>
   <body>
     <main id="app" class="app-shell">
-      <section class="panel hero-panel">
+      <header class="top-bar">
         <div>
-          <p class="eyebrow">Baby Tracker MVP</p>
-          <h1>짧게 쓰면 기록으로 정리해요.</h1>
+          <p class="eyebrow">Baby Tracker</p>
+          <h1>오늘</h1>
         </div>
-        <div id="summary" class="summary-strip"></div>
-      </section>
+        <button id="refresh" type="button" class="ghost-button">새로고침</button>
+      </header>
 
-      <section class="log-layout">
-        <form id="log-form" class="input-panel" autocomplete="off">
-          <label for="log-input">오늘 기록</label>
-          <div class="composer-row">
-            <input id="log-input" name="log" type="text" placeholder="분유, 낮잠, 깸, 고구마 먹음" autofocus>
-            <button type="submit">저장</button>
-          </div>
-          <div id="quick-actions" class="quick-actions" aria-label="빠른 기록"></div>
-        </form>
+      <section id="summary" class="summary-strip" aria-label="오늘 요약"></section>
 
-        <section class="ask-panel">
-          <form id="ask-form" autocomplete="off">
-            <label for="ask-input">질문</label>
+      <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
+
+      <section class="workspace-grid">
+        <section class="phone-flow">
+          <form id="log-form" class="input-panel" autocomplete="off">
+            <label for="log-input">기록</label>
             <div class="composer-row">
+              <input id="log-input" name="log" type="text" placeholder="분유, 낮잠, 깸, 고구마 먹음" autofocus>
+              <button type="submit">저장</button>
+            </div>
+            <div id="quick-actions" class="quick-actions" aria-label="추천 기록"></div>
+          </form>
+
+          <section class="timeline-section">
+            <div class="section-header">
+              <h2>타임라인</h2>
+              <span id="event-count" class="muted-count">0개</span>
+            </div>
+            <div id="timeline" class="timeline"></div>
+          </section>
+        </section>
+
+        <aside class="tablet-board" aria-label="패드용 빠른 기록">
+          <div class="section-header">
+            <h2>패드 보드</h2>
+            <span class="muted-count">공용 입력</span>
+          </div>
+          <div id="tablet-actions" class="tablet-actions"></div>
+
+          <form id="ask-form" class="ask-panel" autocomplete="off">
+            <label for="ask-input">질문</label>
+            <div class="composer-row compact">
               <input id="ask-input" name="ask" type="text" placeholder="오늘 총 수면시간?">
               <button type="submit">질문</button>
             </div>
+            <p id="answer" class="answer-text"></p>
           </form>
-          <p id="answer" class="answer-text"></p>
-        </section>
-      </section>
-
-      <section class="timeline-section">
-        <div class="section-header">
-          <h2>오늘 타임라인</h2>
-          <button id="refresh" type="button">새로고침</button>
-        </div>
-        <div id="timeline" class="timeline"></div>
+        </aside>
       </section>
     </main>
     <script type="module" src="/app/main.js"></script>
   </body>
 </html>
-
