@@ -1,4 +1,4 @@
-const CACHE_NAME = 'family-tracker-004';
+const CACHE_NAME = 'family-tracker-005';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -9,19 +9,9 @@
     <link rel="stylesheet" href="/app/styles.css">
   </head>
   <body>
-    <main id="app" class="app-shell">
-      <header class="top-bar">
-        <div>
-          <p class="eyebrow" data-i18n="eyebrow">Baby Tracker</p>
-          <div class="date-heading">
-            <button id="previous-day" type="button" class="date-step" aria-label="Previous day">‹</button>
-            <label class="date-picker-label">
-              <span id="day-label" class="day-label">오늘</span>
-              <input id="day-picker" class="day-picker" type="date">
-            </label>
-            <button id="next-day" type="button" class="date-step" aria-label="Next day">›</button>
-          </div>
-        </div>
+    <header class="global-nav">
+      <div class="global-nav-inner">
+        <span class="global-brand">Family Tracker</span>
         <div class="top-actions">
           <section id="auth-panel" class="auth-panel hidden" aria-live="polite">
             <span data-i18n="signInTitle">로그인이 필요해요</span>
@@ -30,7 +20,10 @@
 
           <div class="top-menu">
             <button id="menu-toggle" type="button" class="menu-button" aria-haspopup="true" aria-expanded="false" aria-label="Account and settings">
-              <span aria-hidden="true">👤</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 12.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path>
+                <path d="M4.8 20.2a7.2 7.2 0 0 1 14.4 0"></path>
+              </svg>
             </button>
             <div id="menu-panel" class="menu-panel hidden">
               <section id="account-panel" class="account-panel hidden" aria-live="polite">
@@ -58,6 +51,20 @@
               <button id="refresh" type="button" class="ghost-button menu-action" data-i18n="refresh">새로고침</button>
             </div>
           </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="app" class="app-shell">
+      <header class="top-bar">
+        <p class="eyebrow" data-i18n="eyebrow">Baby Tracker</p>
+        <div class="date-heading">
+          <button id="previous-day" type="button" class="date-step" aria-label="Previous day">‹</button>
+          <div class="date-picker-label">
+            <h1 id="day-label" class="day-label">오늘</h1>
+            <input id="day-picker" class="day-picker" type="date" aria-label="Browse day">
+          </div>
+          <button id="next-day" type="button" class="date-step" aria-label="Next day">›</button>
         </div>
       </header>
 
@@ -103,7 +110,7 @@
         </aside>
       </section>
     </main>
-    <div id="build-badge" class="build-badge" aria-label="Build number">Build 004</div>
+    <div id="build-badge" class="build-badge" aria-label="Build number">Build 005</div>
     <script type="module" src="/app/main.js"></script>
   </body>
 </html>

@@ -17,6 +17,12 @@ This repository is Family Tracker, a local-first baby and family activity tracke
 - Keep LLM calls server-side. Browser code must never read provider API keys.
 - Favor local-first development with a clear path to cloud account sync and later Capacitor packaging.
 
+## Frontend Design Direction
+
+- Read `DESIGN.md` before substantial frontend layout, visual styling, UI polish, or interaction-state work.
+- Treat `DESIGN.md` as the source of truth for the visual language: Apple-inspired, photography-first surfaces, SF Pro/system typography, Action Blue `#0066cc` as the single interactive accent, quiet chrome, tile-based rhythm, and no decorative gradients or UI shadows.
+- Keep operational UI dense enough for repeated family tracking, but express it using the `DESIGN.md` tokens and component grammar.
+
 ## Implementation Rules
 
 - Keep app rendering in `app/`.
@@ -33,4 +39,3 @@ node --check app/main.js
 node --check app/sw.js
 node --test tests/*.test.js
 ```
-

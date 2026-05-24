@@ -1,4 +1,4 @@
-const APP_BUILD = '004';
+const APP_BUILD = '005';
 
 const storageKeys = {
   language: 'familyTracker.language',
