@@ -226,6 +226,77 @@ async function handleApi(request, response) {
       return;
     }
 
+    if (request.method === 'GET' && requestUrl.pathname === '/api/task-assignees') {
+      sendJson(response, 200, { assignees: await store.ensureDefaultTaskAssignees(scope.familyId) });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/task-assignees') {
+      const body = await readJson(request);
+      const name = String(body.name || '').trim();
+      if (!name) {
+        sendJson(response, 400, { error: 'Assignee name is required.' });
+        return;
+      }
+      const assignee = await store.createTaskAssignee({
+        id: createId('assignee'),
+        familyId: scope.familyId,
+        name,
+        color: body.color || '#0066cc',
+      });
+      sendJson(response, 200, { assignee });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/today') {
+      const day = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
+      await store.ensureDefaultTaskAssignees(scope.familyId);
+      sendJson(response, 200, { tasks: await store.listTasksForDay(day, scope) });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/overview') {
+      sendJson(response, 200, { tasks: await store.listTaskOverview({ ...scope, limit: 40 }) });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/tasks') {
+      const body = await readJson(request);
+      const title = String(body.title || '').trim();
+      const assigneeId = String(body.assigneeId || '').trim();
+      if (!title || !assigneeId) {
+        sendJson(response, 400, { error: 'Task title and assignee are required.' });
+        return;
+      }
+      const task = await store.createTask({
+        id: createId('task'),
+        familyId: scope.familyId,
+        title,
+        assigneeId,
+        dueDate: body.dueDate || new Date().toISOString().slice(0, 10),
+      });
+      sendJson(response, 200, { task });
+      return;
+    }
+
+    if (request.method === 'PATCH' && requestUrl.pathname.startsWith('/api/tasks/')) {
+      const taskId = requestUrl.pathname.split('/').pop();
+      const body = await readJson(request);
+      const task = await store.updateTask(taskId, {
+        title: body.title,
+        assigneeId: body.assigneeId,
+        dueDate: body.dueDate,
+        status: body.status,
+        completedBy: session.user.id,
+      }, scope);
+      if (!task) {
+        sendJson(response, 404, { error: 'Task not found.' });
+        return;
+      }
+      sendJson(response, 200, { task });
+      return;
+    }
+
     sendJson(response, 404, { error: 'API route not found.' });
   } catch (error) {
     sendJson(response, error.status || 500, { error: error.message || 'Unexpected server error.' });

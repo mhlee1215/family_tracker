@@ -1,319 +1,181 @@
-const APP_BUILD = '005';
+const APP_BUILD = '006';
 
 const storageKeys = {
-  language: 'familyTracker.language',
   theme: 'familyTracker.theme',
+  activeTab: 'familyTracker.activeTab',
 };
 
-const translations = {
-  ko: {
-    htmlLang: 'ko',
-    eyebrow: 'Baby Tracker',
-    today: '오늘',
-    yesterday: '어제',
-    tomorrow: '내일',
-    settings: '설정',
-    theme: '테마',
-    language: '언어',
-    refresh: '새로고침',
-    signInTitle: '로그인이 필요해요',
-    signInBody: '계정별로 가족 기록과 세션을 분리해서 저장합니다.',
-    googleLogin: 'Google로 로그인',
-    devLogin: 'Admin 개발 로그인',
-    logout: '로그아웃',
-    signedInAs: (name) => `${name} 계정`,
-    log: '기록',
-    save: '저장',
-    timeline: '타임라인',
-    tabletBoard: '패드 보드',
-    sharedInput: '공용 입력',
-    question: '질문',
-    ask: '질문',
-    thinking: '생각 중...',
-    saving: '저장 중...',
-    saveFailed: '저장하지 못했어요.',
-    logPlaceholder: '분유, 낮잠, 깸, 고구마 먹음',
-    askPlaceholder: '오늘 총 수면시간?',
-    emptyTimeline: '아직 이 날짜에 기록이 없어요.',
-    eventCount: (count) => `${count}개`,
-    minutes: (value) => `${value}분`,
-    times: (value) => `${value}회`,
-    sleepActive: '지금 낮잠 중',
-    elapsed: (value) => `${value}분째`,
-    started: (value) => `시작 ${value}`,
-    wake: '깸',
-    summarySleep: '수면',
-    summaryMilk: '수유',
-    summarySolid: '이유식',
-    summaryDiaper: '기저귀',
-    eventSleep: '수면',
-    eventSleepEnd: '수면 종료',
-    eventBreast: '모유',
-    eventFormula: '분유',
-    eventSolid: '이유식',
-    eventDirty: '응가',
-    eventDiaper: '기저귀',
-    eventGeneric: '기록',
-    noTime: '시간 없음',
-    inferred: (label) => `${label} 예상`,
-    fieldAmount: '양',
-    fieldStart: '시작',
-    fieldEnd: '종료',
-    fieldDuration: '시간',
-    fieldKind: '종류',
-    quickActions: ['분유', '낮잠', '깸', '응가', '쉬', '이유식'],
-    tabletActions: [
-      { label: '분유', value: '분유' },
-      { label: '모유', value: '모유' },
-      { label: '이유식', value: '이유식 먹음' },
-      { label: '낮잠 시작', value: '낮잠' },
-      { label: '깸', value: '깸' },
-      { label: '응가', value: '응가' },
-      { label: '쉬', value: '쉬' },
-      { label: '메모', value: '' },
-    ],
-  },
-  en: {
-    htmlLang: 'en',
-    eyebrow: 'Baby Tracker',
-    today: 'Today',
-    yesterday: 'Yesterday',
-    tomorrow: 'Tomorrow',
-    settings: 'Settings',
-    theme: 'Theme',
-    language: 'Language',
-    refresh: 'Refresh',
-    signInTitle: 'Sign in required',
-    signInBody: 'Family logs and sessions are separated by account.',
-    googleLogin: 'Continue with Google',
-    devLogin: 'Admin dev login',
-    logout: 'Log out',
-    signedInAs: (name) => `${name} account`,
-    log: 'Log',
-    save: 'Save',
-    timeline: 'Timeline',
-    tabletBoard: 'Tablet board',
-    sharedInput: 'Shared input',
-    question: 'Question',
-    ask: 'Ask',
-    thinking: 'Thinking...',
-    saving: 'Saving...',
-    saveFailed: 'Could not save.',
-    logPlaceholder: 'formula, nap, woke up, sweet potato',
-    askPlaceholder: 'How much sleep today?',
-    emptyTimeline: 'No logs for this date yet.',
-    eventCount: (count) => `${count} items`,
-    minutes: (value) => `${value} min`,
-    times: (value) => `${value}x`,
-    sleepActive: 'Napping now',
-    elapsed: (value) => `${value} min`,
-    started: (value) => `Started ${value}`,
-    wake: 'Wake',
-    summarySleep: 'Sleep',
-    summaryMilk: 'Milk',
-    summarySolid: 'Solids',
-    summaryDiaper: 'Diaper',
-    eventSleep: 'Sleep',
-    eventSleepEnd: 'Sleep ended',
-    eventBreast: 'Breast milk',
-    eventFormula: 'Formula',
-    eventSolid: 'Solids',
-    eventDirty: 'Dirty diaper',
-    eventDiaper: 'Diaper',
-    eventGeneric: 'Log',
-    noTime: 'No time',
-    inferred: (label) => `${label} estimated`,
-    fieldAmount: 'Amount',
-    fieldStart: 'Start',
-    fieldEnd: 'End',
-    fieldDuration: 'Duration',
-    fieldKind: 'Kind',
-    quickActions: ['formula', 'nap', 'woke up', 'dirty', 'wet', 'solids'],
-    tabletActions: [
-      { label: 'Formula', value: 'formula' },
-      { label: 'Breast', value: 'breast milk' },
-      { label: 'Solids', value: 'solids eaten' },
-      { label: 'Nap start', value: 'nap' },
-      { label: 'Wake', value: 'woke up' },
-      { label: 'Dirty', value: 'dirty diaper' },
-      { label: 'Wet', value: 'wet diaper' },
-      { label: 'Note', value: '' },
-    ],
-  },
-  vi: {
-    htmlLang: 'vi',
-    eyebrow: 'Theo dõi em bé',
-    today: 'Hôm nay',
-    yesterday: 'Hôm qua',
-    tomorrow: 'Ngày mai',
-    settings: 'Cài đặt',
-    theme: 'Giao diện',
-    language: 'Ngôn ngữ',
-    refresh: 'Làm mới',
-    signInTitle: 'Cần đăng nhập',
-    signInBody: 'Ghi chép gia đình và phiên làm việc được tách theo tài khoản.',
-    googleLogin: 'Đăng nhập bằng Google',
-    devLogin: 'Đăng nhập admin dev',
-    logout: 'Đăng xuất',
-    signedInAs: (name) => `Tài khoản ${name}`,
-    log: 'Ghi lại',
-    save: 'Lưu',
-    timeline: 'Dòng thời gian',
-    tabletBoard: 'Bảng tablet',
-    sharedInput: 'Nhập chung',
-    question: 'Câu hỏi',
-    ask: 'Hỏi',
-    thinking: 'Đang nghĩ...',
-    saving: 'Đang lưu...',
-    saveFailed: 'Không lưu được.',
-    logPlaceholder: 'sữa bột, ngủ trưa, thức dậy, khoai lang',
-    askPlaceholder: 'Hôm nay ngủ bao lâu?',
-    emptyTimeline: 'Ngày này chưa có ghi chép.',
-    eventCount: (count) => `${count} mục`,
-    minutes: (value) => `${value} phút`,
-    times: (value) => `${value} lần`,
-    sleepActive: 'Đang ngủ trưa',
-    elapsed: (value) => `${value} phút`,
-    started: (value) => `Bắt đầu ${value}`,
-    wake: 'Thức dậy',
-    summarySleep: 'Ngủ',
-    summaryMilk: 'Sữa',
-    summarySolid: 'Ăn dặm',
-    summaryDiaper: 'Tã',
-    eventSleep: 'Ngủ',
-    eventSleepEnd: 'Kết thúc ngủ',
-    eventBreast: 'Sữa mẹ',
-    eventFormula: 'Sữa bột',
-    eventSolid: 'Ăn dặm',
-    eventDirty: 'Tã bẩn',
-    eventDiaper: 'Tã',
-    eventGeneric: 'Ghi chép',
-    noTime: 'Không có giờ',
-    inferred: (label) => `${label} ước tính`,
-    fieldAmount: 'Lượng',
-    fieldStart: 'Bắt đầu',
-    fieldEnd: 'Kết thúc',
-    fieldDuration: 'Thời lượng',
-    fieldKind: 'Loại',
-    quickActions: ['sữa bột', 'ngủ trưa', 'thức dậy', 'tã bẩn', 'tã ướt', 'ăn dặm'],
-    tabletActions: [
-      { label: 'Sữa bột', value: 'sữa bột' },
-      { label: 'Sữa mẹ', value: 'sữa mẹ' },
-      { label: 'Ăn dặm', value: 'ăn dặm' },
-      { label: 'Ngủ trưa', value: 'ngủ trưa' },
-      { label: 'Thức dậy', value: 'thức dậy' },
-      { label: 'Tã bẩn', value: 'tã bẩn' },
-      { label: 'Tã ướt', value: 'tã ướt' },
-      { label: 'Ghi chú', value: '' },
-    ],
-  },
+const copy = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  tomorrow: 'Tomorrow',
+  saving: 'Saving...',
+  saveFailed: 'Could not save.',
+  logPlaceholder: 'formula, nap, woke up, sweet potato',
+  askPlaceholder: 'How much sleep today?',
+  emptyTimeline: 'No logs for this date yet.',
+  emptyTasks: 'No tasks for this day.',
+  emptyOverview: 'No completed tasks yet.',
+  quickActions: ['formula', 'nap', 'woke up', 'dirty', 'wet', 'solids'],
+  tabletActions: [
+    { label: 'Formula', value: 'formula' },
+    { label: 'Breast', value: 'breast milk' },
+    { label: 'Solids', value: 'solids eaten' },
+    { label: 'Nap start', value: 'nap' },
+    { label: 'Wake', value: 'woke up' },
+    { label: 'Dirty', value: 'dirty diaper' },
+    { label: 'Wet', value: 'wet diaper' },
+    { label: 'Note', value: '' },
+  ],
 };
 
 const state = {
   events: [],
   summary: null,
   user: null,
-  language: normalizeLanguage(localStorage.getItem(storageKeys.language)),
+  profile: null,
+  tasks: [],
+  taskOverview: [],
+  assignees: [],
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
+  activeTab: normalizeTab(localStorage.getItem(storageKeys.activeTab)),
   selectedDay: localDateKey(new Date()),
+  selectedTaskDay: localDateKey(new Date()),
 };
 
-const logForm = document.querySelector('#log-form');
-const logInput = document.querySelector('#log-input');
-const askForm = document.querySelector('#ask-form');
-const askInput = document.querySelector('#ask-input');
-const answerEl = document.querySelector('#answer');
-const timelineEl = document.querySelector('#timeline');
-const summaryEl = document.querySelector('#summary');
-const sleepStatusEl = document.querySelector('#sleep-status');
-const quickActionsEl = document.querySelector('#quick-actions');
-const tabletActionsEl = document.querySelector('#tablet-actions');
-const eventCountEl = document.querySelector('#event-count');
-const refreshButton = document.querySelector('#refresh');
-const languageSelect = document.querySelector('#language-select');
-const themeSelect = document.querySelector('#theme-select');
-const authPanel = document.querySelector('#auth-panel');
-const accountPanel = document.querySelector('#account-panel');
-const accountLabel = document.querySelector('#account-label');
-const workspace = document.querySelector('#workspace');
-const devLoginButton = document.querySelector('#dev-login');
-const logoutButton = document.querySelector('#logout');
-const buildBadge = document.querySelector('#build-badge');
-const dayLabel = document.querySelector('#day-label');
-const dayPicker = document.querySelector('#day-picker');
-const previousDayButton = document.querySelector('#previous-day');
-const nextDayButton = document.querySelector('#next-day');
-const menuToggle = document.querySelector('#menu-toggle');
-const menuPanel = document.querySelector('#menu-panel');
+const $ = (selector) => document.querySelector(selector);
+
+const elements = {
+  tabs: document.querySelectorAll('.module-tab'),
+  views: document.querySelectorAll('.module-view'),
+  settings: document.querySelectorAll('.module-settings'),
+  logForm: $('#log-form'),
+  logInput: $('#log-input'),
+  askForm: $('#ask-form'),
+  askInput: $('#ask-input'),
+  answer: $('#answer'),
+  timeline: $('#timeline'),
+  summary: $('#summary'),
+  sleepStatus: $('#sleep-status'),
+  quickActions: $('#quick-actions'),
+  tabletActions: $('#tablet-actions'),
+  eventCount: $('#event-count'),
+  refresh: $('#refresh'),
+  themeSelect: $('#theme-select'),
+  authPanel: $('#auth-panel'),
+  accountPanel: $('#account-panel'),
+  accountLabel: $('#account-label'),
+  workspace: $('#workspace'),
+  taskWorkspace: $('#task-workspace'),
+  devLogin: $('#dev-login'),
+  logout: $('#logout'),
+  buildBadge: $('#build-badge'),
+  dayLabel: $('#day-label'),
+  dayPicker: $('#day-picker'),
+  previousDay: $('#previous-day'),
+  nextDay: $('#next-day'),
+  taskDayLabel: $('#task-day-label'),
+  taskDayPicker: $('#task-day-picker'),
+  previousTaskDay: $('#previous-task-day'),
+  nextTaskDay: $('#next-task-day'),
+  menuToggle: $('#menu-toggle'),
+  menuPanel: $('#menu-panel'),
+  babySettingsForm: $('#baby-settings-form'),
+  babyName: $('#baby-name'),
+  birthDate: $('#birth-date'),
+  milkAmount: $('#milk-amount'),
+  napDuration: $('#nap-duration'),
+  assigneeForm: $('#assignee-form'),
+  assigneeName: $('#assignee-name'),
+  taskForm: $('#task-form'),
+  taskAssignee: $('#task-assignee'),
+  taskTitle: $('#task-title'),
+  taskList: $('#task-list'),
+  taskCount: $('#task-count'),
+  taskOverviewList: $('#task-overview-list'),
+};
 
 applyPreferences();
 renderBuildBadge();
-renderStaticText();
+renderTabs();
 renderQuickActions();
 renderTabletActions();
 await loadCurrentUser();
-if (state.user) await loadToday();
+if (state.user) await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
 renderAuthState();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/app/sw.js').catch(() => {});
 }
 
-logForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  await saveLog(logInput.value);
+elements.tabs.forEach((tab) => {
+  tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
 });
 
-askForm.addEventListener('submit', async (event) => {
+elements.logForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const question = askInput.value.trim();
+  await saveLog(elements.logInput.value);
+});
+
+elements.askForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const question = elements.askInput.value.trim();
   if (!question) return;
-  answerEl.textContent = t().thinking;
+  elements.answer.textContent = 'Thinking...';
   const response = await fetch('/api/ask', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      question,
-      day: state.selectedDay,
-      timezone: localTimezone(),
-    }),
+    body: JSON.stringify({ question, day: state.selectedDay, timezone: localTimezone() }),
   });
   const payload = await response.json();
-  answerEl.textContent = response.ok ? payload.answer : payload.error;
+  elements.answer.textContent = response.ok ? payload.answer : payload.error;
 });
 
-refreshButton.addEventListener('click', loadToday);
-devLoginButton.addEventListener('click', devLogin);
-logoutButton.addEventListener('click', logout);
-menuToggle.addEventListener('click', () => setMenuOpen(menuPanel.classList.contains('hidden')));
-previousDayButton.addEventListener('click', () => shiftSelectedDay(-1));
-nextDayButton.addEventListener('click', () => shiftSelectedDay(1));
-dayPicker.addEventListener('change', () => {
-  if (!dayPicker.value) return;
-  state.selectedDay = dayPicker.value;
+elements.taskForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  await createTask();
+});
+
+elements.babySettingsForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  await saveBabyProfile();
+});
+
+elements.assigneeForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  await createAssignee();
+});
+
+elements.refresh.addEventListener('click', refreshActiveTab);
+elements.devLogin.addEventListener('click', devLogin);
+elements.logout.addEventListener('click', logout);
+elements.menuToggle.addEventListener('click', () => setMenuOpen(elements.menuPanel.classList.contains('hidden')));
+elements.previousDay.addEventListener('click', () => shiftSelectedDay(-1));
+elements.nextDay.addEventListener('click', () => shiftSelectedDay(1));
+elements.previousTaskDay.addEventListener('click', () => shiftSelectedTaskDay(-1));
+elements.nextTaskDay.addEventListener('click', () => shiftSelectedTaskDay(1));
+
+elements.dayPicker.addEventListener('change', () => {
+  if (!elements.dayPicker.value) return;
+  state.selectedDay = elements.dayPicker.value;
   loadToday();
 });
 
-languageSelect.addEventListener('change', () => {
-  state.language = normalizeLanguage(languageSelect.value);
-  localStorage.setItem(storageKeys.language, state.language);
-  applyPreferences();
-  renderStaticText();
-  renderQuickActions();
-  renderTabletActions();
-  renderAuthState();
-  render();
+elements.taskDayPicker.addEventListener('change', () => {
+  if (!elements.taskDayPicker.value) return;
+  state.selectedTaskDay = elements.taskDayPicker.value;
+  loadTaskData();
 });
 
-themeSelect.addEventListener('change', () => {
-  state.theme = normalizeTheme(themeSelect.value);
+elements.themeSelect.addEventListener('change', () => {
+  state.theme = normalizeTheme(elements.themeSelect.value);
   localStorage.setItem(storageKeys.theme, state.theme);
   applyPreferences();
 });
 
 document.addEventListener('click', (event) => {
-  if (menuPanel.classList.contains('hidden')) return;
-  if (menuPanel.contains(event.target) || menuToggle.contains(event.target)) return;
+  if (elements.menuPanel.classList.contains('hidden')) return;
+  if (elements.menuPanel.contains(event.target) || elements.menuToggle.contains(event.target)) return;
   setMenuOpen(false);
 });
 
@@ -324,20 +186,17 @@ document.addEventListener('keydown', (event) => {
 async function saveLog(text) {
   const cleanText = text.trim();
   if (!cleanText) return;
-  logInput.value = '';
-  logInput.placeholder = t().saving;
+  elements.logInput.value = '';
+  elements.logInput.placeholder = copy.saving;
   const response = await fetch('/api/logs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      text: cleanText,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    }),
+    body: JSON.stringify({ text: cleanText, timezone: localTimezone() }),
   });
   const payload = await response.json();
-  logInput.placeholder = t().logPlaceholder;
+  elements.logInput.placeholder = copy.logPlaceholder;
   if (!response.ok) {
-    answerEl.textContent = payload.error || t().saveFailed;
+    elements.answer.textContent = payload.error || copy.saveFailed;
     return;
   }
   state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
@@ -345,23 +204,102 @@ async function saveLog(text) {
 }
 
 async function loadToday() {
-  const params = new URLSearchParams({
-    day: state.selectedDay,
-    timezone: localTimezone(),
-  });
+  const params = new URLSearchParams({ day: state.selectedDay, timezone: localTimezone() });
   const response = await fetch(`/api/logs/today?${params.toString()}`);
   const payload = await response.json();
-  if (response.status === 401) {
-    state.user = null;
-    state.events = [];
-    state.summary = null;
-    renderAuthState();
-    render();
-    return;
-  }
+  if (handleAuthFailure(response)) return;
   state.events = payload.events || [];
   state.summary = payload.summary;
-  render();
+  renderBaby();
+}
+
+async function loadBabyProfile() {
+  const response = await fetch('/api/profile');
+  const payload = await response.json();
+  if (handleAuthFailure(response)) return;
+  state.profile = payload.profile || null;
+  renderBabySettings();
+}
+
+async function saveBabyProfile() {
+  const profile = {
+    ...state.profile,
+    babyName: elements.babyName.value.trim(),
+    birthDate: elements.birthDate.value,
+    milkAmountMlOverride: numberOrNull(elements.milkAmount.value),
+    napDurationMinutesOverride: numberOrNull(elements.napDuration.value),
+  };
+  const response = await fetch('/api/profile', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ profile }),
+  });
+  const payload = await response.json();
+  if (!response.ok) return;
+  state.profile = payload.profile;
+  renderBabySettings();
+  setMenuOpen(false);
+}
+
+async function loadTaskData() {
+  await loadAssignees();
+  const params = new URLSearchParams({ day: state.selectedTaskDay });
+  const [todayResponse, overviewResponse] = await Promise.all([
+    fetch(`/api/tasks/today?${params.toString()}`),
+    fetch('/api/tasks/overview'),
+  ]);
+  const todayPayload = await todayResponse.json();
+  const overviewPayload = await overviewResponse.json();
+  if (handleAuthFailure(todayResponse)) return;
+  state.tasks = todayPayload.tasks || [];
+  state.taskOverview = overviewPayload.tasks || [];
+  renderTasks();
+}
+
+async function loadAssignees() {
+  const response = await fetch('/api/task-assignees');
+  const payload = await response.json();
+  if (handleAuthFailure(response)) return;
+  state.assignees = payload.assignees || [];
+  renderAssignees();
+}
+
+async function createAssignee() {
+  const name = elements.assigneeName.value.trim();
+  if (!name) return;
+  const response = await fetch('/api/task-assignees', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (response.ok) {
+    elements.assigneeName.value = '';
+    await loadAssignees();
+  }
+}
+
+async function createTask() {
+  const title = elements.taskTitle.value.trim();
+  const assigneeId = elements.taskAssignee.value;
+  if (!title || !assigneeId) return;
+  const response = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title, assigneeId, dueDate: state.selectedTaskDay }),
+  });
+  if (!response.ok) return;
+  elements.taskTitle.value = '';
+  await loadTaskData();
+}
+
+async function toggleTask(task) {
+  const nextStatus = task.status === 'done' ? 'open' : 'done';
+  const response = await fetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ status: nextStatus }),
+  });
+  if (response.ok) await loadTaskData();
 }
 
 async function loadCurrentUser() {
@@ -378,12 +316,12 @@ async function devLogin() {
   });
   const payload = await response.json();
   if (!response.ok) {
-    answerEl.textContent = payload.error || t().saveFailed;
+    elements.answer.textContent = payload.error || copy.saveFailed;
     return;
   }
   state.user = payload.user;
   renderAuthState();
-  await loadToday();
+  await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
 }
 
 async function logout() {
@@ -391,52 +329,62 @@ async function logout() {
   state.user = null;
   state.events = [];
   state.summary = null;
+  state.tasks = [];
+  state.taskOverview = [];
   renderAuthState();
-  render();
+  renderBaby();
+  renderTasks();
+}
+
+function handleAuthFailure(response) {
+  if (response.status !== 401) return false;
+  state.user = null;
+  renderAuthState();
+  renderBaby();
+  renderTasks();
+  return true;
 }
 
 function applyPreferences() {
-  document.documentElement.lang = t().htmlLang;
+  document.documentElement.lang = 'en';
   document.documentElement.dataset.theme = state.theme;
-  languageSelect.value = state.language;
-  themeSelect.value = state.theme;
+  elements.themeSelect.value = state.theme;
 }
 
 function renderBuildBadge() {
-  if (!buildBadge) return;
-  buildBadge.textContent = `Build ${APP_BUILD}`;
-  buildBadge.title = `Family Tracker build ${APP_BUILD}`;
+  elements.buildBadge.textContent = `Build ${APP_BUILD}`;
+  elements.buildBadge.title = `Family Tracker build ${APP_BUILD}`;
   document.body.dataset.build = APP_BUILD;
 }
 
-function setMenuOpen(open) {
-  menuPanel.classList.toggle('hidden', !open);
-  menuToggle.setAttribute('aria-expanded', String(open));
+function setActiveTab(tab) {
+  state.activeTab = normalizeTab(tab);
+  localStorage.setItem(storageKeys.activeTab, state.activeTab);
+  renderTabs();
+  refreshActiveTab();
 }
 
-function renderStaticText() {
-  document.querySelectorAll('[data-i18n]').forEach((node) => {
-    node.textContent = t()[node.dataset.i18n] || node.textContent;
-  });
-  logInput.placeholder = t().logPlaceholder;
-  askInput.placeholder = t().askPlaceholder;
-  quickActionsEl.setAttribute('aria-label', t().log);
-  renderDayControls();
+function renderTabs() {
+  elements.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === state.activeTab));
+  elements.views.forEach((view) => view.classList.toggle('active', view.id === `${state.activeTab}-view`));
+  elements.settings.forEach((panel) => panel.classList.toggle('hidden', panel.dataset.settings !== state.activeTab));
+}
+
+function setMenuOpen(open) {
+  elements.menuPanel.classList.toggle('hidden', !open);
+  elements.menuToggle.setAttribute('aria-expanded', String(open));
 }
 
 function renderAuthState() {
-  authPanel.classList.toggle('hidden', Boolean(state.user));
-  accountPanel.classList.toggle('hidden', !state.user);
-  devLoginButton.classList.toggle('hidden', Boolean(state.user));
-  workspace.classList.toggle('disabled', !state.user);
-  if (state.user) {
-    accountLabel.textContent = t().signedInAs(state.user.name || state.user.email || 'User');
-  } else {
-    accountLabel.textContent = '';
-  }
+  elements.authPanel.classList.toggle('hidden', Boolean(state.user));
+  elements.accountPanel.classList.toggle('hidden', !state.user);
+  elements.devLogin.classList.toggle('hidden', Boolean(state.user));
+  elements.workspace.classList.toggle('disabled', !state.user);
+  elements.taskWorkspace.classList.toggle('disabled', !state.user);
+  elements.accountLabel.textContent = state.user ? `${state.user.name || state.user.email || 'User'} account` : '';
 }
 
-function render() {
+function renderBaby() {
   renderDayControls();
   renderSummary();
   renderSleepStatus();
@@ -444,12 +392,20 @@ function render() {
 }
 
 function renderDayControls() {
-  dayPicker.value = state.selectedDay;
-  dayLabel.textContent = dayHeading(state.selectedDay);
+  elements.dayPicker.value = state.selectedDay;
+  elements.dayLabel.textContent = dayHeading(state.selectedDay);
+}
+
+function renderBabySettings() {
+  const profile = state.profile || {};
+  elements.babyName.value = profile.babyName || '';
+  elements.birthDate.value = profile.birthDate || '';
+  elements.milkAmount.value = profile.milkAmountMlOverride ?? '';
+  elements.napDuration.value = profile.napDurationMinutesOverride ?? '';
 }
 
 function renderQuickActions() {
-  quickActionsEl.replaceChildren(...t().quickActions.map((label) => {
+  elements.quickActions.replaceChildren(...copy.quickActions.map((label) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
@@ -459,28 +415,22 @@ function renderQuickActions() {
 }
 
 function renderTabletActions() {
-  tabletActionsEl.replaceChildren(...t().tabletActions.map((action) => {
+  elements.tabletActions.replaceChildren(...copy.tabletActions.map((action) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = action.label;
-    button.addEventListener('click', () => {
-      if (action.value) {
-        saveLog(action.value);
-        return;
-      }
-      logInput.focus();
-    });
+    button.addEventListener('click', () => (action.value ? saveLog(action.value) : elements.logInput.focus()));
     return button;
   }));
 }
 
 function renderSummary() {
   const summary = state.summary || {};
-  summaryEl.replaceChildren(
-    summaryItem(t().summarySleep, t().minutes(summary.sleepMinutes || 0)),
-    summaryItem(t().summaryMilk, `${summary.milkCount || 0}${timesSuffix()} · ${summary.milkAmountMl || 0}ml`),
-    summaryItem(t().summarySolid, `${summary.solidCount || 0}${timesSuffix()}`),
-    summaryItem(t().summaryDiaper, `${summary.diaperCount || 0}${timesSuffix()}`),
+  elements.summary.replaceChildren(
+    summaryItem('Sleep', `${summary.sleepMinutes || 0} min`),
+    summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`),
+    summaryItem('Solids', `${summary.solidCount || 0}x`),
+    summaryItem('Diaper', `${summary.diaperCount || 0}x`),
   );
 }
 
@@ -493,37 +443,32 @@ function summaryItem(label, value) {
 
 function renderSleepStatus() {
   const openSleep = [...state.events].reverse().find((event) => (
-    event.type === 'sleep'
-    && event.action?.value === 'start'
-    && event.status !== 'completed'
-    && !event.endAt?.value
+    event.type === 'sleep' && event.action?.value === 'start' && event.status !== 'completed' && !event.endAt?.value
   ));
   if (!openSleep) {
-    sleepStatusEl.classList.add('hidden');
-    sleepStatusEl.replaceChildren();
+    elements.sleepStatus.classList.add('hidden');
+    elements.sleepStatus.replaceChildren();
     return;
   }
-
-  const startedAt = new Date(openSleep.startAt.value);
-  const elapsed = Math.max(0, Math.round((Date.now() - startedAt.getTime()) / 60000));
-  sleepStatusEl.classList.remove('hidden');
-
-  const copy = document.createElement('div');
-  copy.innerHTML = `<span>${escapeHtml(t().sleepActive)}</span><strong>${escapeHtml(t().elapsed(elapsed))}</strong><small>${escapeHtml(t().started(timeLabel(openSleep.startAt)))}</small>`;
+  const elapsed = Math.max(0, Math.round((Date.now() - new Date(openSleep.startAt.value).getTime()) / 60000));
+  elements.sleepStatus.classList.remove('hidden');
+  const copyEl = document.createElement('div');
+  copyEl.innerHTML = `<span>Napping now</span><strong>${elapsed} min</strong><small>Started ${escapeHtml(timeLabel(openSleep.startAt))}</small>`;
   const wakeButton = document.createElement('button');
   wakeButton.type = 'button';
-  wakeButton.textContent = t().wake;
-  wakeButton.addEventListener('click', () => saveLog(t().wake));
-  sleepStatusEl.replaceChildren(copy, wakeButton);
+  wakeButton.textContent = 'Wake';
+  wakeButton.addEventListener('click', () => saveLog('woke up'));
+  elements.sleepStatus.replaceChildren(copyEl, wakeButton);
 }
 
 function renderTimeline() {
-  eventCountEl.textContent = t().eventCount(state.events.length);
-  if (!state.events.length) {
-    timelineEl.innerHTML = `<p class="empty">${escapeHtml(t().emptyTimeline)}</p>`;
+  elements.eventCount.textContent = `${state.events.length} items`;
+  const visible = state.events.filter((event) => !event.hiddenFromTimeline);
+  if (!visible.length) {
+    elements.timeline.innerHTML = `<p class="empty">${copy.emptyTimeline}</p>`;
     return;
   }
-  timelineEl.replaceChildren(...state.events.filter((event) => !event.hiddenFromTimeline).map(renderEvent));
+  elements.timeline.replaceChildren(...visible.map(renderEvent));
 }
 
 function renderEvent(event) {
@@ -548,18 +493,70 @@ function renderEvent(event) {
   return item;
 }
 
+function renderAssignees() {
+  elements.taskAssignee.replaceChildren(...state.assignees.map((assignee) => {
+    const option = document.createElement('option');
+    option.value = assignee.id;
+    option.textContent = assignee.name;
+    return option;
+  }));
+}
+
+function renderTasks() {
+  renderTaskDayControls();
+  renderAssignees();
+  elements.taskCount.textContent = `${state.tasks.length} tasks`;
+  if (!state.tasks.length) {
+    elements.taskList.innerHTML = `<p class="empty">${copy.emptyTasks}</p>`;
+  } else {
+    elements.taskList.replaceChildren(...state.tasks.map(renderTask));
+  }
+  if (!state.taskOverview.length) {
+    elements.taskOverviewList.innerHTML = `<p class="empty">${copy.emptyOverview}</p>`;
+  } else {
+    elements.taskOverviewList.replaceChildren(...state.taskOverview.map(renderOverviewTask));
+  }
+}
+
+function renderTaskDayControls() {
+  elements.taskDayPicker.value = state.selectedTaskDay;
+  elements.taskDayLabel.textContent = dayHeading(state.selectedTaskDay);
+}
+
+function renderTask(task) {
+  const row = document.createElement('article');
+  row.className = `task-item ${task.status === 'done' ? 'done' : ''}`;
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = task.status === 'done';
+  checkbox.addEventListener('change', () => toggleTask(task));
+  const marker = document.createElement('span');
+  marker.className = 'assignee-marker';
+  marker.style.background = task.assigneeColor;
+  const text = document.createElement('div');
+  text.className = 'task-text';
+  text.innerHTML = `<strong>${escapeHtml(task.title)}</strong><span>${escapeHtml(task.assigneeName || 'Unassigned')} · due ${escapeHtml(dayHeading(task.dueDate).toLowerCase())}</span>`;
+  row.replaceChildren(checkbox, marker, text);
+  return row;
+}
+
+function renderOverviewTask(task) {
+  const item = document.createElement('article');
+  item.className = 'overview-item';
+  item.innerHTML = `<strong>${escapeHtml(task.assigneeName || 'Someone')}</strong><span>completed "${escapeHtml(task.title)}" ${escapeHtml(relativeDateTime(task.completedAt))}</span>`;
+  return item;
+}
+
 function eventTitle(event) {
-  if (event.type === 'sleep') return event.action?.value === 'end' ? t().eventSleepEnd : t().eventSleep;
-  if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? t().eventBreast : t().eventFormula;
-  if (event.type === 'feeding_solid') return event.food?.value || t().eventSolid;
-  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? t().eventDirty : t().eventDiaper;
-  return t().eventGeneric;
+  if (event.type === 'sleep') return event.action?.value === 'end' ? 'Sleep ended' : 'Sleep';
+  if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? 'Breast milk' : 'Formula';
+  if (event.type === 'feeding_solid') return event.food?.value || 'Solids';
+  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? 'Dirty diaper' : 'Diaper';
+  return 'Log';
 }
 
 function eventMeta(event) {
-  if (event.type === 'sleep') {
-    return `${timeLabel(event.startAt)} -> ${timeLabel(event.endAt)} · ${t().minutes(event.durationMinutes?.value || 0)}`;
-  }
+  if (event.type === 'sleep') return `${timeLabel(event.startAt)} to ${timeLabel(event.endAt)} · ${event.durationMinutes?.value || 0} min`;
   if (event.type === 'feeding_milk') return `${timeLabel(event.occurredAt)} · ${event.amountMl?.value || 0}ml`;
   if (event.type === 'feeding_solid') return `${timeLabel(event.occurredAt)} · ${event.amount?.value || ''}`;
   return timeLabel(event.occurredAt);
@@ -570,32 +567,30 @@ function inferredBadges(event) {
     .filter(([, value]) => value?.source === 'inferred')
     .map(([key, value]) => {
       const badge = document.createElement('span');
-      badge.textContent = t().inferred(labelForField(key));
+      badge.textContent = `${labelForField(key)} estimated`;
       badge.title = `${value.basis} · confidence ${value.confidence}`;
       return badge;
     });
 }
 
-function timeLabel(field) {
-  if (!field?.value) return t().noTime;
-  return new Intl.DateTimeFormat(localeForLanguage(), { hour: 'numeric', minute: '2-digit' }).format(new Date(field.value));
-}
-
-function dayHeading(day) {
-  const today = localDateKey(new Date());
-  if (day === today) return t().today;
-  if (day === shiftDateKey(today, -1)) return t().yesterday;
-  if (day === shiftDateKey(today, 1)) return t().tomorrow;
-  return new Intl.DateTimeFormat(localeForLanguage(), {
-    month: 'short',
-    day: 'numeric',
-    weekday: 'short',
-  }).format(dateFromKey(day));
+function refreshActiveTab() {
+  if (!state.user) return;
+  if (state.activeTab === 'baby') {
+    loadBabyProfile();
+    loadToday();
+  } else {
+    loadTaskData();
+  }
 }
 
 function shiftSelectedDay(days) {
   state.selectedDay = shiftDateKey(state.selectedDay, days);
   loadToday();
+}
+
+function shiftSelectedTaskDay(days) {
+  state.selectedTaskDay = shiftDateKey(state.selectedTaskDay, days);
+  loadTaskData();
 }
 
 function shiftDateKey(day, days) {
@@ -610,6 +605,24 @@ function dayFromSavedEvents(events = []) {
   return value ? localDateKey(new Date(value)) : null;
 }
 
+function dayHeading(day) {
+  const today = localDateKey(new Date());
+  if (day === today) return copy.today;
+  if (day === shiftDateKey(today, -1)) return copy.yesterday;
+  if (day === shiftDateKey(today, 1)) return copy.tomorrow;
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', weekday: 'short' }).format(dateFromKey(day));
+}
+
+function relativeDateTime(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value));
+}
+
+function timeLabel(field) {
+  if (!field?.value) return 'No time';
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(field.value));
+}
+
 function localDateKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -622,41 +635,33 @@ function dateFromKey(day) {
   return new Date(year, month - 1, date);
 }
 
-function labelForField(key) {
-  return {
-    amountMl: t().fieldAmount,
-    amount: t().fieldAmount,
-    startAt: t().fieldStart,
-    endAt: t().fieldEnd,
-    durationMinutes: t().fieldDuration,
-    diaperKind: t().fieldKind,
-  }[key] || key;
-}
-
-function timesSuffix() {
-  if (state.language === 'ko') return '회';
-  if (state.language === 'vi') return ' lần';
-  return 'x';
-}
-
-function localeForLanguage() {
-  return { ko: 'ko-KR', en: 'en-US', vi: 'vi-VN' }[state.language] || 'ko-KR';
-}
-
 function localTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-function t() {
-  return translations[state.language] || translations.ko;
+function labelForField(key) {
+  return {
+    amountMl: 'Amount',
+    amount: 'Amount',
+    startAt: 'Start',
+    endAt: 'End',
+    durationMinutes: 'Duration',
+    diaperKind: 'Kind',
+  }[key] || key;
 }
 
-function normalizeLanguage(value) {
-  return translations[value] ? value : 'ko';
+function numberOrNull(value) {
+  if (value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function normalizeTheme(value) {
   return ['warm', 'sage', 'contrast'].includes(value) ? value : 'warm';
+}
+
+function normalizeTab(value) {
+  return ['baby', 'task'].includes(value) ? value : 'baby';
 }
 
 function escapeHtml(value) {

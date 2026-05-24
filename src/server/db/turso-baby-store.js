@@ -76,9 +76,32 @@ export class TursoBabyStore {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (raw_log_id) REFERENCES raw_logs(id) ON DELETE CASCADE
       )`,
+      `CREATE TABLE IF NOT EXISTS task_assignees (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#0066cc',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS task_items (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        assignee_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        due_date TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT,
+        completed_by TEXT,
+        FOREIGN KEY (assignee_id) REFERENCES task_assignees(id)
+      )`,
       'CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at)',
       'CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at)',
       'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_task_assignees_family ON task_assignees(family_id, name)',
+      'CREATE INDEX IF NOT EXISTS idx_task_items_family_day ON task_items(family_id, due_date, status)',
     ], 'write');
   }
 
@@ -278,6 +301,149 @@ export class TursoBabyStore {
     });
     return result.rows.map(rowToEvent);
   }
+
+  async ensureDefaultTaskAssignees(familyId = defaultFamilyId) {
+    const existing = await this.listTaskAssignees({ familyId });
+    if (existing.length) return existing;
+    const now = new Date().toISOString();
+    await this.client.batch([
+      {
+        sql: `INSERT OR IGNORE INTO task_assignees (id, family_id, name, color, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [`assignee-${familyId}-mom`, familyId, 'Mom', '#0066cc', now, now],
+      },
+      {
+        sql: `INSERT OR IGNORE INTO task_assignees (id, family_id, name, color, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [`assignee-${familyId}-dad`, familyId, 'Dad', '#34a853', now, now],
+      },
+    ], 'write');
+    return this.listTaskAssignees({ familyId });
+  }
+
+  async listTaskAssignees(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const result = await this.client.execute({
+      sql: 'SELECT * FROM task_assignees WHERE family_id = ? ORDER BY created_at ASC, rowid ASC',
+      args: [familyId],
+    });
+    return result.rows.map(rowToTaskAssignee);
+  }
+
+  async createTaskAssignee(assignee) {
+    const now = new Date().toISOString();
+    await this.client.execute({
+      sql: `INSERT INTO task_assignees (id, family_id, name, color, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [
+        assignee.id,
+        assignee.familyId || defaultFamilyId,
+        assignee.name,
+        assignee.color || '#0066cc',
+        now,
+        now,
+      ],
+    });
+    const assignees = await this.listTaskAssignees({ familyId: assignee.familyId || defaultFamilyId });
+    return assignees.find((item) => item.id === assignee.id);
+  }
+
+  async createTask(task) {
+    const now = new Date().toISOString();
+    await this.client.execute({
+      sql: `INSERT INTO task_items (
+        id, family_id, title, assignee_id, status, due_date, created_at, updated_at, completed_at, completed_by
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        task.id,
+        task.familyId || defaultFamilyId,
+        task.title,
+        task.assigneeId,
+        task.status || 'open',
+        task.dueDate,
+        now,
+        now,
+        task.completedAt || null,
+        task.completedBy || null,
+      ],
+    });
+    return this.getTask(task.id, { familyId: task.familyId || defaultFamilyId });
+  }
+
+  async getTask(taskId, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const result = await this.client.execute({
+      sql: `SELECT task_items.*, task_assignees.name AS assignee_name, task_assignees.color AS assignee_color
+        FROM task_items
+        LEFT JOIN task_assignees ON task_assignees.id = task_items.assignee_id
+        WHERE task_items.id = ? AND task_items.family_id = ?`,
+      args: [taskId, familyId],
+    });
+    return result.rows[0] ? rowToTask(result.rows[0]) : null;
+  }
+
+  async updateTask(taskId, patch, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const existing = await this.getTask(taskId, { familyId });
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    const status = patch.status || existing.status;
+    const completedAt = status === 'done' ? patch.completedAt || existing.completedAt || now : null;
+    const completedBy = status === 'done' ? patch.completedBy || existing.completedBy || null : null;
+    await this.client.execute({
+      sql: `UPDATE task_items
+        SET title = ?, assignee_id = ?, status = ?, due_date = ?, updated_at = ?, completed_at = ?, completed_by = ?
+        WHERE id = ? AND family_id = ?`,
+      args: [
+        patch.title || existing.title,
+        patch.assigneeId || existing.assigneeId,
+        status,
+        patch.dueDate || existing.dueDate,
+        now,
+        completedAt,
+        completedBy,
+        taskId,
+        familyId,
+      ],
+    });
+    return this.getTask(taskId, { familyId });
+  }
+
+  async listTasksForDay(day, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const result = await this.client.execute({
+      sql: `SELECT task_items.*, task_assignees.name AS assignee_name, task_assignees.color AS assignee_color
+        FROM task_items
+        LEFT JOIN task_assignees ON task_assignees.id = task_items.assignee_id
+        WHERE task_items.family_id = ?
+          AND (
+            (task_items.status = 'open' AND task_items.due_date <= ?)
+            OR (task_items.status = 'done' AND substr(task_items.completed_at, 1, 10) = ?)
+          )
+        ORDER BY
+          CASE task_items.status WHEN 'open' THEN 0 ELSE 1 END,
+          task_items.created_at ASC,
+          task_items.rowid ASC`,
+      args: [familyId, day, day],
+    });
+    return result.rows.map(rowToTask);
+  }
+
+  async listTaskOverview(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const limit = Number.isInteger(options.limit) ? options.limit : 40;
+    const result = await this.client.execute({
+      sql: `SELECT task_items.*, task_assignees.name AS assignee_name, task_assignees.color AS assignee_color
+        FROM task_items
+        LEFT JOIN task_assignees ON task_assignees.id = task_items.assignee_id
+        WHERE task_items.family_id = ? AND task_items.status = 'done'
+        ORDER BY task_items.completed_at DESC, task_items.updated_at DESC
+        LIMIT ?`,
+      args: [familyId, limit],
+    });
+    return result.rows.map(rowToTask);
+  }
 }
 
 function resolveLibsqlClientModule(url = '') {
@@ -319,6 +485,34 @@ function rowToUser(row) {
     picture: row.picture,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function rowToTaskAssignee(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    name: row.name,
+    color: row.color,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToTask(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    title: row.title,
+    assigneeId: row.assignee_id,
+    assigneeName: row.assignee_name || '',
+    assigneeColor: row.assignee_color || '#0066cc',
+    status: row.status,
+    dueDate: row.due_date,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at,
+    completedBy: row.completed_by,
   };
 }
 

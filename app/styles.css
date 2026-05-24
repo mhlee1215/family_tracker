@@ -41,7 +41,7 @@ body {
   min-height: 100vh;
   background: var(--canvas-parchment);
   color: var(--ink);
-  letter-spacing: -0.374px;
+  letter-spacing: 0;
 }
 
 button,
@@ -107,7 +107,29 @@ select:focus-visible {
   color: var(--on-dark);
   font-size: 12px;
   font-weight: 400;
-  letter-spacing: -0.12px;
+  letter-spacing: 0;
+}
+
+.module-tabs {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 6px;
+}
+
+.module-tab {
+  min-height: 32px;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--body-muted-dark);
+  font-size: 13px;
+  padding: 7px 14px;
+}
+
+.module-tab:hover,
+.module-tab.active {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--on-dark);
 }
 
 .top-actions {
@@ -169,6 +191,25 @@ select:focus-visible {
   line-height: 1.29;
 }
 
+.settings-block {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 12px;
+}
+
+.settings-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.inline-settings-form {
+  display: grid;
+  gap: 10px;
+}
+
 .select-control {
   display: grid;
   gap: 6px;
@@ -181,7 +222,7 @@ select:focus-visible {
   color: var(--muted);
   font-size: 12px;
   font-weight: 400;
-  letter-spacing: -0.12px;
+  letter-spacing: 0;
 }
 
 select,
@@ -255,6 +296,14 @@ input {
   padding: 0;
 }
 
+.module-view {
+  display: none;
+}
+
+.module-view.active {
+  display: block;
+}
+
 .top-bar {
   display: grid;
   place-items: center;
@@ -308,7 +357,7 @@ input {
   font-size: 56px;
   font-weight: 600;
   line-height: 1.07;
-  letter-spacing: -0.28px;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -358,7 +407,7 @@ input {
   font-size: 34px;
   font-weight: 600;
   line-height: 1.12;
-  letter-spacing: -0.374px;
+  letter-spacing: 0;
 }
 
 .sleep-status {
@@ -407,6 +456,11 @@ input {
 }
 
 .workspace-grid.disabled {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.task-layout.disabled {
   opacity: 0.42;
   pointer-events: none;
 }
@@ -607,6 +661,121 @@ label {
   font-size: 17px;
 }
 
+.task-hero {
+  min-height: 220px;
+}
+
+.task-layout {
+  display: grid;
+  gap: 0;
+  background: var(--canvas);
+}
+
+.task-composer,
+.task-section {
+  padding: 56px min(80px, 7vw);
+}
+
+.task-composer {
+  border-bottom: 1px solid var(--hairline);
+  background: var(--canvas);
+}
+
+.task-composer > label {
+  display: block;
+  margin-bottom: 18px;
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 40px;
+  line-height: 1.1;
+}
+
+.task-form-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 190px) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.task-section {
+  background: var(--canvas-parchment);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.task-overview {
+  background: var(--canvas);
+}
+
+.task-list,
+.task-overview-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.task-item {
+  display: grid;
+  grid-template-columns: 28px 10px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-height: 72px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 16px 0;
+}
+
+.task-item input[type="checkbox"] {
+  width: 22px;
+  min-height: 22px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+.assignee-marker {
+  width: 10px;
+  height: 40px;
+  border-radius: 9999px;
+}
+
+.task-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.task-text strong {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.task-text span,
+.overview-item span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.task-item.done {
+  opacity: 0.64;
+}
+
+.task-item.done .task-text strong {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.overview-item {
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 16px 0;
+}
+
+.overview-item strong {
+  color: var(--primary);
+  font-size: 14px;
+}
+
 .build-badge {
   position: fixed;
   right: 10px;
@@ -652,10 +821,18 @@ label {
   }
 
   .global-brand {
-    max-width: 120px;
+    max-width: 96px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .module-tabs {
+    gap: 2px;
+  }
+
+  .module-tab {
+    padding: 7px 10px;
   }
 
   .auth-panel span {
@@ -697,15 +874,19 @@ label {
 
   .input-panel,
   .timeline-section,
-  .tablet-board {
+  .tablet-board,
+  .task-composer,
+  .task-section {
     padding: 48px 16px;
   }
 
-  .input-panel > label {
+  .input-panel > label,
+  .task-composer > label {
     font-size: 34px;
   }
 
-  .composer-row {
+  .composer-row,
+  .task-form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

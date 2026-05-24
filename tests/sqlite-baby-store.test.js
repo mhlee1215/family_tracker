@@ -166,3 +166,32 @@ test('SQLiteBabyStore lists events by local calendar day', () => {
   assert.equal(utcDay.length, 1);
   assert.equal(selectedLocalDay.length, 0);
 });
+
+test('SQLiteBabyStore rolls open daily tasks forward and records completions', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const [mom] = store.ensureDefaultTaskAssignees('family-admin');
+
+  const task = store.createTask({
+    id: 'task-test-001',
+    familyId: 'family-admin',
+    title: 'Wash bottles',
+    assigneeId: mom.id,
+    dueDate: '2026-05-23',
+  });
+  const nextDayOpenTasks = store.listTasksForDay('2026-05-24', { familyId: 'family-admin' });
+  const completed = store.updateTask(task.id, {
+    status: 'done',
+    completedAt: '2026-05-24T15:00:00.000Z',
+    completedBy: 'user-admin',
+  }, { familyId: 'family-admin' });
+  const todayTasks = store.listTasksForDay('2026-05-24', { familyId: 'family-admin' });
+  const overview = store.listTaskOverview({ familyId: 'family-admin' });
+  store.close();
+
+  assert.equal(nextDayOpenTasks.length, 1);
+  assert.equal(nextDayOpenTasks[0].title, 'Wash bottles');
+  assert.equal(completed.status, 'done');
+  assert.equal(todayTasks[0].status, 'done');
+  assert.equal(overview[0].completedBy, 'user-admin');
+});
