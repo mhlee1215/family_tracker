@@ -26,6 +26,14 @@ cp .env.example .env
 npm start
 ```
 
+If the local shell does not have `npm`, bootstrap the project-local npm CLI:
+
+```bash
+sh scripts/bootstrap-npm.sh
+node .tools/npm/bin/npm-cli.js install
+node .tools/npm/bin/npm-cli.js test
+```
+
 Open:
 
 ```text

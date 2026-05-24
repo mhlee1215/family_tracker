@@ -1,5 +1,5 @@
 .env
 .family-tracker/
 node_modules/
+.tools/
 .DS_Store
-
