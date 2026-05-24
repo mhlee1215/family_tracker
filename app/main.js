@@ -1,19 +1,191 @@
+const storageKeys = {
+  language: 'familyTracker.language',
+  theme: 'familyTracker.theme',
+};
+
+const translations = {
+  ko: {
+    htmlLang: 'ko',
+    eyebrow: 'Baby Tracker',
+    today: '오늘',
+    theme: '테마',
+    language: '언어',
+    refresh: '새로고침',
+    log: '기록',
+    save: '저장',
+    timeline: '타임라인',
+    tabletBoard: '패드 보드',
+    sharedInput: '공용 입력',
+    question: '질문',
+    ask: '질문',
+    thinking: '생각 중...',
+    saving: '저장 중...',
+    saveFailed: '저장하지 못했어요.',
+    logPlaceholder: '분유, 낮잠, 깸, 고구마 먹음',
+    askPlaceholder: '오늘 총 수면시간?',
+    emptyTimeline: '아직 오늘 기록이 없어요.',
+    eventCount: (count) => `${count}개`,
+    minutes: (value) => `${value}분`,
+    times: (value) => `${value}회`,
+    sleepActive: '지금 낮잠 중',
+    elapsed: (value) => `${value}분째`,
+    started: (value) => `시작 ${value}`,
+    wake: '깸',
+    summarySleep: '수면',
+    summaryMilk: '수유',
+    summarySolid: '이유식',
+    summaryDiaper: '기저귀',
+    eventSleep: '수면',
+    eventSleepEnd: '수면 종료',
+    eventBreast: '모유',
+    eventFormula: '분유',
+    eventSolid: '이유식',
+    eventDirty: '응가',
+    eventDiaper: '기저귀',
+    eventGeneric: '기록',
+    noTime: '시간 없음',
+    inferred: (label) => `${label} 예상`,
+    fieldAmount: '양',
+    fieldStart: '시작',
+    fieldEnd: '종료',
+    fieldDuration: '시간',
+    fieldKind: '종류',
+    quickActions: ['분유', '낮잠', '깸', '응가', '쉬', '이유식'],
+    tabletActions: [
+      { label: '분유', value: '분유' },
+      { label: '모유', value: '모유' },
+      { label: '이유식', value: '이유식 먹음' },
+      { label: '낮잠 시작', value: '낮잠' },
+      { label: '깸', value: '깸' },
+      { label: '응가', value: '응가' },
+      { label: '쉬', value: '쉬' },
+      { label: '메모', value: '' },
+    ],
+  },
+  en: {
+    htmlLang: 'en',
+    eyebrow: 'Baby Tracker',
+    today: 'Today',
+    theme: 'Theme',
+    language: 'Language',
+    refresh: 'Refresh',
+    log: 'Log',
+    save: 'Save',
+    timeline: 'Timeline',
+    tabletBoard: 'Tablet board',
+    sharedInput: 'Shared input',
+    question: 'Question',
+    ask: 'Ask',
+    thinking: 'Thinking...',
+    saving: 'Saving...',
+    saveFailed: 'Could not save.',
+    logPlaceholder: 'formula, nap, woke up, sweet potato',
+    askPlaceholder: 'How much sleep today?',
+    emptyTimeline: 'No logs for today yet.',
+    eventCount: (count) => `${count} items`,
+    minutes: (value) => `${value} min`,
+    times: (value) => `${value}x`,
+    sleepActive: 'Napping now',
+    elapsed: (value) => `${value} min`,
+    started: (value) => `Started ${value}`,
+    wake: 'Wake',
+    summarySleep: 'Sleep',
+    summaryMilk: 'Milk',
+    summarySolid: 'Solids',
+    summaryDiaper: 'Diaper',
+    eventSleep: 'Sleep',
+    eventSleepEnd: 'Sleep ended',
+    eventBreast: 'Breast milk',
+    eventFormula: 'Formula',
+    eventSolid: 'Solids',
+    eventDirty: 'Dirty diaper',
+    eventDiaper: 'Diaper',
+    eventGeneric: 'Log',
+    noTime: 'No time',
+    inferred: (label) => `${label} estimated`,
+    fieldAmount: 'Amount',
+    fieldStart: 'Start',
+    fieldEnd: 'End',
+    fieldDuration: 'Duration',
+    fieldKind: 'Kind',
+    quickActions: ['formula', 'nap', 'woke up', 'dirty', 'wet', 'solids'],
+    tabletActions: [
+      { label: 'Formula', value: 'formula' },
+      { label: 'Breast', value: 'breast milk' },
+      { label: 'Solids', value: 'solids eaten' },
+      { label: 'Nap start', value: 'nap' },
+      { label: 'Wake', value: 'woke up' },
+      { label: 'Dirty', value: 'dirty diaper' },
+      { label: 'Wet', value: 'wet diaper' },
+      { label: 'Note', value: '' },
+    ],
+  },
+  vi: {
+    htmlLang: 'vi',
+    eyebrow: 'Theo dõi em bé',
+    today: 'Hôm nay',
+    theme: 'Giao diện',
+    language: 'Ngôn ngữ',
+    refresh: 'Làm mới',
+    log: 'Ghi lại',
+    save: 'Lưu',
+    timeline: 'Dòng thời gian',
+    tabletBoard: 'Bảng tablet',
+    sharedInput: 'Nhập chung',
+    question: 'Câu hỏi',
+    ask: 'Hỏi',
+    thinking: 'Đang nghĩ...',
+    saving: 'Đang lưu...',
+    saveFailed: 'Không lưu được.',
+    logPlaceholder: 'sữa bột, ngủ trưa, thức dậy, khoai lang',
+    askPlaceholder: 'Hôm nay ngủ bao lâu?',
+    emptyTimeline: 'Hôm nay chưa có ghi chép.',
+    eventCount: (count) => `${count} mục`,
+    minutes: (value) => `${value} phút`,
+    times: (value) => `${value} lần`,
+    sleepActive: 'Đang ngủ trưa',
+    elapsed: (value) => `${value} phút`,
+    started: (value) => `Bắt đầu ${value}`,
+    wake: 'Thức dậy',
+    summarySleep: 'Ngủ',
+    summaryMilk: 'Sữa',
+    summarySolid: 'Ăn dặm',
+    summaryDiaper: 'Tã',
+    eventSleep: 'Ngủ',
+    eventSleepEnd: 'Kết thúc ngủ',
+    eventBreast: 'Sữa mẹ',
+    eventFormula: 'Sữa bột',
+    eventSolid: 'Ăn dặm',
+    eventDirty: 'Tã bẩn',
+    eventDiaper: 'Tã',
+    eventGeneric: 'Ghi chép',
+    noTime: 'Không có giờ',
+    inferred: (label) => `${label} ước tính`,
+    fieldAmount: 'Lượng',
+    fieldStart: 'Bắt đầu',
+    fieldEnd: 'Kết thúc',
+    fieldDuration: 'Thời lượng',
+    fieldKind: 'Loại',
+    quickActions: ['sữa bột', 'ngủ trưa', 'thức dậy', 'tã bẩn', 'tã ướt', 'ăn dặm'],
+    tabletActions: [
+      { label: 'Sữa bột', value: 'sữa bột' },
+      { label: 'Sữa mẹ', value: 'sữa mẹ' },
+      { label: 'Ăn dặm', value: 'ăn dặm' },
+      { label: 'Ngủ trưa', value: 'ngủ trưa' },
+      { label: 'Thức dậy', value: 'thức dậy' },
+      { label: 'Tã bẩn', value: 'tã bẩn' },
+      { label: 'Tã ướt', value: 'tã ướt' },
+      { label: 'Ghi chú', value: '' },
+    ],
+  },
+};
+
 const state = {
   events: [],
   summary: null,
+  language: normalizeLanguage(localStorage.getItem(storageKeys.language)),
+  theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
 };
-
-const quickActions = ['분유', '낮잠', '깸', '응가', '쉬', '이유식'];
-const tabletActions = [
-  { label: '분유', value: '분유' },
-  { label: '모유', value: '모유' },
-  { label: '이유식', value: '이유식 먹음' },
-  { label: '낮잠 시작', value: '낮잠' },
-  { label: '깸', value: '깸' },
-  { label: '응가', value: '응가' },
-  { label: '쉬', value: '쉬' },
-  { label: '메모', value: '' },
-];
 
 const logForm = document.querySelector('#log-form');
 const logInput = document.querySelector('#log-input');
@@ -27,7 +199,11 @@ const quickActionsEl = document.querySelector('#quick-actions');
 const tabletActionsEl = document.querySelector('#tablet-actions');
 const eventCountEl = document.querySelector('#event-count');
 const refreshButton = document.querySelector('#refresh');
+const languageSelect = document.querySelector('#language-select');
+const themeSelect = document.querySelector('#theme-select');
 
+applyPreferences();
+renderStaticText();
 renderQuickActions();
 renderTabletActions();
 await loadToday();
@@ -45,7 +221,7 @@ askForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const question = askInput.value.trim();
   if (!question) return;
-  answerEl.textContent = '생각 중...';
+  answerEl.textContent = t().thinking;
   const response = await fetch('/api/ask', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -57,11 +233,27 @@ askForm.addEventListener('submit', async (event) => {
 
 refreshButton.addEventListener('click', loadToday);
 
+languageSelect.addEventListener('change', () => {
+  state.language = normalizeLanguage(languageSelect.value);
+  localStorage.setItem(storageKeys.language, state.language);
+  applyPreferences();
+  renderStaticText();
+  renderQuickActions();
+  renderTabletActions();
+  render();
+});
+
+themeSelect.addEventListener('change', () => {
+  state.theme = normalizeTheme(themeSelect.value);
+  localStorage.setItem(storageKeys.theme, state.theme);
+  applyPreferences();
+});
+
 async function saveLog(text) {
   const cleanText = text.trim();
   if (!cleanText) return;
   logInput.value = '';
-  logInput.placeholder = '저장 중...';
+  logInput.placeholder = t().saving;
   const response = await fetch('/api/logs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -71,9 +263,9 @@ async function saveLog(text) {
     }),
   });
   const payload = await response.json();
-  logInput.placeholder = '분유, 낮잠, 깸, 고구마 먹음';
+  logInput.placeholder = t().logPlaceholder;
   if (!response.ok) {
-    answerEl.textContent = payload.error || '저장하지 못했어요.';
+    answerEl.textContent = payload.error || t().saveFailed;
     return;
   }
   await loadToday();
@@ -87,6 +279,22 @@ async function loadToday() {
   render();
 }
 
+function applyPreferences() {
+  document.documentElement.lang = t().htmlLang;
+  document.documentElement.dataset.theme = state.theme;
+  languageSelect.value = state.language;
+  themeSelect.value = state.theme;
+}
+
+function renderStaticText() {
+  document.querySelectorAll('[data-i18n]').forEach((node) => {
+    node.textContent = t()[node.dataset.i18n] || node.textContent;
+  });
+  logInput.placeholder = t().logPlaceholder;
+  askInput.placeholder = t().askPlaceholder;
+  quickActionsEl.setAttribute('aria-label', t().log);
+}
+
 function render() {
   renderSummary();
   renderSleepStatus();
@@ -94,7 +302,7 @@ function render() {
 }
 
 function renderQuickActions() {
-  quickActionsEl.replaceChildren(...quickActions.map((label) => {
+  quickActionsEl.replaceChildren(...t().quickActions.map((label) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
@@ -104,7 +312,7 @@ function renderQuickActions() {
 }
 
 function renderTabletActions() {
-  tabletActionsEl.replaceChildren(...tabletActions.map((action) => {
+  tabletActionsEl.replaceChildren(...t().tabletActions.map((action) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = action.label;
@@ -122,10 +330,10 @@ function renderTabletActions() {
 function renderSummary() {
   const summary = state.summary || {};
   summaryEl.replaceChildren(
-    summaryItem('수면', summary.sleepLabel || '0분'),
-    summaryItem('수유', `${summary.milkCount || 0}회 · ${summary.milkAmountMl || 0}ml`),
-    summaryItem('이유식', `${summary.solidCount || 0}회`),
-    summaryItem('기저귀', `${summary.diaperCount || 0}회`),
+    summaryItem(t().summarySleep, summary.sleepLabel || t().minutes(0)),
+    summaryItem(t().summaryMilk, `${summary.milkCount || 0}${timesSuffix()} · ${summary.milkAmountMl || 0}ml`),
+    summaryItem(t().summarySolid, `${summary.solidCount || 0}${timesSuffix()}`),
+    summaryItem(t().summaryDiaper, `${summary.diaperCount || 0}${timesSuffix()}`),
   );
 }
 
@@ -153,18 +361,18 @@ function renderSleepStatus() {
   sleepStatusEl.classList.remove('hidden');
 
   const copy = document.createElement('div');
-  copy.innerHTML = `<span>지금 낮잠 중</span><strong>${elapsed}분째</strong><small>시작 ${timeLabel(openSleep.startAt)}</small>`;
+  copy.innerHTML = `<span>${escapeHtml(t().sleepActive)}</span><strong>${escapeHtml(t().elapsed(elapsed))}</strong><small>${escapeHtml(t().started(timeLabel(openSleep.startAt)))}</small>`;
   const wakeButton = document.createElement('button');
   wakeButton.type = 'button';
-  wakeButton.textContent = '깸';
-  wakeButton.addEventListener('click', () => saveLog('깸'));
+  wakeButton.textContent = t().wake;
+  wakeButton.addEventListener('click', () => saveLog(t().wake));
   sleepStatusEl.replaceChildren(copy, wakeButton);
 }
 
 function renderTimeline() {
-  eventCountEl.textContent = `${state.events.length}개`;
+  eventCountEl.textContent = t().eventCount(state.events.length);
   if (!state.events.length) {
-    timelineEl.innerHTML = '<p class="empty">아직 오늘 기록이 없어요.</p>';
+    timelineEl.innerHTML = `<p class="empty">${escapeHtml(t().emptyTimeline)}</p>`;
     return;
   }
   timelineEl.replaceChildren(...state.events.map(renderEvent));
@@ -193,16 +401,16 @@ function renderEvent(event) {
 }
 
 function eventTitle(event) {
-  if (event.type === 'sleep') return event.action?.value === 'end' ? '수면 종료' : '수면';
-  if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? '모유' : '분유';
-  if (event.type === 'feeding_solid') return event.food?.value || '이유식';
-  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? '응가' : '기저귀';
-  return '기록';
+  if (event.type === 'sleep') return event.action?.value === 'end' ? t().eventSleepEnd : t().eventSleep;
+  if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? t().eventBreast : t().eventFormula;
+  if (event.type === 'feeding_solid') return event.food?.value || t().eventSolid;
+  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? t().eventDirty : t().eventDiaper;
+  return t().eventGeneric;
 }
 
 function eventMeta(event) {
   if (event.type === 'sleep') {
-    return `${timeLabel(event.startAt)} → ${timeLabel(event.endAt)} · ${event.durationMinutes?.value || 0}분`;
+    return `${timeLabel(event.startAt)} -> ${timeLabel(event.endAt)} · ${t().minutes(event.durationMinutes?.value || 0)}`;
   }
   if (event.type === 'feeding_milk') return `${timeLabel(event.occurredAt)} · ${event.amountMl?.value || 0}ml`;
   if (event.type === 'feeding_solid') return `${timeLabel(event.occurredAt)} · ${event.amount?.value || ''}`;
@@ -214,26 +422,48 @@ function inferredBadges(event) {
     .filter(([, value]) => value?.source === 'inferred')
     .map(([key, value]) => {
       const badge = document.createElement('span');
-      badge.textContent = `${labelForField(key)} 예상`;
+      badge.textContent = t().inferred(labelForField(key));
       badge.title = `${value.basis} · confidence ${value.confidence}`;
       return badge;
     });
 }
 
 function timeLabel(field) {
-  if (!field?.value) return '시간 없음';
-  return new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: '2-digit' }).format(new Date(field.value));
+  if (!field?.value) return t().noTime;
+  return new Intl.DateTimeFormat(localeForLanguage(), { hour: 'numeric', minute: '2-digit' }).format(new Date(field.value));
 }
 
 function labelForField(key) {
   return {
-    amountMl: '양',
-    amount: '양',
-    startAt: '시작',
-    endAt: '종료',
-    durationMinutes: '시간',
-    diaperKind: '종류',
+    amountMl: t().fieldAmount,
+    amount: t().fieldAmount,
+    startAt: t().fieldStart,
+    endAt: t().fieldEnd,
+    durationMinutes: t().fieldDuration,
+    diaperKind: t().fieldKind,
   }[key] || key;
+}
+
+function timesSuffix() {
+  if (state.language === 'ko') return '회';
+  if (state.language === 'vi') return ' lần';
+  return 'x';
+}
+
+function localeForLanguage() {
+  return { ko: 'ko-KR', en: 'en-US', vi: 'vi-VN' }[state.language] || 'ko-KR';
+}
+
+function t() {
+  return translations[state.language] || translations.ko;
+}
+
+function normalizeLanguage(value) {
+  return translations[value] ? value : 'ko';
+}
+
+function normalizeTheme(value) {
+  return ['warm', 'sage', 'contrast'].includes(value) ? value : 'warm';
 }
 
 function escapeHtml(value) {
