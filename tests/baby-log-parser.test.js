@@ -41,3 +41,13 @@ test('parses solid food and diaper logs', () => {
   assert.equal(diaper.diaperKind.value, 'dirty');
 });
 
+test('parses English and Vietnamese shortcut logs for localized UI buttons', () => {
+  const [formula] = parseBabyLogText('formula', { now });
+  const [nap] = parseBabyLogText('ngủ trưa', { now });
+  const [diaper] = parseBabyLogText('tã bẩn', { now });
+
+  assert.equal(formula.type, 'feeding_milk');
+  assert.equal(nap.type, 'sleep');
+  assert.equal(diaper.type, 'diaper');
+  assert.equal(diaper.diaperKind.value, 'dirty');
+});

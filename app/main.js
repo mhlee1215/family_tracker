@@ -11,6 +11,12 @@ const translations = {
     theme: '테마',
     language: '언어',
     refresh: '새로고침',
+    signInTitle: '로그인이 필요해요',
+    signInBody: '계정별로 가족 기록과 세션을 분리해서 저장합니다.',
+    googleLogin: 'Google로 로그인',
+    devLogin: 'Admin 개발 로그인',
+    logout: '로그아웃',
+    signedInAs: (name) => `${name} 계정`,
     log: '기록',
     save: '저장',
     timeline: '타임라인',
@@ -69,6 +75,12 @@ const translations = {
     theme: 'Theme',
     language: 'Language',
     refresh: 'Refresh',
+    signInTitle: 'Sign in required',
+    signInBody: 'Family logs and sessions are separated by account.',
+    googleLogin: 'Continue with Google',
+    devLogin: 'Admin dev login',
+    logout: 'Log out',
+    signedInAs: (name) => `${name} account`,
     log: 'Log',
     save: 'Save',
     timeline: 'Timeline',
@@ -127,6 +139,12 @@ const translations = {
     theme: 'Giao diện',
     language: 'Ngôn ngữ',
     refresh: 'Làm mới',
+    signInTitle: 'Cần đăng nhập',
+    signInBody: 'Ghi chép gia đình và phiên làm việc được tách theo tài khoản.',
+    googleLogin: 'Đăng nhập bằng Google',
+    devLogin: 'Đăng nhập admin dev',
+    logout: 'Đăng xuất',
+    signedInAs: (name) => `Tài khoản ${name}`,
     log: 'Ghi lại',
     save: 'Lưu',
     timeline: 'Dòng thời gian',
@@ -183,6 +201,7 @@ const translations = {
 const state = {
   events: [],
   summary: null,
+  user: null,
   language: normalizeLanguage(localStorage.getItem(storageKeys.language)),
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
 };
@@ -201,12 +220,20 @@ const eventCountEl = document.querySelector('#event-count');
 const refreshButton = document.querySelector('#refresh');
 const languageSelect = document.querySelector('#language-select');
 const themeSelect = document.querySelector('#theme-select');
+const authPanel = document.querySelector('#auth-panel');
+const accountPanel = document.querySelector('#account-panel');
+const accountLabel = document.querySelector('#account-label');
+const workspace = document.querySelector('#workspace');
+const devLoginButton = document.querySelector('#dev-login');
+const logoutButton = document.querySelector('#logout');
 
 applyPreferences();
 renderStaticText();
 renderQuickActions();
 renderTabletActions();
-await loadToday();
+await loadCurrentUser();
+if (state.user) await loadToday();
+renderAuthState();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/app/sw.js').catch(() => {});
@@ -232,6 +259,8 @@ askForm.addEventListener('submit', async (event) => {
 });
 
 refreshButton.addEventListener('click', loadToday);
+devLoginButton.addEventListener('click', devLogin);
+logoutButton.addEventListener('click', logout);
 
 languageSelect.addEventListener('change', () => {
   state.language = normalizeLanguage(languageSelect.value);
@@ -240,6 +269,7 @@ languageSelect.addEventListener('change', () => {
   renderStaticText();
   renderQuickActions();
   renderTabletActions();
+  renderAuthState();
   render();
 });
 
@@ -274,8 +304,47 @@ async function saveLog(text) {
 async function loadToday() {
   const response = await fetch('/api/logs/today');
   const payload = await response.json();
+  if (response.status === 401) {
+    state.user = null;
+    state.events = [];
+    state.summary = null;
+    renderAuthState();
+    render();
+    return;
+  }
   state.events = payload.events || [];
   state.summary = payload.summary;
+  render();
+}
+
+async function loadCurrentUser() {
+  const response = await fetch('/api/auth/me');
+  const payload = await response.json();
+  state.user = payload.user || null;
+}
+
+async function devLogin() {
+  const response = await fetch('/api/auth/dev', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id: 'admin' }),
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    answerEl.textContent = payload.error || t().saveFailed;
+    return;
+  }
+  state.user = payload.user;
+  renderAuthState();
+  await loadToday();
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  state.user = null;
+  state.events = [];
+  state.summary = null;
+  renderAuthState();
   render();
 }
 
@@ -293,6 +362,17 @@ function renderStaticText() {
   logInput.placeholder = t().logPlaceholder;
   askInput.placeholder = t().askPlaceholder;
   quickActionsEl.setAttribute('aria-label', t().log);
+}
+
+function renderAuthState() {
+  authPanel.classList.toggle('hidden', Boolean(state.user));
+  accountPanel.classList.toggle('hidden', !state.user);
+  workspace.classList.toggle('disabled', !state.user);
+  if (state.user) {
+    accountLabel.textContent = t().signedInAs(state.user.name || state.user.email || 'User');
+  } else {
+    accountLabel.textContent = '';
+  }
 }
 
 function render() {
@@ -330,7 +410,7 @@ function renderTabletActions() {
 function renderSummary() {
   const summary = state.summary || {};
   summaryEl.replaceChildren(
-    summaryItem(t().summarySleep, summary.sleepLabel || t().minutes(0)),
+    summaryItem(t().summarySleep, t().minutes(summary.sleepMinutes || 0)),
     summaryItem(t().summaryMilk, `${summary.milkCount || 0}${timesSuffix()} · ${summary.milkAmountMl || 0}ml`),
     summaryItem(t().summarySolid, `${summary.solidCount || 0}${timesSuffix()}`),
     summaryItem(t().summaryDiaper, `${summary.diaperCount || 0}${timesSuffix()}`),

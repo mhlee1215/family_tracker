@@ -95,31 +95,31 @@ function systemTime(context) {
 }
 
 function looksLikeSleep(text) {
-  return /낮잠|밤잠|잠|수면|잔다|잠듦|잠들/.test(text);
+  return /낮잠|밤잠|잠|수면|잔다|잠듦|잠들|nap|sleep|ngủ|ngu/.test(text);
 }
 
 function looksLikeSleepEnd(text) {
-  return /깸|깨|일어남|일어났|잠.*잤|낮잠.*잤|수면.*끝/.test(text);
+  return /깸|깨|일어남|일어났|잠.*잤|낮잠.*잤|수면.*끝|wake|woke|awake|thức|thuc|dậy|day/.test(text);
 }
 
 function looksLikeMilk(text) {
-  return /분유|수유|모유|젖|milk|formula/.test(text);
+  return /분유|수유|모유|젖|milk|formula|breast|sữa|sua/.test(text);
 }
 
 function looksLikeBreast(text) {
-  return /모유|젖/.test(text);
+  return /모유|젖|breast|sữa mẹ|sua me/.test(text);
 }
 
 function looksLikeSolid(text) {
-  return /이유식|밥|죽|고구마|감자|바나나|사과|소고기|닭고기|먹/.test(text);
+  return /이유식|밥|죽|고구마|감자|바나나|사과|소고기|닭고기|먹|solid|solids|food|ate|eat|sweet potato|ăn|an|dặm|dam|khoai/.test(text);
 }
 
 function looksLikeDiaper(text) {
-  return /기저귀|응가|똥|쉬|소변|대변/.test(text);
+  return /기저귀|응가|똥|쉬|소변|대변|diaper|dirty|wet|pee|poop|tã|ta|bẩn|ban|ướt|uot/.test(text);
 }
 
 function dirtyDiaper(text) {
-  return /응가|똥|대변/.test(text);
+  return /응가|똥|대변|dirty|poop|bẩn|ban/.test(text);
 }
 
 function extractAmountMl(text) {
@@ -129,7 +129,7 @@ function extractAmountMl(text) {
 
 function extractFood(text) {
   const cleaned = text
-    .replace(/먹음|먹었음|먹었다|먹임|먹였음|이유식|밥|조금|많이|보통/g, ' ')
+    .replace(/먹음|먹었음|먹었다|먹임|먹였음|이유식|밥|조금|많이|보통|ate|eat|eaten|solids?|food|ăn|an|dặm|dam/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned || '이유식';
@@ -159,4 +159,3 @@ function extractTimeRange(text, now = new Date()) {
 function toIso(value) {
   return (value instanceof Date ? value : new Date(value || Date.now())).toISOString();
 }
-

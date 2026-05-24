@@ -20,6 +20,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install dependencies
+        run: npm install
+
       - name: Syntax check app
         run: |
           node --check app/main.js
@@ -27,4 +30,3 @@ jobs:
 
       - name: Run tests
         run: node --test tests/*.test.js
-

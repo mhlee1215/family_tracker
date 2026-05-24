@@ -38,9 +38,25 @@
 
       <section id="summary" class="summary-strip" aria-label="오늘 요약"></section>
 
+      <section id="auth-panel" class="auth-panel hidden" aria-live="polite">
+        <div>
+          <h2 data-i18n="signInTitle">로그인이 필요해요</h2>
+          <p data-i18n="signInBody">계정별로 가족 기록과 세션을 분리해서 저장합니다.</p>
+        </div>
+        <div class="auth-actions">
+          <a id="google-login" class="button-link" href="/api/auth/google/start" data-i18n="googleLogin">Google로 로그인</a>
+          <button id="dev-login" type="button" data-i18n="devLogin">Admin 개발 로그인</button>
+        </div>
+      </section>
+
+      <section id="account-panel" class="account-panel hidden" aria-live="polite">
+        <span id="account-label"></span>
+        <button id="logout" type="button" class="ghost-button" data-i18n="logout">로그아웃</button>
+      </section>
+
       <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
 
-      <section class="workspace-grid">
+      <section id="workspace" class="workspace-grid">
         <section class="phone-flow">
           <form id="log-form" class="input-panel" autocomplete="off">
             <label for="log-input" data-i18n="log">기록</label>

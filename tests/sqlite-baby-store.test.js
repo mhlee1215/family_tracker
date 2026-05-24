@@ -56,3 +56,30 @@ test('SQLiteBabyStore saves editable baby profile defaults', () => {
   assert.equal(profile.napDurationMinutesOverride, 50);
 });
 
+test('SQLiteBabyStore separates sessions and family scopes by user', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const first = store.upsertUser({
+    provider: 'dev',
+    providerId: 'admin',
+    email: 'admin@local.dev',
+    name: 'Admin',
+    familyId: 'family-admin',
+  });
+  const second = store.upsertUser({
+    provider: 'google',
+    providerId: 'google-001',
+    email: 'parent@example.com',
+    name: 'Parent',
+  });
+  const session = store.createSession({
+    sessionId: 'session-test-001',
+    userId: first.id,
+    expiresAt: '2099-01-01T00:00:00.000Z',
+  });
+  store.close();
+
+  assert.equal(session.user.email, 'admin@local.dev');
+  assert.equal(first.familyId, 'family-admin');
+  assert.notEqual(first.familyId, second.familyId);
+});

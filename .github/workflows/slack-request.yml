@@ -21,6 +21,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install dependencies
+        run: npm install
+
       - name: Comment intake started
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -61,4 +64,3 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_STATUS: failed
         run: node scripts/slack-dispatch-status.js
-

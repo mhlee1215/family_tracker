@@ -22,6 +22,28 @@ export class SQLiteBabyStore {
     this.db.exec(`
       PRAGMA foreign_keys = ON;
 
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        picture TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(provider, provider_id),
+        UNIQUE(email)
+      );
+
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS profiles (
         baby_id TEXT PRIMARY KEY,
         family_id TEXT NOT NULL,
@@ -59,12 +81,77 @@ export class SQLiteBabyStore {
 
       CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at);
       CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at);
+      CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     `);
   }
 
-  getProfile(babyId = defaultBabyId) {
-    const row = this.db.prepare('SELECT * FROM profiles WHERE baby_id = ?').get(babyId);
-    if (!row) return createDefaultProfile({ babyId });
+  upsertUser(user) {
+    const now = new Date().toISOString();
+    const familyId = user.familyId || `family-${stableUserKey(user.email || user.providerId)}`;
+    const userId = user.id || `user-${stableUserKey(user.email || user.providerId)}`;
+    this.db.prepare(`
+      INSERT INTO users (id, family_id, provider, provider_id, email, name, picture, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(provider, provider_id) DO UPDATE SET
+        email = excluded.email,
+        name = excluded.name,
+        picture = excluded.picture,
+        updated_at = excluded.updated_at
+    `).run(
+      userId,
+      familyId,
+      user.provider,
+      user.providerId,
+      user.email,
+      user.name || '',
+      user.picture || '',
+      now,
+      now,
+    );
+    return this.getUserByProvider(user.provider, user.providerId) || this.getUser(userId);
+  }
+
+  getUser(userId) {
+    const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    return row ? rowToUser(row) : null;
+  }
+
+  getUserByProvider(provider, providerId) {
+    const row = this.db.prepare('SELECT * FROM users WHERE provider = ? AND provider_id = ?').get(provider, providerId);
+    return row ? rowToUser(row) : null;
+  }
+
+  createSession({ sessionId, userId, expiresAt }) {
+    this.db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(sessionId, userId, expiresAt);
+    return this.getSession(sessionId);
+  }
+
+  getSession(sessionId) {
+    const row = this.db.prepare(`
+      SELECT
+        sessions.id AS session_id,
+        sessions.expires_at,
+        users.*
+      FROM sessions
+      JOIN users ON users.id = sessions.user_id
+      WHERE sessions.id = ? AND sessions.expires_at > ?
+    `).get(sessionId, new Date().toISOString());
+    if (!row) return null;
+    return {
+      id: row.session_id,
+      expiresAt: row.expires_at,
+      user: rowToUser(row),
+    };
+  }
+
+  deleteSession(sessionId) {
+    this.db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+  }
+
+  getProfile(babyId = defaultBabyId, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const row = this.db.prepare('SELECT * FROM profiles WHERE baby_id = ? AND family_id = ?').get(babyId, familyId);
+    if (!row) return createDefaultProfile({ babyId, familyId });
     return {
       familyId: row.family_id,
       babyId: row.baby_id,
@@ -214,3 +301,24 @@ function rowToEvent(row) {
   };
 }
 
+function rowToUser(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    provider: row.provider,
+    providerId: row.provider_id,
+    email: row.email,
+    name: row.name,
+    picture: row.picture,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function stableUserKey(value = '') {
+  return String(value || 'local')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48) || 'local';
+}

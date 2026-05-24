@@ -66,6 +66,12 @@ Render should be connected to `mhlee1215/family_tracker` with `autoDeploy` enabl
 ```text
 OPENAI_API_KEY
 MISTRAL_API_KEY
+DATABASE_PROVIDER=turso
+TURSO_DATABASE_URL
+TURSO_AUTH_TOKEN
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+APP_BASE_URL=https://family-tracker-fex9.onrender.com
 ```
 
 Slack command setup needs:
