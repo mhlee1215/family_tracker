@@ -2,6 +2,8 @@
 
 A local-first web/PWA prototype for logging baby and family activity with almost no input friction.
 
+Live app: <https://family-tracker-fex9.onrender.com/>
+
 The MVP focuses on baby tracking:
 
 - sleep
