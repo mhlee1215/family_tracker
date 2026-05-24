@@ -18,12 +18,13 @@ import {
   getSessionIdFromRequest,
   parseCookies,
 } from './src/server/auth.js';
-import { createBabyStore } from './src/server/db/store-factory.js';
+import { createBabyStore, getStorageConfig } from './src/server/db/store-factory.js';
 import { createId } from './src/utils/ids.js';
 
 const port = Number(process.env.PORT || 4174);
 const root = resolve('.');
 loadEnv();
+const storageConfig = getStorageConfig();
 const store = await createBabyStore();
 
 const mimeTypes = {
@@ -52,7 +53,7 @@ createServer(async (request, response) => {
   createReadStream(filePath).pipe(response);
 }).listen(port, () => {
   console.log(`Family Tracker running at http://localhost:${port}`);
-  console.log(`Storage provider: ${getStorageProvider()}`);
+  console.log(`Storage provider: ${storageConfig.provider}`);
 });
 
 async function handleApi(request, response) {
@@ -64,7 +65,9 @@ async function handleApi(request, response) {
       sendJson(response, 200, {
         provider: getLLMProvider(),
         configured: Boolean(getProviderKey(getLLMProvider())),
-        storageProvider: getStorageProvider(),
+        storageProvider: storageConfig.provider,
+        storageConfigured: storageConfig.configured,
+        storageMissing: storageConfig.missing,
         googleConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         providers: getProviderModelOptions(),
         user: session?.user || null,
@@ -319,8 +322,4 @@ function getLLMProvider() {
 
 function getProviderKey(provider) {
   return provider === 'openai' ? process.env.OPENAI_API_KEY || '' : '';
-}
-
-function getStorageProvider() {
-  return process.env.DATABASE_PROVIDER || (process.env.TURSO_DATABASE_URL ? 'turso' : 'sqlite');
 }

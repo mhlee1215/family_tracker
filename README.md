@@ -52,6 +52,22 @@ npm test
 
 The tests use Node's built-in test runner.
 
+## Turso Sync
+
+Set these values in `.env` locally and in Render environment variables:
+
+```text
+DATABASE_PROVIDER=turso
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
+```
+
+Verify the database credentials without printing secrets:
+
+```bash
+npm run check:turso
+```
+
 ## API
 
 ```text
@@ -103,7 +119,7 @@ The current GitHub Actions runner is intentionally an intake verifier. A later r
 ```text
 app/                  Browser UI
 src/domain/           Parsing, inference, sleep-session logic, summaries
-src/server/db/        SQLite persistence adapter
+src/server/db/        SQLite and Turso persistence adapters
 tests/                Node unit tests
 docs/                 Architecture and LLM contract notes
 server.js             Local static server and API

@@ -4,8 +4,8 @@ import { utcRangeForLocalDay } from '../../utils/time.js';
 
 export class TursoBabyStore {
   static async create(options = {}) {
-    const { createClient } = await import('@libsql/client');
     if (!options.url) throw new Error('TURSO_DATABASE_URL is required.');
+    const { createClient } = await import(resolveLibsqlClientModule(options.url));
     const store = new TursoBabyStore(createClient({
       url: options.url,
       authToken: options.authToken,
@@ -278,6 +278,11 @@ export class TursoBabyStore {
     });
     return result.rows.map(rowToEvent);
   }
+}
+
+function resolveLibsqlClientModule(url = '') {
+  if (/^(libsql|https?):\/\//.test(url)) return '@libsql/client/web';
+  return '@libsql/client';
 }
 
 function rowToProfile(row) {
