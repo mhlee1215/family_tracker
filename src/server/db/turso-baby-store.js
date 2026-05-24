@@ -209,6 +209,23 @@ export class TursoBabyStore {
     return this.getRawLog(rawLog.id);
   }
 
+  async updateEvent(event) {
+    await this.client.execute({
+      sql: 'UPDATE baby_events SET occurred_at = ?, event_json = ? WHERE id = ?',
+      args: [
+        event.occurredAt?.value || event.startAt?.value || event.endAt?.value || event.createdAt || new Date().toISOString(),
+        serializeEvent(event),
+        event.id,
+      ],
+    });
+    return this.getEvent(event.id);
+  }
+
+  async getEvent(eventId) {
+    const result = await this.client.execute({ sql: 'SELECT * FROM baby_events WHERE id = ?', args: [eventId] });
+    return result.rows[0] ? rowToEvent(result.rows[0]) : null;
+  }
+
   async getRawLog(rawLogId) {
     const result = await this.client.execute({ sql: 'SELECT * FROM raw_logs WHERE id = ?', args: [rawLogId] });
     const row = result.rows[0];
@@ -307,4 +324,3 @@ function stableUserKey(value = '') {
     .replace(/^-|-$/g, '')
     .slice(0, 48) || 'local';
 }
-

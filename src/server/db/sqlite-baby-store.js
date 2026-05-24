@@ -238,6 +238,24 @@ export class SQLiteBabyStore {
     return this.getRawLog(rawLog.id);
   }
 
+  updateEvent(event) {
+    this.db.prepare(`
+      UPDATE baby_events
+      SET occurred_at = ?, event_json = ?
+      WHERE id = ?
+    `).run(
+      event.occurredAt?.value || event.startAt?.value || event.endAt?.value || event.createdAt || new Date().toISOString(),
+      serializeEvent(event),
+      event.id,
+    );
+    return this.getEvent(event.id);
+  }
+
+  getEvent(eventId) {
+    const row = this.db.prepare('SELECT * FROM baby_events WHERE id = ?').get(eventId);
+    return row ? rowToEvent(row) : null;
+  }
+
   getRawLog(rawLogId) {
     const row = this.db.prepare('SELECT * FROM raw_logs WHERE id = ?').get(rawLogId);
     if (!row) return null;

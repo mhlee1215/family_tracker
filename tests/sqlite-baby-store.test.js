@@ -83,3 +83,41 @@ test('SQLiteBabyStore separates sessions and family scopes by user', () => {
   assert.equal(first.familyId, 'family-admin');
   assert.notEqual(first.familyId, second.familyId);
 });
+
+test('SQLiteBabyStore updates an existing event after sleep completion', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const rawLog = {
+    id: 'rawlog-test-sleep',
+    familyId: 'local-family',
+    babyId: 'local-baby',
+    authorId: 'local-user',
+    rawText: '낮잠',
+    inputAt: '2026-05-23T13:00:00.000Z',
+    timezone: 'UTC',
+  };
+  const sleep = {
+    id: 'event-test-sleep-start',
+    rawLogId: rawLog.id,
+    familyId: rawLog.familyId,
+    babyId: rawLog.babyId,
+    rawText: rawLog.rawText,
+    type: 'sleep',
+    action: createField('start', 'explicit', 'sleep_keyword'),
+    startAt: createField(rawLog.inputAt, 'system', 'current_time'),
+    status: 'ongoing_or_predicted',
+  };
+
+  store.saveLogWithEvents(rawLog, [sleep]);
+  store.updateEvent({
+    ...sleep,
+    status: 'completed',
+    endAt: createField('2026-05-23T14:00:00.000Z', 'system', 'open_sleep_session'),
+    durationMinutes: createField(60, 'system', 'open_sleep_session'),
+  });
+  const updated = store.getEvent(sleep.id);
+  store.close();
+
+  assert.equal(updated.status, 'completed');
+  assert.equal(updated.durationMinutes.value, 60);
+});

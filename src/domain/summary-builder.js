@@ -1,8 +1,13 @@
 export function buildTodaySummary(events = []) {
-  const sleeps = events.filter((event) => event.type === 'sleep' && Number.isFinite(Number(event.durationMinutes?.value)));
-  const milkFeeds = events.filter((event) => event.type === 'feeding_milk');
-  const solids = events.filter((event) => event.type === 'feeding_solid');
-  const diapers = events.filter((event) => event.type === 'diaper');
+  const visibleEvents = events.filter((event) => !event.hiddenFromTimeline);
+  const sleeps = visibleEvents.filter((event) => (
+    event.type === 'sleep'
+    && Number.isFinite(Number(event.durationMinutes?.value))
+    && !(event.action?.value === 'end' && event.linkedStartEventId)
+  ));
+  const milkFeeds = visibleEvents.filter((event) => event.type === 'feeding_milk');
+  const solids = visibleEvents.filter((event) => event.type === 'feeding_solid');
+  const diapers = visibleEvents.filter((event) => event.type === 'diaper');
 
   const sleepMinutes = sleeps.reduce((sum, event) => sum + Number(event.durationMinutes.value), 0);
   const milkAmount = milkFeeds.reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0);
@@ -39,4 +44,3 @@ function formatMinutes(minutes) {
   if (!rest) return `${hours}시간`;
   return `${hours}시간 ${rest}분`;
 }
-

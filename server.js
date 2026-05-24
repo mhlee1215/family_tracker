@@ -4,7 +4,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { parseBabyLogText } from './src/domain/baby-log-parser.js';
 import { applyInferences } from './src/domain/inference-engine.js';
 import { getProviderModelOptions, normalizeLLMProvider } from './src/domain/llm-provider.js';
-import { linkSleepSessions } from './src/domain/sleep-session.js';
+import { completedOpenSleepUpdate, createAutoWakeEvents, findOpenSleep, linkSleepSessions } from './src/domain/sleep-session.js';
 import { answerSimpleQuestion, buildTodaySummary } from './src/domain/summary-builder.js';
 import { defaultAuthorId } from './src/domain/profile-defaults.js';
 import {
@@ -180,8 +180,13 @@ async function handleApi(request, response) {
         babyId: scope.babyId,
         authorId: session.user.id || defaultAuthorId,
       });
-      const linked = linkSleepSessions(parsed, recentEvents);
+      const autoWakeEvents = createAutoWakeEvents(parsed, recentEvents, {
+        now: now.toISOString(),
+        authorId: session.user.id || defaultAuthorId,
+      });
+      const linked = linkSleepSessions([...autoWakeEvents, ...parsed], recentEvents);
       const inferred = applyInferences(linked, { now, profile, recentEvents });
+      const openSleep = findOpenSleep(recentEvents);
       const inputAt = now.toISOString();
       const rawLog = {
         id: createId('rawlog'),
@@ -201,6 +206,7 @@ async function handleApi(request, response) {
         createdAt: inputAt,
       }));
       const saved = await store.saveLogWithEvents(rawLog, events);
+      await markLinkedSleepStartsCompleted(events, openSleep);
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
     }
@@ -248,6 +254,13 @@ function scopeForUser(user) {
     familyId,
     babyId: `${familyId}-baby`,
   };
+}
+
+async function markLinkedSleepStartsCompleted(events, openSleep) {
+  if (!openSleep) return;
+  const endEvent = events.find((event) => event.type === 'sleep' && event.linkedStartEventId === openSleep.id);
+  const update = completedOpenSleepUpdate(endEvent, openSleep);
+  if (update) await store.updateEvent(update);
 }
 
 function resolveRequestPath(url) {
@@ -310,4 +323,3 @@ function getProviderKey(provider) {
 function getStorageProvider() {
   return process.env.DATABASE_PROVIDER || (process.env.TURSO_DATABASE_URL ? 'turso' : 'sqlite');
 }
-

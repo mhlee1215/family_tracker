@@ -429,6 +429,7 @@ function renderSleepStatus() {
     event.type === 'sleep'
     && event.action?.value === 'start'
     && event.status !== 'completed'
+    && !event.endAt?.value
   ));
   if (!openSleep) {
     sleepStatusEl.classList.add('hidden');
@@ -455,7 +456,7 @@ function renderTimeline() {
     timelineEl.innerHTML = `<p class="empty">${escapeHtml(t().emptyTimeline)}</p>`;
     return;
   }
-  timelineEl.replaceChildren(...state.events.map(renderEvent));
+  timelineEl.replaceChildren(...state.events.filter((event) => !event.hiddenFromTimeline).map(renderEvent));
 }
 
 function renderEvent(event) {
