@@ -13,7 +13,14 @@
       <header class="top-bar">
         <div>
           <p class="eyebrow" data-i18n="eyebrow">Baby Tracker</p>
-          <h1 data-i18n="today">오늘</h1>
+          <div class="date-heading">
+            <button id="previous-day" type="button" class="date-step" aria-label="Previous day">‹</button>
+            <label class="date-picker-label">
+              <span id="day-label" class="day-label">오늘</span>
+              <input id="day-picker" class="day-picker" type="date">
+            </label>
+            <button id="next-day" type="button" class="date-step" aria-label="Next day">›</button>
+          </div>
         </div>
         <div class="top-controls" aria-label="Display settings">
           <label class="select-control">
@@ -94,7 +101,7 @@
         </aside>
       </section>
     </main>
-    <div id="build-badge" class="build-badge" aria-label="Build number">Build 001</div>
+    <div id="build-badge" class="build-badge" aria-label="Build number">Build 002</div>
     <script type="module" src="/app/main.js"></script>
   </body>
 </html>

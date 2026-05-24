@@ -1,5 +1,6 @@
 import { parseEvent, serializeEvent } from '../../domain/baby-events.js';
 import { createDefaultProfile, defaultBabyId, defaultFamilyId } from '../../domain/profile-defaults.js';
+import { utcRangeForLocalDay } from '../../utils/time.js';
 
 export class TursoBabyStore {
   static async create(options = {}) {
@@ -268,11 +269,10 @@ export class TursoBabyStore {
   async listEventsForDay(day, options = {}) {
     const familyId = options.familyId || defaultFamilyId;
     const babyId = options.babyId || defaultBabyId;
-    const start = `${day}T00:00:00.000Z`;
-    const end = `${day}T23:59:59.999Z`;
+    const { start, end } = utcRangeForLocalDay(day, options.timezone || 'UTC');
     const result = await this.client.execute({
       sql: `SELECT * FROM baby_events
-        WHERE family_id = ? AND baby_id = ? AND occurred_at BETWEEN ? AND ?
+        WHERE family_id = ? AND baby_id = ? AND occurred_at >= ? AND occurred_at < ?
         ORDER BY occurred_at ASC, created_at ASC, rowid ASC`,
       args: [familyId, babyId, start, end],
     });

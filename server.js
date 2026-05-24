@@ -157,7 +157,8 @@ async function handleApi(request, response) {
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/logs/today') {
       const today = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
-      const events = await store.listEventsForDay(today, scope);
+      const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
+      const events = await store.listEventsForDay(today, { ...scope, timezone });
       sendJson(response, 200, { events, summary: buildTodaySummary(events) });
       return;
     }
@@ -214,7 +215,7 @@ async function handleApi(request, response) {
     if (request.method === 'POST' && requestUrl.pathname === '/api/ask') {
       const body = await readJson(request);
       const day = body.day || new Date().toISOString().slice(0, 10);
-      const events = await store.listEventsForDay(day, scope);
+      const events = await store.listEventsForDay(day, { ...scope, timezone: body.timezone || 'UTC' });
       sendJson(response, 200, {
         answer: answerSimpleQuestion(body.question, events),
         summary: buildTodaySummary(events),

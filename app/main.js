@@ -1,4 +1,4 @@
-const APP_BUILD = '001';
+const APP_BUILD = '002';
 
 const storageKeys = {
   language: 'familyTracker.language',
@@ -10,6 +10,8 @@ const translations = {
     htmlLang: 'ko',
     eyebrow: 'Baby Tracker',
     today: '오늘',
+    yesterday: '어제',
+    tomorrow: '내일',
     theme: '테마',
     language: '언어',
     refresh: '새로고침',
@@ -31,7 +33,7 @@ const translations = {
     saveFailed: '저장하지 못했어요.',
     logPlaceholder: '분유, 낮잠, 깸, 고구마 먹음',
     askPlaceholder: '오늘 총 수면시간?',
-    emptyTimeline: '아직 오늘 기록이 없어요.',
+    emptyTimeline: '아직 이 날짜에 기록이 없어요.',
     eventCount: (count) => `${count}개`,
     minutes: (value) => `${value}분`,
     times: (value) => `${value}회`,
@@ -74,6 +76,8 @@ const translations = {
     htmlLang: 'en',
     eyebrow: 'Baby Tracker',
     today: 'Today',
+    yesterday: 'Yesterday',
+    tomorrow: 'Tomorrow',
     theme: 'Theme',
     language: 'Language',
     refresh: 'Refresh',
@@ -95,7 +99,7 @@ const translations = {
     saveFailed: 'Could not save.',
     logPlaceholder: 'formula, nap, woke up, sweet potato',
     askPlaceholder: 'How much sleep today?',
-    emptyTimeline: 'No logs for today yet.',
+    emptyTimeline: 'No logs for this date yet.',
     eventCount: (count) => `${count} items`,
     minutes: (value) => `${value} min`,
     times: (value) => `${value}x`,
@@ -138,6 +142,8 @@ const translations = {
     htmlLang: 'vi',
     eyebrow: 'Theo dõi em bé',
     today: 'Hôm nay',
+    yesterday: 'Hôm qua',
+    tomorrow: 'Ngày mai',
     theme: 'Giao diện',
     language: 'Ngôn ngữ',
     refresh: 'Làm mới',
@@ -159,7 +165,7 @@ const translations = {
     saveFailed: 'Không lưu được.',
     logPlaceholder: 'sữa bột, ngủ trưa, thức dậy, khoai lang',
     askPlaceholder: 'Hôm nay ngủ bao lâu?',
-    emptyTimeline: 'Hôm nay chưa có ghi chép.',
+    emptyTimeline: 'Ngày này chưa có ghi chép.',
     eventCount: (count) => `${count} mục`,
     minutes: (value) => `${value} phút`,
     times: (value) => `${value} lần`,
@@ -206,6 +212,7 @@ const state = {
   user: null,
   language: normalizeLanguage(localStorage.getItem(storageKeys.language)),
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
+  selectedDay: localDateKey(new Date()),
 };
 
 const logForm = document.querySelector('#log-form');
@@ -229,6 +236,10 @@ const workspace = document.querySelector('#workspace');
 const devLoginButton = document.querySelector('#dev-login');
 const logoutButton = document.querySelector('#logout');
 const buildBadge = document.querySelector('#build-badge');
+const dayLabel = document.querySelector('#day-label');
+const dayPicker = document.querySelector('#day-picker');
+const previousDayButton = document.querySelector('#previous-day');
+const nextDayButton = document.querySelector('#next-day');
 
 applyPreferences();
 renderBuildBadge();
@@ -256,7 +267,11 @@ askForm.addEventListener('submit', async (event) => {
   const response = await fetch('/api/ask', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({
+      question,
+      day: state.selectedDay,
+      timezone: localTimezone(),
+    }),
   });
   const payload = await response.json();
   answerEl.textContent = response.ok ? payload.answer : payload.error;
@@ -265,6 +280,13 @@ askForm.addEventListener('submit', async (event) => {
 refreshButton.addEventListener('click', loadToday);
 devLoginButton.addEventListener('click', devLogin);
 logoutButton.addEventListener('click', logout);
+previousDayButton.addEventListener('click', () => shiftSelectedDay(-1));
+nextDayButton.addEventListener('click', () => shiftSelectedDay(1));
+dayPicker.addEventListener('change', () => {
+  if (!dayPicker.value) return;
+  state.selectedDay = dayPicker.value;
+  loadToday();
+});
 
 languageSelect.addEventListener('change', () => {
   state.language = normalizeLanguage(languageSelect.value);
@@ -302,11 +324,16 @@ async function saveLog(text) {
     answerEl.textContent = payload.error || t().saveFailed;
     return;
   }
+  state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
   await loadToday();
 }
 
 async function loadToday() {
-  const response = await fetch('/api/logs/today');
+  const params = new URLSearchParams({
+    day: state.selectedDay,
+    timezone: localTimezone(),
+  });
+  const response = await fetch(`/api/logs/today?${params.toString()}`);
   const payload = await response.json();
   if (response.status === 401) {
     state.user = null;
@@ -373,6 +400,7 @@ function renderStaticText() {
   logInput.placeholder = t().logPlaceholder;
   askInput.placeholder = t().askPlaceholder;
   quickActionsEl.setAttribute('aria-label', t().log);
+  renderDayControls();
 }
 
 function renderAuthState() {
@@ -387,9 +415,15 @@ function renderAuthState() {
 }
 
 function render() {
+  renderDayControls();
   renderSummary();
   renderSleepStatus();
   renderTimeline();
+}
+
+function renderDayControls() {
+  dayPicker.value = state.selectedDay;
+  dayLabel.textContent = dayHeading(state.selectedDay);
 }
 
 function renderQuickActions() {
@@ -525,6 +559,47 @@ function timeLabel(field) {
   return new Intl.DateTimeFormat(localeForLanguage(), { hour: 'numeric', minute: '2-digit' }).format(new Date(field.value));
 }
 
+function dayHeading(day) {
+  const today = localDateKey(new Date());
+  if (day === today) return t().today;
+  if (day === shiftDateKey(today, -1)) return t().yesterday;
+  if (day === shiftDateKey(today, 1)) return t().tomorrow;
+  return new Intl.DateTimeFormat(localeForLanguage(), {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  }).format(dateFromKey(day));
+}
+
+function shiftSelectedDay(days) {
+  state.selectedDay = shiftDateKey(state.selectedDay, days);
+  loadToday();
+}
+
+function shiftDateKey(day, days) {
+  const date = dateFromKey(day);
+  date.setDate(date.getDate() + days);
+  return localDateKey(date);
+}
+
+function dayFromSavedEvents(events = []) {
+  const event = events.find((item) => item.occurredAt?.value || item.startAt?.value || item.endAt?.value);
+  const value = event?.occurredAt?.value || event?.startAt?.value || event?.endAt?.value;
+  return value ? localDateKey(new Date(value)) : null;
+}
+
+function localDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function dateFromKey(day) {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(year, month - 1, date);
+}
+
 function labelForField(key) {
   return {
     amountMl: t().fieldAmount,
@@ -544,6 +619,10 @@ function timesSuffix() {
 
 function localeForLanguage() {
   return { ko: 'ko-KR', en: 'en-US', vi: 'vi-VN' }[state.language] || 'ko-KR';
+}
+
+function localTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
 function t() {

@@ -121,3 +121,48 @@ test('SQLiteBabyStore updates an existing event after sleep completion', () => {
   assert.equal(updated.status, 'completed');
   assert.equal(updated.durationMinutes.value, 60);
 });
+
+test('SQLiteBabyStore lists events by local calendar day', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const rawLog = {
+    id: 'rawlog-test-local-day',
+    familyId: 'local-family',
+    babyId: 'local-baby',
+    authorId: 'local-user',
+    rawText: '분유',
+    inputAt: '2026-05-23T06:30:00.000Z',
+    timezone: 'America/Los_Angeles',
+  };
+  const event = {
+    id: 'event-test-local-day',
+    rawLogId: rawLog.id,
+    familyId: rawLog.familyId,
+    babyId: rawLog.babyId,
+    rawText: rawLog.rawText,
+    type: 'feeding_milk',
+    occurredAt: createField(rawLog.inputAt, 'explicit', 'user_time'),
+  };
+
+  store.saveLogWithEvents(rawLog, [event]);
+  const previousLocalDay = store.listEventsForDay('2026-05-22', {
+    familyId: rawLog.familyId,
+    babyId: rawLog.babyId,
+    timezone: rawLog.timezone,
+  });
+  const utcDay = store.listEventsForDay('2026-05-23', {
+    familyId: rawLog.familyId,
+    babyId: rawLog.babyId,
+    timezone: 'UTC',
+  });
+  const selectedLocalDay = store.listEventsForDay('2026-05-23', {
+    familyId: rawLog.familyId,
+    babyId: rawLog.babyId,
+    timezone: rawLog.timezone,
+  });
+  store.close();
+
+  assert.equal(previousLocalDay.length, 1);
+  assert.equal(utcDay.length, 1);
+  assert.equal(selectedLocalDay.length, 0);
+});
