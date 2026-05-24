@@ -595,6 +595,13 @@ label {
   margin-bottom: 24px;
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .tablet-board .muted-count {
   color: var(--body-muted-dark);
 }
@@ -671,22 +678,14 @@ label {
   background: var(--canvas);
 }
 
-.task-composer,
 .task-section {
   padding: 56px min(80px, 7vw);
 }
 
 .task-composer {
+  margin: -4px 0 24px;
   border-bottom: 1px solid var(--hairline);
-  background: var(--canvas);
-}
-
-.task-composer > label {
-  display: block;
-  margin-bottom: 18px;
-  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 40px;
-  line-height: 1.1;
+  padding-bottom: 24px;
 }
 
 .task-form-grid {
@@ -875,19 +874,23 @@ label {
   .input-panel,
   .timeline-section,
   .tablet-board,
-  .task-composer,
   .task-section {
     padding: 48px 16px;
   }
 
-  .input-panel > label,
-  .task-composer > label {
+  .input-panel > label {
     font-size: 34px;
   }
 
   .composer-row,
   .task-form-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section-actions {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .quick-actions {

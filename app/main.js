@@ -1,4 +1,5 @@
-const APP_BUILD = '006';
+const APP_BUILD = '007';
+const BUILD_CHECK_INTERVAL_MS = 60_000;
 
 const storageKeys = {
   theme: 'familyTracker.theme',
@@ -88,6 +89,7 @@ const elements = {
   assigneeForm: $('#assignee-form'),
   assigneeName: $('#assignee-name'),
   taskForm: $('#task-form'),
+  openTaskComposer: $('#open-task-composer'),
   taskAssignee: $('#task-assignee'),
   taskTitle: $('#task-title'),
   taskList: $('#task-list'),
@@ -107,6 +109,7 @@ renderAuthState();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/app/sw.js').catch(() => {});
 }
+startBuildWatcher();
 
 elements.tabs.forEach((tab) => {
   tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
@@ -135,6 +138,7 @@ elements.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await createTask();
 });
+elements.openTaskComposer.addEventListener('click', () => setTaskComposerOpen(true));
 
 elements.babySettingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -289,6 +293,7 @@ async function createTask() {
   });
   if (!response.ok) return;
   elements.taskTitle.value = '';
+  setTaskComposerOpen(false);
   await loadTaskData();
 }
 
@@ -373,6 +378,12 @@ function renderTabs() {
 function setMenuOpen(open) {
   elements.menuPanel.classList.toggle('hidden', !open);
   elements.menuToggle.setAttribute('aria-expanded', String(open));
+}
+
+function setTaskComposerOpen(open) {
+  elements.taskForm.classList.toggle('hidden', !open);
+  elements.openTaskComposer.setAttribute('aria-expanded', String(open));
+  if (open) elements.taskTitle.focus();
 }
 
 function renderAuthState() {
@@ -516,6 +527,20 @@ function renderTasks() {
   } else {
     elements.taskOverviewList.replaceChildren(...state.taskOverview.map(renderOverviewTask));
   }
+}
+
+function startBuildWatcher() {
+  const check = async () => {
+    try {
+      const response = await fetch(`/app/build.json?ts=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json();
+      if (payload.build && payload.build !== APP_BUILD) window.location.reload();
+    } catch {
+      // Ignore transient offline or deploy-in-progress failures.
+    }
+  };
+  window.setInterval(check, BUILD_CHECK_INTERVAL_MS);
 }
 
 function renderTaskDayControls() {

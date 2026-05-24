@@ -158,20 +158,21 @@
         </header>
 
         <section id="task-workspace" class="task-layout">
-          <form id="task-form" class="task-composer" autocomplete="off">
-            <label for="task-title">Add task</label>
-            <div class="task-form-grid">
-              <select id="task-assignee" name="assigneeId" aria-label="Assignee"></select>
-              <input id="task-title" name="title" type="text" placeholder="Wash bottles">
-              <button type="submit">Add</button>
-            </div>
-          </form>
-
           <section class="task-section">
             <div class="section-header">
               <h2>Today</h2>
-              <span id="task-count" class="muted-count">0 tasks</span>
+              <div class="section-actions">
+                <span id="task-count" class="muted-count">0 tasks</span>
+                <button id="open-task-composer" type="button" class="compact-button">Add task</button>
+              </div>
             </div>
+            <form id="task-form" class="task-composer hidden" autocomplete="off">
+              <div class="task-form-grid">
+                <select id="task-assignee" name="assigneeId" aria-label="Assignee"></select>
+                <input id="task-title" name="title" type="text" placeholder="Wash bottles">
+                <button type="submit">Add</button>
+              </div>
+            </form>
             <div id="task-list" class="task-list"></div>
           </section>
 
@@ -185,7 +186,7 @@
         </section>
       </section>
     </main>
-    <div id="build-badge" class="build-badge" aria-label="Build number">Build 006</div>
+    <div id="build-badge" class="build-badge" aria-label="Build number">Build 007</div>
     <script type="module" src="/app/main.js"></script>
   </body>
 </html>
