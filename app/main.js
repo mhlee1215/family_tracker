@@ -1,3 +1,5 @@
+const APP_BUILD = '001';
+
 const storageKeys = {
   language: 'familyTracker.language',
   theme: 'familyTracker.theme',
@@ -226,8 +228,10 @@ const accountLabel = document.querySelector('#account-label');
 const workspace = document.querySelector('#workspace');
 const devLoginButton = document.querySelector('#dev-login');
 const logoutButton = document.querySelector('#logout');
+const buildBadge = document.querySelector('#build-badge');
 
 applyPreferences();
+renderBuildBadge();
 renderStaticText();
 renderQuickActions();
 renderTabletActions();
@@ -353,6 +357,13 @@ function applyPreferences() {
   document.documentElement.dataset.theme = state.theme;
   languageSelect.value = state.language;
   themeSelect.value = state.theme;
+}
+
+function renderBuildBadge() {
+  if (!buildBadge) return;
+  buildBadge.textContent = `Build ${APP_BUILD}`;
+  buildBadge.title = `Family Tracker build ${APP_BUILD}`;
+  document.body.dataset.build = APP_BUILD;
 }
 
 function renderStaticText() {
