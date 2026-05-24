@@ -108,11 +108,18 @@ select:focus-visible {
   padding: 8px 2px 18px;
 }
 
+.top-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  align-self: flex-start;
+}
+
 .top-menu {
   position: relative;
   display: flex;
   justify-content: flex-end;
-  align-self: flex-start;
 }
 
 .menu-button {
@@ -126,6 +133,10 @@ select:focus-visible {
   font-size: 1.15rem;
   font-weight: 900;
   line-height: 1;
+}
+
+.menu-button span {
+  transform: translateY(-1px);
 }
 
 .menu-panel {
@@ -254,9 +265,7 @@ h2 {
 .timeline-section,
 .tablet-board,
 .ask-panel,
-.sleep-status,
-.auth-panel,
-.account-panel {
+.sleep-status {
   border: 1px solid #dfd6c7;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -264,31 +273,18 @@ h2 {
   box-shadow: 0 12px 28px var(--shadow);
 }
 
-.auth-panel,
-.account-panel {
+.auth-panel {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 12px;
-  padding: 16px;
-}
-
-.auth-panel h2,
-.auth-panel p {
-  margin: 0;
-}
-
-.auth-panel p {
-  margin-top: 5px;
-  color: var(--muted);
-}
-
-.auth-actions {
-  display: flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
+}
+
+.auth-panel span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .button-link {
@@ -304,8 +300,21 @@ h2 {
 }
 
 .account-panel {
-  background: var(--accent-soft);
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.account-panel span {
   color: var(--accent-strong);
+  font-weight: 850;
+}
+
+.compact-button {
+  min-height: 36px;
+  padding: 0.55rem 0.72rem;
+  font-size: 0.82rem;
   font-weight: 850;
 }
 
@@ -580,21 +589,21 @@ input {
     flex-direction: column;
   }
 
-  .top-menu {
+  .top-actions {
     position: absolute;
     top: 14px;
     right: 12px;
   }
 
-  .auth-panel,
-  .account-panel {
-    align-items: stretch;
-    flex-direction: column;
+  .auth-panel span {
+    display: none;
   }
 
-  .auth-actions {
-    align-items: stretch;
-    flex-direction: column;
+  .auth-panel .compact-button {
+    max-width: 128px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .menu-panel .ghost-button {

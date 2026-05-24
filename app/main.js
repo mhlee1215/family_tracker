@@ -1,4 +1,4 @@
-const APP_BUILD = '003';
+const APP_BUILD = '004';
 
 const storageKeys = {
   language: 'familyTracker.language',
@@ -427,6 +427,7 @@ function renderStaticText() {
 function renderAuthState() {
   authPanel.classList.toggle('hidden', Boolean(state.user));
   accountPanel.classList.toggle('hidden', !state.user);
+  devLoginButton.classList.toggle('hidden', Boolean(state.user));
   workspace.classList.toggle('disabled', !state.user);
   if (state.user) {
     accountLabel.textContent = t().signedInAs(state.user.name || state.user.email || 'User');
