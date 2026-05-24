@@ -16,3 +16,20 @@ services:
       - key: MISTRAL_MODEL
         value: mistral-large-latest
 
+  - type: web
+    name: family-tracker-slack-bot
+    runtime: node
+    plan: free
+    rootDir: slack-codex-bot
+    buildCommand: ""
+    startCommand: "node src/server.js"
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: GITHUB_REPO
+        value: mhlee1215/family_tracker
+      - key: GITHUB_DEFAULT_BRANCH
+        value: main
+      - key: GITHUB_DISPATCH_EVENT
+        value: family_tracker_slack_request
