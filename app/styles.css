@@ -100,6 +100,7 @@ select:focus-visible {
 }
 
 .top-bar {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -107,12 +108,45 @@ select:focus-visible {
   padding: 8px 2px 18px;
 }
 
-.top-controls {
+.top-menu {
+  position: relative;
   display: flex;
-  align-items: end;
   justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-self: flex-start;
+}
+
+.menu-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  display: grid;
+  width: min(260px, calc(100vw - 24px));
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  box-shadow: 0 18px 44px var(--shadow);
+  padding: 14px;
+}
+
+.menu-section-title {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 900;
 }
 
 .select-control {
@@ -135,6 +169,10 @@ select {
   background: var(--surface-solid);
   color: var(--text);
   padding: 0 0.7rem;
+}
+
+.menu-action {
+  width: 100%;
 }
 
 .eyebrow {
@@ -542,9 +580,10 @@ input {
     flex-direction: column;
   }
 
-  .top-controls {
-    width: 100%;
-    justify-content: stretch;
+  .top-menu {
+    position: absolute;
+    top: 14px;
+    right: 12px;
   }
 
   .auth-panel,
@@ -558,12 +597,8 @@ input {
     flex-direction: column;
   }
 
-  .select-control {
-    flex: 1 1 126px;
-  }
-
-  .ghost-button {
-    flex: 1 1 100%;
+  .menu-panel .ghost-button {
+    width: 100%;
   }
 
   .day-label {

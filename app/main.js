@@ -1,4 +1,4 @@
-const APP_BUILD = '002';
+const APP_BUILD = '003';
 
 const storageKeys = {
   language: 'familyTracker.language',
@@ -12,6 +12,7 @@ const translations = {
     today: '오늘',
     yesterday: '어제',
     tomorrow: '내일',
+    settings: '설정',
     theme: '테마',
     language: '언어',
     refresh: '새로고침',
@@ -78,6 +79,7 @@ const translations = {
     today: 'Today',
     yesterday: 'Yesterday',
     tomorrow: 'Tomorrow',
+    settings: 'Settings',
     theme: 'Theme',
     language: 'Language',
     refresh: 'Refresh',
@@ -144,6 +146,7 @@ const translations = {
     today: 'Hôm nay',
     yesterday: 'Hôm qua',
     tomorrow: 'Ngày mai',
+    settings: 'Cài đặt',
     theme: 'Giao diện',
     language: 'Ngôn ngữ',
     refresh: 'Làm mới',
@@ -240,6 +243,8 @@ const dayLabel = document.querySelector('#day-label');
 const dayPicker = document.querySelector('#day-picker');
 const previousDayButton = document.querySelector('#previous-day');
 const nextDayButton = document.querySelector('#next-day');
+const menuToggle = document.querySelector('#menu-toggle');
+const menuPanel = document.querySelector('#menu-panel');
 
 applyPreferences();
 renderBuildBadge();
@@ -280,6 +285,7 @@ askForm.addEventListener('submit', async (event) => {
 refreshButton.addEventListener('click', loadToday);
 devLoginButton.addEventListener('click', devLogin);
 logoutButton.addEventListener('click', logout);
+menuToggle.addEventListener('click', () => setMenuOpen(menuPanel.classList.contains('hidden')));
 previousDayButton.addEventListener('click', () => shiftSelectedDay(-1));
 nextDayButton.addEventListener('click', () => shiftSelectedDay(1));
 dayPicker.addEventListener('change', () => {
@@ -303,6 +309,16 @@ themeSelect.addEventListener('change', () => {
   state.theme = normalizeTheme(themeSelect.value);
   localStorage.setItem(storageKeys.theme, state.theme);
   applyPreferences();
+});
+
+document.addEventListener('click', (event) => {
+  if (menuPanel.classList.contains('hidden')) return;
+  if (menuPanel.contains(event.target) || menuToggle.contains(event.target)) return;
+  setMenuOpen(false);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') setMenuOpen(false);
 });
 
 async function saveLog(text) {
@@ -391,6 +407,11 @@ function renderBuildBadge() {
   buildBadge.textContent = `Build ${APP_BUILD}`;
   buildBadge.title = `Family Tracker build ${APP_BUILD}`;
   document.body.dataset.build = APP_BUILD;
+}
+
+function setMenuOpen(open) {
+  menuPanel.classList.toggle('hidden', !open);
+  menuToggle.setAttribute('aria-expanded', String(open));
 }
 
 function renderStaticText() {
