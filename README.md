@@ -76,6 +76,10 @@ GITHUB_REPO=mhlee1215/family_tracker
 GITHUB_DISPATCH_EVENT=family_tracker_slack_request
 ```
 
+When `GITHUB_DISPATCH_EVENT` is configured, the Slack bot sends a `repository_dispatch` event. `.github/workflows/slack-request.yml` receives that event, comments on the created issue, runs syntax/tests, and posts a status update back through Slack's `response_url`.
+
+The current GitHub Actions runner is intentionally an intake verifier. A later runner can add the code-changing layer: create a `codex/*` branch, implement the issue, open a draft PR, and post the PR link back to Slack.
+
 ## Structure
 
 ```text

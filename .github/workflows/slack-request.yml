@@ -1,0 +1,64 @@
+name: Slack Request Intake
+
+on:
+  repository_dispatch:
+    types:
+      - family_tracker_slack_request
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  acknowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Comment intake started
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_STATUS: started
+        run: node scripts/slack-dispatch-status.js
+
+      - name: Syntax check app
+        run: |
+          node --check app/main.js
+          node --check app/sw.js
+          node --check server.js
+
+      - name: Run app tests
+        run: node --test tests/*.test.js
+
+      - name: Run Slack bot tests
+        run: node --test slack-codex-bot/test/*.test.js
+
+      - name: Comment intake completed
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_STATUS: completed
+        run: node scripts/slack-dispatch-status.js
+
+      - name: Comment intake failed
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_STATUS: failed
+        run: node scripts/slack-dispatch-status.js
+
