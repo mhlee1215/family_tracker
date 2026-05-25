@@ -7,12 +7,14 @@ function read(path) {
 }
 
 test('build metadata is managed from app/build.json only', () => {
-  const { build } = JSON.parse(read('app/build.json'));
+  const { build, metadata } = JSON.parse(read('app/build.json'));
   assert.match(build, /^\d{3}$/);
+  assert.match(metadata, /^\d{3}$/);
 
   const main = read('app/main.js');
   assert.doesNotMatch(main, /const APP_BUILD = '\d{3}';/);
   assert.match(main, /readBuildFromMetadata/);
+  assert.match(main, /dataset\.metadata/);
 
   const sw = read('app/sw.js');
   assert.doesNotMatch(sw, /family-tracker-\d{3}/);

@@ -75,6 +75,9 @@ const elements = {
   devLogin: $('#dev-login'),
   logout: $('#logout'),
   buildBadge: $('#build-badge'),
+  buildRefresh: $('#build-refresh'),
+  buildVersion: $('#build-version'),
+  metadataVersion: $('#metadata-version'),
   dayLabel: $('#day-label'),
   dayPicker: $('#day-picker'),
   previousDay: $('#previous-day'),
@@ -172,6 +175,7 @@ elements.assigneeForm.addEventListener('submit', async (event) => {
 });
 
 elements.refresh.addEventListener('click', refreshActiveTab);
+elements.buildRefresh?.addEventListener('click', () => window.location.reload());
 elements.devLogin.addEventListener('click', devLogin);
 elements.logout.addEventListener('click', logout);
 elements.menuToggle.addEventListener('click', () => setMenuOpen(elements.menuPanel.classList.contains('hidden')));
@@ -432,15 +436,18 @@ function applyPreferences() {
 }
 
 async function syncBuildMetadata() {
-  const build = await readBuildFromMetadata();
-  renderBuildBadge(build);
+  const metadata = await readBuildFromMetadata();
+  renderBuildBadge(metadata);
 }
 
-function renderBuildBadge(build) {
-  const resolvedBuild = build || BUILD_PLACEHOLDER;
-  elements.buildBadge.textContent = `Build ${resolvedBuild}`;
-  elements.buildBadge.title = `Family Tracker build ${resolvedBuild}`;
+function renderBuildBadge(metadata) {
+  const resolvedBuild = metadata.build || BUILD_PLACEHOLDER;
+  const resolvedMeta = metadata.metadata || BUILD_PLACEHOLDER;
+  if (elements.buildVersion) elements.buildVersion.textContent = `Build ${resolvedBuild}`;
+  if (elements.metadataVersion) elements.metadataVersion.textContent = `Meta ${resolvedMeta}`;
+  elements.buildBadge.title = `Family Tracker build ${resolvedBuild}, metadata ${resolvedMeta}`;
   document.body.dataset.build = resolvedBuild;
+  document.body.dataset.metadata = resolvedMeta;
 }
 
 function setActiveTab(tab, options = {}) {
@@ -663,12 +670,14 @@ function renderTasks() {
 async function readBuildFromMetadata() {
   try {
     const response = await fetch(`/app/build.json?ts=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) return '';
+    if (!response.ok) return { build: '', metadata: '' };
     const payload = await response.json();
-    if (typeof payload.build !== 'string') return '';
-    return payload.build;
+    return {
+      build: typeof payload.build === 'string' ? payload.build : '',
+      metadata: typeof payload.metadata === 'string' ? payload.metadata : '',
+    };
   } catch {
-    return '';
+    return { build: '', metadata: '' };
   }
 }
 
@@ -679,7 +688,11 @@ function startBuildWatcher() {
       if (!response.ok) return;
       const payload = await response.json();
       const currentBuild = document.body.dataset.build;
-      if (payload.build && currentBuild && payload.build !== currentBuild) window.location.reload();
+      const currentMetadata = document.body.dataset.metadata;
+      if ((payload.build && currentBuild && payload.build !== currentBuild)
+        || (payload.metadata && currentMetadata && payload.metadata !== currentMetadata)) {
+        window.location.reload();
+      }
     } catch {
       // Ignore transient offline or deploy-in-progress failures.
     }

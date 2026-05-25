@@ -13,6 +13,7 @@ Fixing a bug/regression.
 - Add regression test.
 - Review provenance and data-safety impact.
 - Run `npm test`.
+- After code changes, always proceed to PR workflow: if no PR exists, create one; if a PR already exists, update that existing PR instead of creating a new one.
 
 ## Checklist
 - Reproduce issue (test or clear scenario).
@@ -20,6 +21,7 @@ Fixing a bug/regression.
 - Apply minimal targeted fix.
 - Add regression test.
 - Run full tests.
+- Complete PR workflow (create new PR or update existing PR).
 
 ## When to update this skill
 - Bug triage or regression standards evolve.
