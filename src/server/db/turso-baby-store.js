@@ -104,6 +104,16 @@ export class TursoBabyStore {
       'CREATE INDEX IF NOT EXISTS idx_task_assignees_family ON task_assignees(family_id, name)',
       'CREATE INDEX IF NOT EXISTS idx_task_items_family_day ON task_items(family_id, due_date, status)',
     ], 'write');
+    await this.ensureTaskDueModeColumn();
+  }
+
+  async ensureTaskDueModeColumn() {
+    try {
+      await this.client.execute("ALTER TABLE task_items ADD COLUMN due_mode TEXT NOT NULL DEFAULT 'on_date'");
+    } catch (error) {
+      const message = String(error?.message || '');
+      if (!message.includes('duplicate column name') && !message.includes('already exists')) throw error;
+    }
   }
 
   async upsertUser(user) {
