@@ -565,7 +565,21 @@ function renderTasks() {
   if (!state.tasks.length) {
     elements.taskList.innerHTML = `<p class="empty">${copy.emptyTasks}</p>`;
   } else {
-    elements.taskList.replaceChildren(...state.tasks.map(renderTask));
+    const byAssignee = new Map();
+    for (const task of state.tasks) {
+      const key = task.assigneeId || 'unassigned';
+      if (!byAssignee.has(key)) byAssignee.set(key, {
+        name: task.assigneeName || 'Unassigned',
+        color: task.assigneeColor || '#0066cc',
+        tasks: [],
+      });
+      byAssignee.get(key).tasks.push(task);
+    }
+    const columns = [...byAssignee.values()].map((group) => renderTaskColumn(group));
+    const board = document.createElement('div');
+    board.className = 'task-board';
+    board.replaceChildren(...columns);
+    elements.taskList.replaceChildren(board);
   }
   if (!state.taskOverview.length) {
     elements.taskOverviewList.innerHTML = `<p class="empty">${copy.emptyOverview}</p>`;
@@ -593,6 +607,20 @@ function renderTaskDayControls() {
   elements.taskDayPicker.value = state.selectedTaskDay;
   renderTaskComposerDueState();
   elements.taskDayLabel.textContent = dayHeading(state.selectedTaskDay);
+}
+
+
+function renderTaskColumn(group) {
+  const column = document.createElement('section');
+  column.className = 'task-column';
+  const header = document.createElement('header');
+  header.className = 'task-column-header';
+  header.innerHTML = `<span class="assignee-dot" style="background:${escapeHtml(group.color)}"></span><strong>${escapeHtml(group.name)}</strong><span>${group.tasks.length}</span>`;
+  const list = document.createElement('div');
+  list.className = 'task-column-list';
+  list.replaceChildren(...group.tasks.map(renderTask));
+  column.replaceChildren(header, list);
+  return column;
 }
 
 function renderTask(task) {

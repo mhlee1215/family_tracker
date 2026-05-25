@@ -913,3 +913,52 @@ label {
 }
 
 .mini-chart{display:flex;height:8px;border-radius:999px;overflow:hidden;background:#f0f0f0;margin-top:8px}.mini-chart div:nth-child(1){background:#0066cc}.mini-chart div:nth-child(2){background:#34a853}.mini-chart div:nth-child(3){background:#ff9500}
+
+
+.task-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 12px;
+}
+
+.task-column {
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.task-column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.task-column-header strong {
+  font-size: 14px;
+}
+
+.task-column-header span:last-child {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.assignee-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.task-column-list {
+  display: grid;
+}
+
+.task-column .task-item {
+  padding: 12px 14px;
+  min-height: 64px;
+}
