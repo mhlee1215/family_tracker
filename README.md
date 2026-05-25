@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 013](https://img.shields.io/badge/build-013-0066cc)
+![Build 015](https://img.shields.io/badge/build-015-0066cc)
 
 A local-first web/PWA prototype for logging baby and family activity with almost no input friction.
 
@@ -50,7 +50,7 @@ The app runs in mock parsing mode unless a provider key is configured.
 npm test
 ```
 
-The tests use Node's built-in test runner.
+`npm test` runs the core Node unit suite. For browserless UI tests, run `npm run test:unit` (Vitest + happy-dom).
 
 ## Turso Sync
 
@@ -133,4 +133,4 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures).
+Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures). Each E2E spec now also attaches per-step screenshots plus a `scenario-steps` markdown narrative for PR review.
