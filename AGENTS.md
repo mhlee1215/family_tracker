@@ -9,6 +9,7 @@
 - Before any non-trivial change, read `skills/product-orchestrator/SKILL.md` first, then only load relevant feature/workflow/quality skills.
 - If touching domain logic, parser behavior, storage, or LLM boundary, review `docs/architecture.md` and `docs/llm-contract.md`.
 
+- For any design-related change request (layout, visual style, interaction polish, spacing/typography/colors), review and follow `DESIGN.md` first.
 ## Maintenance rules
 
 - When project phase changes, update `Current project phase` and active phase file.
