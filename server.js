@@ -249,6 +249,17 @@ async function handleApi(request, response) {
     }
 
 
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/dev/clear-tasks') {
+      if (session.user.provider !== 'dev' || session.user.providerId !== 'admin') {
+        sendJson(response, 403, { error: 'Dev admin required.' });
+        return;
+      }
+      await store.clearTasksForFamily(scope.familyId);
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+
     if (request.method === 'POST' && requestUrl.pathname === '/api/dev/seed-tasks') {
       if (session.user.provider !== 'dev' || session.user.providerId !== 'admin') {
         sendJson(response, 403, { error: 'Dev admin required.' });
