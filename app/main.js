@@ -1,4 +1,4 @@
-const APP_BUILD = '007';
+const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
 
 const storageKeys = {
@@ -103,7 +103,7 @@ const elements = {
 };
 
 applyPreferences();
-renderBuildBadge();
+await syncBuildMetadata();
 renderTabs();
 renderQuickActions();
 renderTabletActions();
@@ -370,10 +370,16 @@ function applyPreferences() {
   elements.themeSelect.value = state.theme;
 }
 
-function renderBuildBadge() {
-  elements.buildBadge.textContent = `Build ${APP_BUILD}`;
-  elements.buildBadge.title = `Family Tracker build ${APP_BUILD}`;
-  document.body.dataset.build = APP_BUILD;
+async function syncBuildMetadata() {
+  const build = await readBuildFromMetadata();
+  renderBuildBadge(build);
+}
+
+function renderBuildBadge(build) {
+  const resolvedBuild = build || BUILD_PLACEHOLDER;
+  elements.buildBadge.textContent = `Build ${resolvedBuild}`;
+  elements.buildBadge.title = `Family Tracker build ${resolvedBuild}`;
+  document.body.dataset.build = resolvedBuild;
 }
 
 function setActiveTab(tab) {
@@ -589,13 +595,27 @@ function renderTasks() {
   renderEventSummary();
 }
 
+
+async function readBuildFromMetadata() {
+  try {
+    const response = await fetch(`/app/build.json?ts=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) return '';
+    const payload = await response.json();
+    if (typeof payload.build !== 'string') return '';
+    return payload.build;
+  } catch {
+    return '';
+  }
+}
+
 function startBuildWatcher() {
   const check = async () => {
     try {
       const response = await fetch(`/app/build.json?ts=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) return;
       const payload = await response.json();
-      if (payload.build && payload.build !== APP_BUILD) window.location.reload();
+      const currentBuild = document.body.dataset.build;
+      if (payload.build && currentBuild && payload.build !== currentBuild) window.location.reload();
     } catch {
       // Ignore transient offline or deploy-in-progress failures.
     }
