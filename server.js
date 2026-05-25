@@ -42,7 +42,16 @@ createServer(async (request, response) => {
     return;
   }
 
+  const requestUrl = new URL(request.url || '/', `http://localhost:${port}`);
+  const requestedPath = requestUrl.pathname;
   const filePath = resolveRequestPath(request.url || '/');
+  const isClientRoute = !extname(requestedPath);
+  if ((!filePath || !existsSync(filePath) || statSync(filePath).isDirectory()) && isClientRoute) {
+    const indexPath = resolveRequestPath('/');
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    createReadStream(indexPath).pipe(response);
+    return;
+  }
   if (!filePath || !existsSync(filePath) || statSync(filePath).isDirectory()) {
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
