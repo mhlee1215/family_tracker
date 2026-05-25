@@ -20,6 +20,7 @@ Any non-trivial product/code change.
 - Diaper wet/dirty/mixed parsing -> `skills/features/diaper/SKILL.md`
 - Natural language parsing/LLM contract -> `skills/features/llm-parser/SKILL.md`
 - SQLite/Turso/storage/sync -> `skills/features/database-sync/SKILL.md`
+- Demo/mock task data seeding -> `skills/features/mock-task-seeding/SKILL.md`
 
 ## Workflow routing
 - New feature -> `skills/workflows/implement-feature/SKILL.md`

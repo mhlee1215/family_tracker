@@ -278,15 +278,18 @@ async function handleApi(request, response) {
       const assignees = await store.ensureDefaultTaskAssignees(scope.familyId);
       const mom = assignees.find((item) => item.name === 'Mom') || assignees[0];
       const dad = assignees.find((item) => item.name === 'Dad') || assignees[1] || assignees[0];
-      const taskPool = [
-        'Prepare morning formula','Sterilize bottles','Track nap start/end','Prep solid lunch','Record diaper change',
-        'Refill wipes','Wash baby clothes','Tidy stroller','Evening bath setup','Bedtime routine checklist',
-        'Check formula inventory','Clean high chair','Sanitize pump parts','Review feeding notes','Review sleep notes',
-        'Organize nursery shelf','Pre-boil bottle water','Pack diaper bag','Sort baby photos','Plan next-day schedule',
-        'Change crib sheets','Prepare snack portions','Clean play mat','Disinfect thermometer','Restock diaper stock',
-        'Label milk containers','Laundry fold and store','Warm bottle prep','Solid food container prep','Night feed setup'
+      const momTaskPool = [
+        '아침 이유식 재료 해동하기', '낮잠 기록 확인하기', '유축 보관팩 라벨 붙이기', '산책 가방 간식 채우기',
+        '저녁 목욕 수건 세팅하기', '수면등 배터리 점검하기', '기저귀 파우치 보충하기', '밤중 수유 기록 정리하기',
+        '이유식 용기 소분하기', '주간 성장사진 정리하기', '알림장 메모 업데이트하기', '세탁 완료 옷 분류하기'
       ];
-      const dueModes = ['on_date', 'before_date', 'asap', 'someday'];
+      const dadTaskPool = [
+        '분유포트 물 채워두기', '젖병 소독기 비우기', '유모차 바퀴 상태 확인하기', '놀이매트 먼지 청소하기',
+        '체온계 충전 상태 확인하기', '저녁 루틴 타이머 맞추기', '외출용 물티슈 리필하기', '아기침대 시트 정돈하기',
+        '수면 카메라 각도 점검하기', '주방 턱받이 세탁 돌리기', '주간 기저귀 재고 체크하기', '아기방 가습기 세척하기'
+      ];
+      const dueModeCounts = { on_date: 60, before_date: 30, asap: 5, someday: 5 };
+      const dueModeOrder = Object.entries(dueModeCounts).flatMap(([mode, count]) => Array.from({ length: count }, () => mode));
       const base = new Date('2026-05-25T12:00:00.000Z');
       let created = 0;
       for (let dayOffset = 0; dayOffset < 10; dayOffset += 1) {
@@ -294,16 +297,20 @@ async function handleApi(request, response) {
         dayDate.setUTCDate(base.getUTCDate() - dayOffset);
         const day = dayDate.toISOString().slice(0, 10);
         for (let i = 0; i < 10; i += 1) {
-          const title = `${taskPool[(dayOffset * 7 + i * 3) % taskPool.length]} (${day})`;
           const assignee = i < 5 ? mom : dad;
-          const dueMode = dueModes[(dayOffset + i) % dueModes.length];
+          const roleIndex = i % 5;
+          const titleBase = i < 5
+            ? momTaskPool[(dayOffset * 5 + roleIndex) % momTaskPool.length]
+            : dadTaskPool[(dayOffset * 5 + roleIndex) % dadTaskPool.length];
+          const title = `${titleBase} (${day})`;
+          const dueMode = dueModeOrder[created % dueModeOrder.length];
           const task = await store.createTask({
             id: createId('task'),
             familyId: scope.familyId,
             title,
             assigneeId: assignee.id,
             dueMode,
-            dueDate: day,
+            dueDate: dueMode === 'asap' || dueMode === 'someday' ? null : day,
           });
           if ((dayOffset + i) % 4 === 0) {
             const completedAt = new Date(`${day}T${String((i % 8) + 9).padStart(2, '0')}:00:00.000Z`).toISOString();

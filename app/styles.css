@@ -843,6 +843,9 @@ label {
 
 .build-badge {
   position: fixed;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   right: 10px;
   bottom: 10px;
   z-index: 20;
@@ -853,8 +856,28 @@ label {
   font-size: 12px;
   font-weight: 400;
   line-height: 1;
-  padding: 7px 9px;
-  pointer-events: none;
+  padding: 6px 9px 6px 7px;
+}
+
+.build-refresh {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--primary);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.build-refresh:hover {
+  border-color: var(--hairline);
+}
+
+.metadata-version {
+  color: var(--muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

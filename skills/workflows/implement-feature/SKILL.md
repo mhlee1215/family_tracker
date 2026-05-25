@@ -17,6 +17,7 @@ Building a new feature.
 - Run `npm test`.
 - Bump README build badge.
 - If reusable rule emerges, update skills/docs.
+- After code changes, always proceed to PR workflow: if no PR exists, create one; if a PR already exists, update that existing PR instead of creating a new one.
 
 ## Checklist
 - Confirm scope and matching pattern.
@@ -24,6 +25,7 @@ Building a new feature.
 - Add or adjust tests.
 - Run `npm test` and fix failures.
 - Update badge/docs/skills as required.
+- Complete PR workflow (create new PR or update existing PR).
 
 ## When to update this skill
 - Feature delivery workflow standards change.
