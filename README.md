@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 014](https://img.shields.io/badge/build-014-0066cc)
+![Build 015](https://img.shields.io/badge/build-015-0066cc)
 
 A local-first web/PWA prototype for logging baby and family activity with almost no input friction.
 
@@ -133,4 +133,4 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures).
+Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures). Each E2E spec now also attaches per-step screenshots plus a `scenario-steps` markdown narrative for PR review.

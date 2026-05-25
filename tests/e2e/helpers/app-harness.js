@@ -7,6 +7,7 @@ export class AppHarness {
     this.consoleErrors = [];
     this.pageErrors = [];
     this.networkErrors = [];
+    this.stepArtifacts = [];
 
     page.on('console', (message) => {
       if (message.type() === 'error') {
@@ -21,6 +22,48 @@ export class AppHarness {
     page.on('requestfailed', (request) => {
       const failure = request.failure()?.errorText || 'Unknown network failure';
       this.networkErrors.push(`[requestfailed] ${request.method()} ${request.url()} -> ${failure}`);
+    });
+  }
+
+  async captureStep(title, detail = '') {
+    const index = this.stepArtifacts.length + 1;
+    const safe = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const fileName = `step-${String(index).padStart(2, '0')}-${safe || 'step'}.png`;
+    const screenshotPath = this.testInfo.outputPath(fileName);
+    await this.page.screenshot({ path: screenshotPath, fullPage: true });
+
+    const attachmentName = `step-${String(index).padStart(2, '0')} ${title}`;
+    await this.testInfo.attach(attachmentName, {
+      path: screenshotPath,
+      contentType: 'image/png',
+    });
+
+    this.stepArtifacts.push({
+      index,
+      title,
+      detail,
+      attachmentName,
+      fileName,
+    });
+  }
+
+  async attachScenarioNarrative() {
+    const lines = ['# E2E Scenario Steps', ''];
+    if (!this.stepArtifacts.length) {
+      lines.push('- No step screenshots were captured.');
+    } else {
+      for (const step of this.stepArtifacts) {
+        lines.push(`## ${step.index}. ${step.title}`);
+        if (step.detail) lines.push(step.detail);
+        lines.push(`- Screenshot attachment: ${step.attachmentName}`);
+        lines.push(`- Screenshot file: ${step.fileName}`);
+        lines.push('');
+      }
+    }
+
+    await this.testInfo.attach('scenario-steps', {
+      body: lines.join('\n'),
+      contentType: 'text/markdown',
     });
   }
 
