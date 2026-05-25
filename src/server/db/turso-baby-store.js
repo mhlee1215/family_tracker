@@ -454,6 +454,10 @@ export class TursoBabyStore {
     return result.rows.map(rowToTask);
   }
 
+  async clearTasksForFamily(familyId = defaultFamilyId) {
+    await this.client.execute({ sql: 'DELETE FROM task_items WHERE family_id = ?', args: [familyId] });
+  }
+
   async listTaskOverview(options = {}) {
     const familyId = options.familyId || defaultFamilyId;
     const limit = Number.isInteger(options.limit) ? options.limit : 40;

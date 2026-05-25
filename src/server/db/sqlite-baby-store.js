@@ -463,6 +463,10 @@ export class SQLiteBabyStore {
       WHERE task_items.family_id = ? ORDER BY task_items.created_at DESC`).all(familyId).map(rowToTask);
   }
 
+  clearTasksForFamily(familyId = defaultFamilyId) {
+    this.db.prepare('DELETE FROM task_items WHERE family_id = ?').run(familyId);
+  }
+
   listTaskOverview(options = {}) {
     const familyId = options.familyId || defaultFamilyId;
     const limit = Number.isInteger(options.limit) ? options.limit : 40;
