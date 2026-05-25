@@ -43,6 +43,8 @@ const state = {
   activeTab: normalizeTab(getInitialTab()),
   selectedDay: getInitialDayParam('day'),
   selectedTaskDay: getInitialDayParam('taskDay'),
+  taskCalendarMonth: null,
+  taskCalendarDots: {},
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -77,6 +79,12 @@ const elements = {
   previousDay: $('#previous-day'),
   nextDay: $('#next-day'),
   taskDayLabel: $('#task-day-label'),
+  taskCalendarToggle: $('#task-calendar-toggle'),
+  taskCalendarPopover: $('#task-calendar-popover'),
+  taskCalendarPrev: $('#task-calendar-prev'),
+  taskCalendarNext: $('#task-calendar-next'),
+  taskCalendarMonth: $('#task-calendar-month'),
+  taskCalendarGrid: $('#task-calendar-grid'),
   taskDayPicker: $('#task-day-picker'),
   previousTaskDay: $('#previous-task-day'),
   nextTaskDay: $('#next-task-day'),
@@ -184,6 +192,9 @@ elements.taskDayPicker.addEventListener('change', () => {
   syncUrlForTab(state.activeTab, { pushHistory: true });
   loadTaskData();
 });
+elements.taskCalendarToggle?.addEventListener('click', () => toggleTaskCalendar());
+elements.taskCalendarPrev?.addEventListener('click', () => shiftTaskCalendarMonth(-1));
+elements.taskCalendarNext?.addEventListener('click', () => shiftTaskCalendarMonth(1));
 
 elements.themeSelect.addEventListener('change', () => {
   state.theme = normalizeTheme(elements.themeSelect.value);
@@ -195,6 +206,12 @@ document.addEventListener('click', (event) => {
   if (elements.menuPanel.classList.contains('hidden')) return;
   if (elements.menuPanel.contains(event.target) || elements.menuToggle.contains(event.target)) return;
   setMenuOpen(false);
+});
+
+document.addEventListener('click', (event) => {
+  if (!elements.taskCalendarPopover || elements.taskCalendarPopover.classList.contains('hidden')) return;
+  if (elements.taskCalendarPopover.contains(event.target) || elements.taskCalendarToggle.contains(event.target)) return;
+  setTaskCalendarOpen(false);
 });
 
 document.addEventListener('keydown', (event) => {
@@ -295,7 +312,17 @@ async function loadTaskData() {
   state.tasks = todayPayload.tasks || [];
   state.taskOverview = overviewPayload.tasks || [];
   state.eventSummary = summaryPayload.summary || null;
+  if (!state.taskCalendarMonth) state.taskCalendarMonth = state.selectedTaskDay.slice(0, 7);
+  await loadTaskCalendarDots(state.taskCalendarMonth);
   renderTasks();
+}
+
+async function loadTaskCalendarDots(monthKey) {
+  const response = await fetch(`/api/tasks/calendar?month=${encodeURIComponent(monthKey)}`);
+  const payload = await response.json();
+  if (!response.ok) return;
+  state.taskCalendarDots = payload.days || {};
+  renderTaskCalendar();
 }
 
 async function loadAssignees() {
@@ -655,6 +682,59 @@ function renderTaskDayControls() {
   elements.taskDayPicker.value = state.selectedTaskDay;
   renderTaskComposerDueState();
   elements.taskDayLabel.textContent = dayHeading(state.selectedTaskDay);
+  if (elements.taskCalendarToggle) elements.taskCalendarToggle.textContent = state.selectedTaskDay;
+  renderTaskCalendar();
+}
+
+function setTaskCalendarOpen(open) {
+  elements.taskCalendarPopover?.classList.toggle('hidden', !open);
+  elements.taskCalendarToggle?.setAttribute('aria-expanded', String(open));
+}
+
+function toggleTaskCalendar() {
+  if (!elements.taskCalendarPopover) return;
+  const open = elements.taskCalendarPopover.classList.contains('hidden');
+  if (open) {
+    state.taskCalendarMonth = state.selectedTaskDay.slice(0, 7);
+    loadTaskCalendarDots(state.taskCalendarMonth);
+  }
+  setTaskCalendarOpen(open);
+}
+
+function shiftTaskCalendarMonth(delta) {
+  const monthKey = state.taskCalendarMonth || state.selectedTaskDay.slice(0, 7);
+  const base = new Date(`${monthKey}-01T00:00:00`);
+  base.setMonth(base.getMonth() + delta);
+  state.taskCalendarMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+  loadTaskCalendarDots(state.taskCalendarMonth);
+}
+
+function renderTaskCalendar() {
+  if (!elements.taskCalendarGrid || !state.taskCalendarMonth) return;
+  const [year, month] = state.taskCalendarMonth.split('-').map(Number);
+  const first = new Date(year, month - 1, 1);
+  const startWeekday = first.getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i += 1) cells.push(document.createElement('span'));
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `calendar-day ${iso === state.selectedTaskDay ? 'selected' : ''}`;
+    const dots = (state.taskCalendarDots[iso] || []).slice(0, 4)
+      .map((color) => `<span class="calendar-dot" style="background:${escapeHtml(color)}"></span>`).join('');
+    button.innerHTML = `<span>${day}</span><span class="calendar-dots">${dots}</span>`;
+    button.addEventListener('click', () => {
+      state.selectedTaskDay = iso;
+      syncUrlForTab(state.activeTab, { pushHistory: true });
+      setTaskCalendarOpen(false);
+      loadTaskData();
+    });
+    cells.push(button);
+  }
+  elements.taskCalendarMonth.textContent = first.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+  elements.taskCalendarGrid.replaceChildren(...cells);
 }
 
 

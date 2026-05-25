@@ -151,7 +151,16 @@
             <button id="previous-task-day" type="button" class="date-step" aria-label="Previous task day">‹</button>
             <div class="date-picker-label">
               <h1 id="task-day-label" class="day-label">Today</h1>
+              <button id="task-calendar-toggle" type="button" class="calendar-toggle" aria-expanded="false" aria-controls="task-calendar-popover">Open task calendar</button>
               <input id="task-day-picker" class="day-picker" type="date" aria-label="Browse task day">
+              <div id="task-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Task calendar">
+                <div class="task-calendar-header">
+                  <button id="task-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
+                  <strong id="task-calendar-month"></strong>
+                  <button id="task-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+                </div>
+                <div id="task-calendar-grid" class="task-calendar-grid"></div>
+              </div>
             </div>
             <button id="next-task-day" type="button" class="date-step" aria-label="Next task day">›</button>
           </div>

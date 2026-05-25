@@ -339,6 +339,21 @@ async function handleApi(request, response) {
       return;
     }
 
+    if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/calendar') {
+      const month = requestUrl.searchParams.get('month') || new Date().toISOString().slice(0, 7);
+      const tasks = await store.listAllTasks(scope);
+      const days = {};
+      for (const task of tasks) {
+        const dueDate = String(task.dueDate || '');
+        if (!dueDate.startsWith(month)) continue;
+        if (!days[dueDate]) days[dueDate] = [];
+        const color = task.assigneeColor || '#0066cc';
+        if (!days[dueDate].includes(color)) days[dueDate].push(color);
+      }
+      sendJson(response, 200, { days });
+      return;
+    }
+
     if (request.method === 'POST' && requestUrl.pathname === '/api/tasks') {
       const body = await readJson(request);
       const title = String(body.title || '').trim();
