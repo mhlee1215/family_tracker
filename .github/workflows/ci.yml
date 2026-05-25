@@ -28,5 +28,18 @@ jobs:
           node --check app/main.js
           node --check app/sw.js
 
-      - name: Run tests
+      - name: Run unit tests
         run: node --test tests/*.test.js
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: test-results/e2e

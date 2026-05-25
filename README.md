@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 012](https://img.shields.io/badge/build-012-0066cc)
+![Build 013](https://img.shields.io/badge/build-013-0066cc)
 
 A local-first web/PWA prototype for logging baby and family activity with almost no input friction.
 
@@ -125,3 +125,12 @@ docs/                 Architecture and LLM contract notes
 server.js             Local static server and API
 slack-codex-bot/      Slack command to GitHub issue intake
 ```
+
+## E2E Test (Playwright)
+
+```bash
+npx playwright install --with-deps chromium
+npm run test:e2e
+```
+
+Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures).
