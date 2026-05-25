@@ -9,7 +9,8 @@ on:
       - main
 
 jobs:
-  test:
+  unit:
+    name: Unit / Syntax
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,5 +29,34 @@ jobs:
           node --check app/main.js
           node --check app/sw.js
 
-      - name: Run tests
+      - name: Run unit tests
         run: node --test tests/*.test.js
+
+  e2e:
+    name: E2E / Playwright
+    runs-on: ubuntu-latest
+    needs: unit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: test-results/e2e

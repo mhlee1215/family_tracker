@@ -11,9 +11,15 @@
     "test": "node --test tests/*.test.js",
     "check:turso": "node scripts/check-turso.js",
     "sync:build": "node scripts/sync-build-metadata.js",
-    "bump:build": "node scripts/bump-build.js"
+    "bump:build": "node scripts/bump-build.js",
+    "test:e2e": "npm run test:e2e:setup && playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:setup": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }
