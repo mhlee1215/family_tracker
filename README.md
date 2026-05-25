@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 013](https://img.shields.io/badge/build-013-0066cc)
+![Build 014](https://img.shields.io/badge/build-014-0066cc)
 
 A local-first web/PWA prototype for logging baby and family activity with almost no input friction.
 
@@ -50,7 +50,7 @@ The app runs in mock parsing mode unless a provider key is configured.
 npm test
 ```
 
-The tests use Node's built-in test runner.
+`npm test` runs the core Node unit suite. For browserless UI tests, run `npm run test:unit` (Vitest + happy-dom).
 
 ## Turso Sync
 
