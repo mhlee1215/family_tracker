@@ -255,6 +255,17 @@ async function handleApi(request, response) {
       return;
     }
 
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/events/summary') {
+      const period = requestUrl.searchParams.get('period') || 'week';
+      const day = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
+      const tasks = await store.listAllTasks(scope);
+      const events = await store.listEvents({ ...scope, limit: 1000 });
+      const summary = buildEventSummary(period, day, tasks, events);
+      sendJson(response, 200, { summary });
+      return;
+    }
+
     if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/overview') {
       sendJson(response, 200, { tasks: await store.listTaskOverview({ ...scope, limit: 40 }) });
       return;
@@ -268,11 +279,13 @@ async function handleApi(request, response) {
         sendJson(response, 400, { error: 'Task title and assignee are required.' });
         return;
       }
+      const dueMode = ['on_date','before_date','asap','someday'].includes(body.dueMode) ? body.dueMode : 'on_date';
       const task = await store.createTask({
         id: createId('task'),
         familyId: scope.familyId,
         title,
         assigneeId,
+        dueMode,
         dueDate: body.dueDate || new Date().toISOString().slice(0, 10),
       });
       sendJson(response, 200, { task });
@@ -393,4 +406,28 @@ function getLLMProvider() {
 
 function getProviderKey(provider) {
   return provider === 'openai' ? process.env.OPENAI_API_KEY || '' : '';
+}
+
+function buildEventSummary(period, day, tasks, events) {
+  const end = new Date(`${day}T23:59:59Z`);
+  const start = new Date(end);
+  if (period === 'week') start.setUTCDate(start.getUTCDate() - 6);
+  else if (period === 'month') start.setUTCMonth(start.getUTCMonth() - 1);
+  else if (period === 'quarter') start.setUTCMonth(start.getUTCMonth() - 3);
+  else start.setUTCFullYear(start.getUTCFullYear() - 1);
+  const inRangeEvents = events.filter((e) => {
+    const t = e.occurredAt?.value || e.startAt?.value || e.endAt?.value;
+    if (!t) return false;
+    const d = new Date(t);
+    return d >= start && d <= end;
+  });
+  const openTasks = tasks.filter((t) => t.status === 'open');
+  const overdueTasks = openTasks.filter((t) => (t.dueMode === 'on_date' || t.dueMode === 'before_date') && t.dueDate < day).length;
+  const riskTasks = openTasks.filter((t) => {
+    if (t.dueMode === 'asap' || t.dueMode === 'someday') return Math.floor((end - new Date(t.createdAt)) / 86400000) >= 3;
+    return t.dueDate <= day;
+  }).length;
+  const doneTasks = tasks.filter((t) => t.status === 'done').length;
+  const total = Math.max(1, openTasks.length + doneTasks + riskTasks);
+  return { period, start: start.toISOString().slice(0,10), end: day, totalEvents: inRangeEvents.length, openTasks: openTasks.length, overdueTasks, riskTasks, doneTasks, chart: { open: Math.round(openTasks.length/total*100), done: Math.round(doneTasks/total*100), risk: Math.round(riskTasks/total*100) } };
 }

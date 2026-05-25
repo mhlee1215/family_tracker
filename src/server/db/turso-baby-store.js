@@ -91,6 +91,7 @@ export class TursoBabyStore {
         assignee_id TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'open',
         due_date TEXT NOT NULL,
+        due_mode TEXT NOT NULL DEFAULT 'on_date',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         completed_at TEXT,
@@ -352,9 +353,9 @@ export class TursoBabyStore {
     const now = new Date().toISOString();
     await this.client.execute({
       sql: `INSERT INTO task_items (
-        id, family_id, title, assignee_id, status, due_date, created_at, updated_at, completed_at, completed_by
+        id, family_id, title, assignee_id, status, due_date, due_mode, created_at, updated_at, completed_at, completed_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         task.id,
         task.familyId || defaultFamilyId,
@@ -362,6 +363,7 @@ export class TursoBabyStore {
         task.assigneeId,
         task.status || 'open',
         task.dueDate,
+        task.dueMode || 'on_date',
         now,
         now,
         task.completedAt || null,
@@ -393,13 +395,14 @@ export class TursoBabyStore {
     const completedBy = status === 'done' ? patch.completedBy || existing.completedBy || null : null;
     await this.client.execute({
       sql: `UPDATE task_items
-        SET title = ?, assignee_id = ?, status = ?, due_date = ?, updated_at = ?, completed_at = ?, completed_by = ?
+        SET title = ?, assignee_id = ?, status = ?, due_date = ?, due_mode = ?, updated_at = ?, completed_at = ?, completed_by = ?
         WHERE id = ? AND family_id = ?`,
       args: [
         patch.title || existing.title,
         patch.assigneeId || existing.assigneeId,
         status,
         patch.dueDate || existing.dueDate,
+        patch.dueMode || existing.dueMode || 'on_date',
         now,
         completedAt,
         completedBy,
@@ -418,7 +421,7 @@ export class TursoBabyStore {
         LEFT JOIN task_assignees ON task_assignees.id = task_items.assignee_id
         WHERE task_items.family_id = ?
           AND (
-            (task_items.status = 'open' AND task_items.due_date <= ?)
+            (task_items.status = 'open' AND ((task_items.due_mode in ('on_date','before_date') AND task_items.due_date <= ?) OR task_items.due_mode in ('asap','someday')))
             OR (task_items.status = 'done' AND substr(task_items.completed_at, 1, 10) = ?)
           )
         ORDER BY
@@ -426,6 +429,17 @@ export class TursoBabyStore {
           task_items.created_at ASC,
           task_items.rowid ASC`,
       args: [familyId, day, day],
+    });
+    return result.rows.map(rowToTask);
+  }
+
+  async listAllTasks(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const result = await this.client.execute({
+      sql: `SELECT task_items.*, task_assignees.name AS assignee_name, task_assignees.color AS assignee_color
+        FROM task_items LEFT JOIN task_assignees ON task_assignees.id = task_items.assignee_id
+        WHERE task_items.family_id = ? ORDER BY task_items.created_at DESC`,
+      args: [familyId],
     });
     return result.rows.map(rowToTask);
   }
@@ -509,6 +523,7 @@ function rowToTask(row) {
     assigneeColor: row.assignee_color || '#0066cc',
     status: row.status,
     dueDate: row.due_date,
+    dueMode: row.due_mode || 'on_date',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at,

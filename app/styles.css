@@ -911,3 +911,5 @@ label {
     justify-content: flex-start;
   }
 }
+
+.mini-chart{display:flex;height:8px;border-radius:999px;overflow:hidden;background:#f0f0f0;margin-top:8px}.mini-chart div:nth-child(1){background:#0066cc}.mini-chart div:nth-child(2){background:#34a853}.mini-chart div:nth-child(3){background:#ff9500}
