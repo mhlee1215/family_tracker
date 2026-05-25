@@ -172,6 +172,7 @@
               <h2>Today</h2>
               <div class="section-actions">
                 <span id="task-count" class="muted-count">0 tasks</span>
+                <button id="open-task-summary" type="button" class="compact-button">Task summary</button>
                 <button id="open-task-composer" type="button" class="compact-button">Add task</button>
               </div>
             </div>
@@ -192,10 +193,13 @@
             <div id="task-list" class="task-list"></div>
           </section>
 
-          <section class="task-section task-overview">
+          <section class="task-section task-overview hidden" id="task-summary-panel">
             <div class="section-header">
               <h2>Overview</h2>
-              <span class="muted-count">Recent completions</span>
+              <div class="section-actions">
+                <span class="muted-count">Recent completions</span>
+                <button id="back-to-today-tasks" type="button" class="compact-button">Today tasks</button>
+              </div>
             </div>
             <div id="task-overview-list" class="task-overview-list"></div>
             <div class="section-header">

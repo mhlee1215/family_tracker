@@ -45,6 +45,7 @@ const state = {
   selectedTaskDay: getInitialDayParam('taskDay'),
   taskCalendarMonth: null,
   taskCalendarDots: {},
+  taskPanel: 'today',
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -98,6 +99,9 @@ const elements = {
   assigneeForm: $('#assignee-form'),
   assigneeName: $('#assignee-name'),
   taskForm: $('#task-form'),
+  openTaskSummary: $('#open-task-summary'),
+  backToTodayTasks: $('#back-to-today-tasks'),
+  taskSummaryPanel: $('#task-summary-panel'),
   openTaskComposer: $('#open-task-composer'),
   taskAssignee: $('#task-assignee'),
   taskTitle: $('#task-title'),
@@ -153,6 +157,8 @@ elements.taskForm.addEventListener('submit', async (event) => {
   await createTask();
 });
 elements.openTaskComposer.addEventListener('click', () => setTaskComposerOpen(true));
+elements.openTaskSummary?.addEventListener('click', () => setTaskPanel('summary'));
+elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
 
 elements.babySettingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -403,6 +409,7 @@ async function logout() {
   state.summary = null;
   state.tasks = [];
   state.taskOverview = [];
+  state.taskPanel = 'today';
   renderAuthState();
   renderBaby();
   renderTasks();
@@ -621,6 +628,7 @@ function taskDueText(task) {
 
 function renderTasks() {
   renderTaskDayControls();
+  renderTaskPanel();
   renderAssignees();
   elements.taskCount.textContent = `${state.tasks.length} tasks`;
   if (!state.tasks.length) {
@@ -682,8 +690,23 @@ function renderTaskDayControls() {
   elements.taskDayPicker.value = state.selectedTaskDay;
   renderTaskComposerDueState();
   elements.taskDayLabel.textContent = dayHeading(state.selectedTaskDay);
-  if (elements.taskCalendarToggle) elements.taskCalendarToggle.textContent = state.selectedTaskDay;
+  if (elements.taskCalendarToggle) elements.taskCalendarToggle.textContent = 'Open task calendar';
   renderTaskCalendar();
+}
+
+
+function setTaskPanel(panel) {
+  state.taskPanel = panel === 'summary' ? 'summary' : 'today';
+  renderTaskPanel();
+}
+
+function renderTaskPanel() {
+  if (!elements.taskSummaryPanel || !elements.openTaskSummary) return;
+  const summaryOpen = state.taskPanel === 'summary';
+  elements.taskSummaryPanel.classList.toggle('hidden', !summaryOpen);
+  elements.openTaskSummary.classList.toggle('hidden', summaryOpen);
+  if (elements.openTaskComposer) elements.openTaskComposer.classList.toggle('hidden', summaryOpen);
+  if (elements.taskForm && summaryOpen) setTaskComposerOpen(false);
 }
 
 function setTaskCalendarOpen(open) {
