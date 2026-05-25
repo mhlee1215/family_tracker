@@ -40,9 +40,9 @@ const state = {
   eventSummary: null,
   assignees: [],
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
-  activeTab: normalizeTab(localStorage.getItem(storageKeys.activeTab)),
-  selectedDay: localDateKey(new Date()),
-  selectedTaskDay: localDateKey(new Date()),
+  activeTab: normalizeTab(getInitialTab()),
+  selectedDay: getInitialDayParam('day'),
+  selectedTaskDay: getInitialDayParam('taskDay'),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -107,6 +107,7 @@ await syncBuildMetadata();
 renderTabs();
 renderQuickActions();
 renderTabletActions();
+if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
 await loadCurrentUser();
 if (state.user) await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
 renderAuthState();
@@ -117,7 +118,7 @@ if ('serviceWorker' in navigator) {
 startBuildWatcher();
 
 elements.tabs.forEach((tab) => {
-  tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
+  tab.addEventListener('click', () => setActiveTab(tab.dataset.tab, { pushHistory: true }));
 });
 
 elements.logForm.addEventListener('submit', async (event) => {
@@ -167,15 +168,20 @@ elements.nextTaskDay.addEventListener('click', () => shiftSelectedTaskDay(1));
 elements.dayPicker.addEventListener('change', () => {
   if (!elements.dayPicker.value) return;
   state.selectedDay = elements.dayPicker.value;
+  syncUrlForTab(state.activeTab, { pushHistory: true });
   loadToday();
 });
 
-elements.summaryPeriod?.addEventListener('change', loadTaskData);
+elements.summaryPeriod?.addEventListener('change', () => {
+  syncUrlForTab(state.activeTab, { pushHistory: true });
+  loadTaskData();
+});
 elements.taskDueMode?.addEventListener('change', renderTaskComposerDueState);
 
 elements.taskDayPicker.addEventListener('change', () => {
   if (!elements.taskDayPicker.value) return;
   state.selectedTaskDay = elements.taskDayPicker.value;
+  syncUrlForTab(state.activeTab, { pushHistory: true });
   loadTaskData();
 });
 
@@ -193,6 +199,26 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') setMenuOpen(false);
+});
+
+window.addEventListener('popstate', () => {
+  const tab = tabFromLocation();
+  const nextTab = normalizeTab(tab || state.activeTab);
+  const nextDay = getDayParamFromLocation('day', state.selectedDay);
+  const nextTaskDay = getDayParamFromLocation('taskDay', state.selectedTaskDay);
+  const nextPeriod = getSummaryPeriodFromLocation();
+  const tabChanged = nextTab !== state.activeTab;
+  const babyDayChanged = nextDay !== state.selectedDay;
+  const taskDayChanged = nextTaskDay !== state.selectedTaskDay;
+  const periodChanged = nextPeriod !== (elements.summaryPeriod?.value || 'week');
+
+  state.selectedDay = nextDay;
+  state.selectedTaskDay = nextTaskDay;
+  if (elements.summaryPeriod) elements.summaryPeriod.value = nextPeriod;
+
+  if (tabChanged) setActiveTab(nextTab, { pushHistory: false });
+  else if (state.activeTab === 'baby' && babyDayChanged) loadToday();
+  else if (state.activeTab === 'task' && (taskDayChanged || periodChanged)) loadTaskData();
 });
 
 async function saveLog(text) {
@@ -382,9 +408,11 @@ function renderBuildBadge(build) {
   document.body.dataset.build = resolvedBuild;
 }
 
-function setActiveTab(tab) {
+function setActiveTab(tab, options = {}) {
+  const { pushHistory = false } = options;
   state.activeTab = normalizeTab(tab);
   localStorage.setItem(storageKeys.activeTab, state.activeTab);
+  syncUrlForTab(state.activeTab, { pushHistory });
   renderTabs();
   refreshActiveTab();
 }
@@ -705,11 +733,13 @@ function refreshActiveTab() {
 
 function shiftSelectedDay(days) {
   state.selectedDay = shiftDateKey(state.selectedDay, days);
+  syncUrlForTab(state.activeTab, { pushHistory: true });
   loadToday();
 }
 
 function shiftSelectedTaskDay(days) {
   state.selectedTaskDay = shiftDateKey(state.selectedTaskDay, days);
+  syncUrlForTab(state.activeTab, { pushHistory: true });
   loadTaskData();
 }
 
@@ -782,6 +812,44 @@ function normalizeTheme(value) {
 
 function normalizeTab(value) {
   return ['baby', 'task'].includes(value) ? value : 'baby';
+}
+
+function tabFromLocation() {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/tasks') return 'task';
+  if (path === '/' || path === '/baby') return 'baby';
+  return null;
+}
+
+function getInitialTab() {
+  return tabFromLocation() || normalizeTab(localStorage.getItem(storageKeys.activeTab));
+}
+
+function syncUrlForTab(tab, { pushHistory = false } = {}) {
+  const targetPath = tab === 'task' ? '/tasks' : '/';
+  const params = new URLSearchParams(window.location.search);
+  params.set('day', state.selectedDay);
+  params.set('taskDay', state.selectedTaskDay);
+  const period = elements.summaryPeriod?.value || 'week';
+  params.set('period', period);
+  const targetUrl = `${targetPath}?${params.toString()}`;
+  if (`${window.location.pathname}${window.location.search}` === targetUrl) return;
+  const method = pushHistory ? 'pushState' : 'replaceState';
+  window.history[method]({}, '', targetUrl);
+}
+
+function getDayParamFromLocation(key, fallback) {
+  const value = new URLSearchParams(window.location.search).get(key);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : fallback;
+}
+
+function getInitialDayParam(key) {
+  return getDayParamFromLocation(key, localDateKey(new Date()));
+}
+
+function getSummaryPeriodFromLocation() {
+  const value = new URLSearchParams(window.location.search).get('period');
+  return ['week', 'month', 'quarter', 'year'].includes(value || '') ? value : 'week';
 }
 
 function escapeHtml(value) {
