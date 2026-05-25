@@ -37,6 +37,7 @@ const state = {
   profile: null,
   tasks: [],
   taskOverview: [],
+  eventSummary: null,
   assignees: [],
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
   activeTab: normalizeTab(localStorage.getItem(storageKeys.activeTab)),
@@ -92,6 +93,10 @@ const elements = {
   openTaskComposer: $('#open-task-composer'),
   taskAssignee: $('#task-assignee'),
   taskTitle: $('#task-title'),
+  taskDueMode: $('#task-due-mode'),
+  taskDueDate: $('#task-due-date'),
+  summaryPeriod: $('#summary-period'),
+  eventSummary: $('#event-summary'),
   taskList: $('#task-list'),
   taskCount: $('#task-count'),
   taskOverviewList: $('#task-overview-list'),
@@ -164,6 +169,9 @@ elements.dayPicker.addEventListener('change', () => {
   state.selectedDay = elements.dayPicker.value;
   loadToday();
 });
+
+elements.summaryPeriod?.addEventListener('change', loadTaskData);
+elements.taskDueMode?.addEventListener('change', renderTaskComposerDueState);
 
 elements.taskDayPicker.addEventListener('change', () => {
   if (!elements.taskDayPicker.value) return;
@@ -248,15 +256,19 @@ async function saveBabyProfile() {
 async function loadTaskData() {
   await loadAssignees();
   const params = new URLSearchParams({ day: state.selectedTaskDay });
-  const [todayResponse, overviewResponse] = await Promise.all([
+  const period = elements.summaryPeriod?.value || 'week';
+  const [todayResponse, overviewResponse, summaryResponse] = await Promise.all([
     fetch(`/api/tasks/today?${params.toString()}`),
     fetch('/api/tasks/overview'),
+    fetch(`/api/events/summary?period=${encodeURIComponent(period)}&day=${encodeURIComponent(state.selectedTaskDay)}`),
   ]);
   const todayPayload = await todayResponse.json();
   const overviewPayload = await overviewResponse.json();
+  const summaryPayload = await summaryResponse.json();
   if (handleAuthFailure(todayResponse)) return;
   state.tasks = todayPayload.tasks || [];
   state.taskOverview = overviewPayload.tasks || [];
+  state.eventSummary = summaryPayload.summary || null;
   renderTasks();
 }
 
@@ -286,10 +298,12 @@ async function createTask() {
   const title = elements.taskTitle.value.trim();
   const assigneeId = elements.taskAssignee.value;
   if (!title || !assigneeId) return;
+  const dueMode = elements.taskDueMode.value;
+  const chosenDate = elements.taskDueDate.value || state.selectedTaskDay;
   const response = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ title, assigneeId, dueDate: state.selectedTaskDay }),
+    body: JSON.stringify({ title, assigneeId, dueMode, dueDate: chosenDate }),
   });
   if (!response.ok) return;
   elements.taskTitle.value = '';
@@ -513,6 +527,37 @@ function renderAssignees() {
   }));
 }
 
+
+function renderEventSummary() {
+  if (!elements.eventSummary) return;
+  const summary = state.eventSummary;
+  if (!summary) { elements.eventSummary.innerHTML = '<p class="empty">No summary yet.</p>'; return; }
+  const items = [
+    `Events: ${summary.totalEvents}`,
+    `Open tasks: ${summary.openTasks}`,
+    `Overdue: ${summary.overdueTasks}`,
+    `At risk: ${summary.riskTasks}`,
+    `Done: ${summary.doneTasks}`,
+  ];
+  const wrap = document.createElement('div');
+  wrap.innerHTML = items.map((t)=>`<article class="overview-item"><strong>${escapeHtml(t)}</strong></article>`).join('') +
+    `<article class="overview-item"><strong>Task status chart</strong><span>Open ${summary.openTasks} · Done ${summary.doneTasks} · Risk ${summary.riskTasks}</span><div class="mini-chart"><div style="width:${summary.chart.open}%"></div><div style="width:${summary.chart.done}%"></div><div style="width:${summary.chart.risk}%"></div></div></article>`;
+  elements.eventSummary.replaceChildren(...wrap.children);
+}
+
+function renderTaskComposerDueState() {
+  if (!elements.taskDueMode || !elements.taskDueDate) return;
+  const mode = elements.taskDueMode.value;
+  elements.taskDueDate.disabled = !(mode === 'on_date' || mode === 'before_date');
+  if (!elements.taskDueDate.value) elements.taskDueDate.value = state.selectedTaskDay;
+}
+
+function taskDueText(task) {
+  if (task.dueMode === 'asap' || task.dueMode === 'someday') return `${task.dueMode.toUpperCase()} · created ${relativeDateTime(task.createdAt)}`;
+  if (task.dueMode === 'before_date') return `before ${dayHeading(task.dueDate).toLowerCase()}`;
+  return `due ${dayHeading(task.dueDate).toLowerCase()}`;
+}
+
 function renderTasks() {
   renderTaskDayControls();
   renderAssignees();
@@ -520,13 +565,28 @@ function renderTasks() {
   if (!state.tasks.length) {
     elements.taskList.innerHTML = `<p class="empty">${copy.emptyTasks}</p>`;
   } else {
-    elements.taskList.replaceChildren(...state.tasks.map(renderTask));
+    const byAssignee = new Map();
+    for (const task of state.tasks) {
+      const key = task.assigneeId || 'unassigned';
+      if (!byAssignee.has(key)) byAssignee.set(key, {
+        name: task.assigneeName || 'Unassigned',
+        color: task.assigneeColor || '#0066cc',
+        tasks: [],
+      });
+      byAssignee.get(key).tasks.push(task);
+    }
+    const columns = [...byAssignee.values()].map((group) => renderTaskColumn(group));
+    const board = document.createElement('div');
+    board.className = 'task-board';
+    board.replaceChildren(...columns);
+    elements.taskList.replaceChildren(board);
   }
   if (!state.taskOverview.length) {
     elements.taskOverviewList.innerHTML = `<p class="empty">${copy.emptyOverview}</p>`;
   } else {
     elements.taskOverviewList.replaceChildren(...state.taskOverview.map(renderOverviewTask));
   }
+  renderEventSummary();
 }
 
 function startBuildWatcher() {
@@ -545,7 +605,22 @@ function startBuildWatcher() {
 
 function renderTaskDayControls() {
   elements.taskDayPicker.value = state.selectedTaskDay;
+  renderTaskComposerDueState();
   elements.taskDayLabel.textContent = dayHeading(state.selectedTaskDay);
+}
+
+
+function renderTaskColumn(group) {
+  const column = document.createElement('section');
+  column.className = 'task-column';
+  const header = document.createElement('header');
+  header.className = 'task-column-header';
+  header.innerHTML = `<span class="assignee-dot" style="background:${escapeHtml(group.color)}"></span><strong>${escapeHtml(group.name)}</strong><span>${group.tasks.length}</span>`;
+  const list = document.createElement('div');
+  list.className = 'task-column-list';
+  list.replaceChildren(...group.tasks.map(renderTask));
+  column.replaceChildren(header, list);
+  return column;
 }
 
 function renderTask(task) {
@@ -560,7 +635,7 @@ function renderTask(task) {
   marker.style.background = task.assigneeColor;
   const text = document.createElement('div');
   text.className = 'task-text';
-  text.innerHTML = `<strong>${escapeHtml(task.title)}</strong><span>${escapeHtml(task.assigneeName || 'Unassigned')} · due ${escapeHtml(dayHeading(task.dueDate).toLowerCase())}</span>`;
+  text.innerHTML = `<strong>${escapeHtml(task.title)}</strong><span>${escapeHtml(task.assigneeName || 'Unassigned')} · ${escapeHtml(taskDueText(task))}</span>`;
   row.replaceChildren(checkbox, marker, text);
   return row;
 }

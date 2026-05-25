@@ -248,10 +248,80 @@ async function handleApi(request, response) {
       return;
     }
 
+
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/dev/clear-tasks') {
+      if (session.user.provider !== 'dev' || session.user.providerId !== 'admin') {
+        sendJson(response, 403, { error: 'Dev admin required.' });
+        return;
+      }
+      await store.clearTasksForFamily(scope.familyId);
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/dev/seed-tasks') {
+      if (session.user.provider !== 'dev' || session.user.providerId !== 'admin') {
+        sendJson(response, 403, { error: 'Dev admin required.' });
+        return;
+      }
+      await store.clearTasksForFamily(scope.familyId);
+      const assignees = await store.ensureDefaultTaskAssignees(scope.familyId);
+      const mom = assignees.find((item) => item.name === 'Mom') || assignees[0];
+      const dad = assignees.find((item) => item.name === 'Dad') || assignees[1] || assignees[0];
+      const taskPool = [
+        'Prepare morning formula','Sterilize bottles','Track nap start/end','Prep solid lunch','Record diaper change',
+        'Refill wipes','Wash baby clothes','Tidy stroller','Evening bath setup','Bedtime routine checklist',
+        'Check formula inventory','Clean high chair','Sanitize pump parts','Review feeding notes','Review sleep notes',
+        'Organize nursery shelf','Pre-boil bottle water','Pack diaper bag','Sort baby photos','Plan next-day schedule',
+        'Change crib sheets','Prepare snack portions','Clean play mat','Disinfect thermometer','Restock diaper stock',
+        'Label milk containers','Laundry fold and store','Warm bottle prep','Solid food container prep','Night feed setup'
+      ];
+      const dueModes = ['on_date', 'before_date', 'asap', 'someday'];
+      const base = new Date('2026-05-25T12:00:00.000Z');
+      let created = 0;
+      for (let dayOffset = 0; dayOffset < 10; dayOffset += 1) {
+        const dayDate = new Date(base);
+        dayDate.setUTCDate(base.getUTCDate() - dayOffset);
+        const day = dayDate.toISOString().slice(0, 10);
+        for (let i = 0; i < 10; i += 1) {
+          const title = `${taskPool[(dayOffset * 7 + i * 3) % taskPool.length]} (${day})`;
+          const assignee = i < 5 ? mom : dad;
+          const dueMode = dueModes[(dayOffset + i) % dueModes.length];
+          const task = await store.createTask({
+            id: createId('task'),
+            familyId: scope.familyId,
+            title,
+            assigneeId: assignee.id,
+            dueMode,
+            dueDate: day,
+          });
+          if ((dayOffset + i) % 4 === 0) {
+            const completedAt = new Date(`${day}T${String((i % 8) + 9).padStart(2, '0')}:00:00.000Z`).toISOString();
+            await store.updateTask(task.id, { status: 'done', completedAt, completedBy: session.user.id }, scope);
+          }
+          created += 1;
+        }
+      }
+      sendJson(response, 200, { ok: true, created });
+      return;
+    }
+
     if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/today') {
       const day = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
       await store.ensureDefaultTaskAssignees(scope.familyId);
       sendJson(response, 200, { tasks: await store.listTasksForDay(day, scope) });
+      return;
+    }
+
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/events/summary') {
+      const period = requestUrl.searchParams.get('period') || 'week';
+      const day = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
+      const tasks = await store.listAllTasks(scope);
+      const events = await store.listEvents({ ...scope, limit: 1000 });
+      const summary = buildEventSummary(period, day, tasks, events);
+      sendJson(response, 200, { summary });
       return;
     }
 
@@ -268,11 +338,13 @@ async function handleApi(request, response) {
         sendJson(response, 400, { error: 'Task title and assignee are required.' });
         return;
       }
+      const dueMode = ['on_date','before_date','asap','someday'].includes(body.dueMode) ? body.dueMode : 'on_date';
       const task = await store.createTask({
         id: createId('task'),
         familyId: scope.familyId,
         title,
         assigneeId,
+        dueMode,
         dueDate: body.dueDate || new Date().toISOString().slice(0, 10),
       });
       sendJson(response, 200, { task });
@@ -393,4 +465,28 @@ function getLLMProvider() {
 
 function getProviderKey(provider) {
   return provider === 'openai' ? process.env.OPENAI_API_KEY || '' : '';
+}
+
+function buildEventSummary(period, day, tasks, events) {
+  const end = new Date(`${day}T23:59:59Z`);
+  const start = new Date(end);
+  if (period === 'week') start.setUTCDate(start.getUTCDate() - 6);
+  else if (period === 'month') start.setUTCMonth(start.getUTCMonth() - 1);
+  else if (period === 'quarter') start.setUTCMonth(start.getUTCMonth() - 3);
+  else start.setUTCFullYear(start.getUTCFullYear() - 1);
+  const inRangeEvents = events.filter((e) => {
+    const t = e.occurredAt?.value || e.startAt?.value || e.endAt?.value;
+    if (!t) return false;
+    const d = new Date(t);
+    return d >= start && d <= end;
+  });
+  const openTasks = tasks.filter((t) => t.status === 'open');
+  const overdueTasks = openTasks.filter((t) => (t.dueMode === 'on_date' || t.dueMode === 'before_date') && t.dueDate < day).length;
+  const riskTasks = openTasks.filter((t) => {
+    if (t.dueMode === 'asap' || t.dueMode === 'someday') return Math.floor((end - new Date(t.createdAt)) / 86400000) >= 3;
+    return t.dueDate <= day;
+  }).length;
+  const doneTasks = tasks.filter((t) => t.status === 'done').length;
+  const total = Math.max(1, openTasks.length + doneTasks + riskTasks);
+  return { period, start: start.toISOString().slice(0,10), end: day, totalEvents: inRangeEvents.length, openTasks: openTasks.length, overdueTasks, riskTasks, doneTasks, chart: { open: Math.round(openTasks.length/total*100), done: Math.round(doneTasks/total*100), risk: Math.round(riskTasks/total*100) } };
 }

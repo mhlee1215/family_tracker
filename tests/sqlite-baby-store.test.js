@@ -195,3 +195,46 @@ test('SQLiteBabyStore rolls open daily tasks forward and records completions', (
   assert.equal(todayTasks[0].status, 'done');
   assert.equal(overview[0].completedBy, 'user-admin');
 });
+
+test('SQLiteBabyStore supports due modes and visibility rules', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const [mom] = store.ensureDefaultTaskAssignees('family-admin');
+
+  const asap = store.createTask({
+    id: 'task-due-asap',
+    familyId: 'family-admin',
+    title: 'Refill wipes',
+    assigneeId: mom.id,
+    dueMode: 'asap',
+    dueDate: '2026-05-23',
+  });
+  const someday = store.createTask({
+    id: 'task-due-someday',
+    familyId: 'family-admin',
+    title: 'Sort photos',
+    assigneeId: mom.id,
+    dueMode: 'someday',
+    dueDate: '2026-05-30',
+  });
+  const beforeDate = store.createTask({
+    id: 'task-due-before',
+    familyId: 'family-admin',
+    title: 'Buy formula',
+    assigneeId: mom.id,
+    dueMode: 'before_date',
+    dueDate: '2026-05-24',
+  });
+
+  const tasksForDay = store.listTasksForDay('2026-05-24', { familyId: 'family-admin' });
+  const allTasks = store.listAllTasks({ familyId: 'family-admin' });
+  store.close();
+
+  assert.equal(asap.dueMode, 'asap');
+  assert.equal(someday.dueMode, 'someday');
+  assert.equal(beforeDate.dueMode, 'before_date');
+  assert.equal(tasksForDay.some((task) => task.id === 'task-due-asap'), true);
+  assert.equal(tasksForDay.some((task) => task.id === 'task-due-someday'), true);
+  assert.equal(tasksForDay.some((task) => task.id === 'task-due-before'), true);
+  assert.equal(allTasks.length, 3);
+});

@@ -170,6 +170,13 @@
               <div class="task-form-grid">
                 <select id="task-assignee" name="assigneeId" aria-label="Assignee"></select>
                 <input id="task-title" name="title" type="text" placeholder="Wash bottles">
+                <select id="task-due-mode" name="dueMode" aria-label="Due option">
+                  <option value="on_date">Specific date</option>
+                  <option value="before_date">Before date</option>
+                  <option value="asap">ASAP</option>
+                  <option value="someday">Someday</option>
+                </select>
+                <input id="task-due-date" name="dueDate" type="date" aria-label="Due date">
                 <button type="submit">Add</button>
               </div>
             </form>
@@ -182,6 +189,13 @@
               <span class="muted-count">Recent completions</span>
             </div>
             <div id="task-overview-list" class="task-overview-list"></div>
+            <div class="section-header">
+              <h2>Event summary</h2>
+              <select id="summary-period" aria-label="Summary period">
+                <option value="week">Week</option><option value="month">Month</option><option value="quarter">Quarter</option><option value="year">Year</option>
+              </select>
+            </div>
+            <div id="event-summary" class="task-overview-list"></div>
           </section>
         </section>
       </section>
