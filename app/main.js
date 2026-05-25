@@ -1,4 +1,4 @@
-const APP_BUILD = '007';
+const APP_BUILD = '008';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
 
 const storageKeys = {
