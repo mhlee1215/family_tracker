@@ -101,6 +101,7 @@ const elements = {
   taskForm: $('#task-form'),
   openTaskSummary: $('#open-task-summary'),
   backToTodayTasks: $('#back-to-today-tasks'),
+  taskTodayPanel: $('#task-today-panel'),
   taskSummaryPanel: $('#task-summary-panel'),
   openTaskComposer: $('#open-task-composer'),
   taskAssignee: $('#task-assignee'),
@@ -701,9 +702,10 @@ function setTaskPanel(panel) {
 }
 
 function renderTaskPanel() {
-  if (!elements.taskSummaryPanel || !elements.openTaskSummary) return;
+  if (!elements.taskSummaryPanel || !elements.openTaskSummary || !elements.taskTodayPanel) return;
   const summaryOpen = state.taskPanel === 'summary';
   elements.taskSummaryPanel.classList.toggle('hidden', !summaryOpen);
+  elements.taskTodayPanel.classList.toggle('hidden', summaryOpen);
   elements.openTaskSummary.classList.toggle('hidden', summaryOpen);
   if (elements.openTaskComposer) elements.openTaskComposer.classList.toggle('hidden', summaryOpen);
   if (elements.taskForm && summaryOpen) setTaskComposerOpen(false);
