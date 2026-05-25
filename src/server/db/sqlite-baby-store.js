@@ -446,14 +446,18 @@ export class SQLiteBabyStore {
       LEFT JOIN task_assignees ON task_assignees.id = task_items.assignee_id
       WHERE task_items.family_id = ?
         AND (
-          (task_items.status = 'open' AND ((task_items.due_mode in ('on_date','before_date') AND task_items.due_date <= ?) OR task_items.due_mode in ('asap','someday')))
+          (task_items.status = 'open' AND (
+            (task_items.due_mode = 'on_date' AND task_items.due_date = ?)
+            OR (task_items.due_mode = 'before_date' AND task_items.due_date >= ?)
+            OR (task_items.due_mode in ('asap','someday'))
+          ))
           OR (task_items.status = 'done' AND substr(task_items.completed_at, 1, 10) = ?)
         )
       ORDER BY
         CASE task_items.status WHEN 'open' THEN 0 ELSE 1 END,
         task_items.created_at ASC,
         task_items.rowid ASC
-    `).all(familyId, day, day).map(rowToTask);
+    `).all(familyId, day, day, day).map(rowToTask);
   }
 
   listAllTasks(options = {}) {
@@ -470,14 +474,24 @@ export class SQLiteBabyStore {
   listTaskOverview(options = {}) {
     const familyId = options.familyId || defaultFamilyId;
     const limit = Number.isInteger(options.limit) ? options.limit : 40;
+    const today = new Date().toISOString().slice(0, 10);
     return this.db.prepare(`
       SELECT task_items.*, task_assignees.name AS assignee_name, task_assignees.color AS assignee_color
       FROM task_items
       LEFT JOIN task_assignees ON task_assignees.id = task_items.assignee_id
-      WHERE task_items.family_id = ? AND task_items.status = 'done'
-      ORDER BY task_items.completed_at DESC, task_items.updated_at DESC
+      WHERE task_items.family_id = ? AND (
+        task_items.status = 'done'
+        OR (task_items.status = 'open' AND task_items.due_mode in ('on_date', 'before_date') AND task_items.due_date < ?)
+      )
+      ORDER BY
+        CASE
+          WHEN task_items.status = 'open' THEN 0
+          ELSE 1
+        END,
+        COALESCE(task_items.completed_at, task_items.due_date) DESC,
+        task_items.updated_at DESC
       LIMIT ?
-    `).all(familyId, limit).map(rowToTask);
+    `).all(familyId, today, limit).map(rowToTask);
   }
 }
 

@@ -167,7 +167,7 @@ test('SQLiteBabyStore lists events by local calendar day', () => {
   assert.equal(selectedLocalDay.length, 0);
 });
 
-test('SQLiteBabyStore rolls open daily tasks forward and records completions', () => {
+test('SQLiteBabyStore shows on-date tasks only on their due day and records completions', () => {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
   const store = new SQLiteBabyStore(dbPath);
   const [mom] = store.ensureDefaultTaskAssignees('family-admin');
@@ -189,8 +189,7 @@ test('SQLiteBabyStore rolls open daily tasks forward and records completions', (
   const overview = store.listTaskOverview({ familyId: 'family-admin' });
   store.close();
 
-  assert.equal(nextDayOpenTasks.length, 1);
-  assert.equal(nextDayOpenTasks[0].title, 'Wash bottles');
+  assert.equal(nextDayOpenTasks.length, 0);
   assert.equal(completed.status, 'done');
   assert.equal(todayTasks[0].status, 'done');
   assert.equal(overview[0].completedBy, 'user-admin');
@@ -227,6 +226,7 @@ test('SQLiteBabyStore supports due modes and visibility rules', () => {
   });
 
   const tasksForDay = store.listTasksForDay('2026-05-24', { familyId: 'family-admin' });
+  const futureTasksForDay = store.listTasksForDay('2026-05-25', { familyId: 'family-admin' });
   const allTasks = store.listAllTasks({ familyId: 'family-admin' });
   store.close();
 
@@ -236,5 +236,6 @@ test('SQLiteBabyStore supports due modes and visibility rules', () => {
   assert.equal(tasksForDay.some((task) => task.id === 'task-due-asap'), true);
   assert.equal(tasksForDay.some((task) => task.id === 'task-due-someday'), true);
   assert.equal(tasksForDay.some((task) => task.id === 'task-due-before'), true);
+  assert.equal(futureTasksForDay.some((task) => task.id === 'task-due-before'), false);
   assert.equal(allTasks.length, 3);
 });

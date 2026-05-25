@@ -691,7 +691,10 @@ function renderTask(task) {
 function renderOverviewTask(task) {
   const item = document.createElement('article');
   item.className = 'overview-item';
-  item.innerHTML = `<strong>${escapeHtml(task.assigneeName || 'Someone')}</strong><span>completed "${escapeHtml(task.title)}" ${escapeHtml(relativeDateTime(task.completedAt))}</span>`;
+  const statusText = task.status === 'done'
+    ? `completed "${escapeHtml(task.title)}" ${escapeHtml(relativeDateTime(task.completedAt))}`
+    : `missed "${escapeHtml(task.title)}" (due ${escapeHtml(dayHeading(task.dueDate).toLowerCase())})`;
+  item.innerHTML = `<strong>${escapeHtml(task.assigneeName || 'Someone')}</strong><span>${statusText}</span>`;
   return item;
 }
 
