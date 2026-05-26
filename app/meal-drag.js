@@ -16,12 +16,6 @@ export function wireMealDragHandle({ row, dragHandle, mealId }) {
   dragHandle.onpointerdown = () => {
     row.draggable = true;
   };
-  dragHandle.onpointerup = () => {
-    row.draggable = false;
-  };
-  dragHandle.onpointercancel = () => {
-    row.draggable = false;
-  };
 
   row.ondragstart = handleDragStart;
   row.ondragend = handleDragEnd;

@@ -40,3 +40,26 @@ test('meal drag handle enables dragging and sets transfer payload', () => {
   assert.equal(row.draggable, false);
   assert.equal(document.body.classList.contains('meal-dragging'), false);
 });
+
+
+test('meal drag handle can initiate drag repeatedly even after pointerup between drags', () => {
+  const window = new Window();
+  global.document = window.document;
+
+  const row = document.createElement('article');
+  const dragHandle = document.createElement('button');
+  row.appendChild(dragHandle);
+  document.body.appendChild(row);
+
+  wireMealDragHandle({ row, dragHandle, mealId: 'meal-2' });
+
+  dragHandle.onpointerdown();
+  row.ondragstart({ dataTransfer: { setData() {} } });
+  row.ondragend();
+
+  dragHandle.onpointerdown();
+  dragHandle.onpointerup?.();
+  row.ondragstart({ dataTransfer: { setData() {} } });
+
+  assert.equal(document.body.classList.contains('meal-dragging'), true);
+});
