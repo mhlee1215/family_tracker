@@ -63,3 +63,29 @@ test('meal drag handle can initiate drag repeatedly even after pointerup between
 
   assert.equal(document.body.classList.contains('meal-dragging'), true);
 });
+
+
+test('meal row dragstart is blocked unless drag was armed from the handle', () => {
+  const window = new Window();
+  global.document = window.document;
+
+  const row = document.createElement('article');
+  const dragHandle = document.createElement('button');
+  row.appendChild(dragHandle);
+  document.body.appendChild(row);
+
+  wireMealDragHandle({ row, dragHandle, mealId: 'meal-3' });
+
+  let blocked = false;
+  row.ondragstart({
+    preventDefault() { blocked = true; },
+    dataTransfer: { setData() {} },
+  });
+
+  assert.equal(blocked, true);
+  assert.equal(document.body.classList.contains('meal-dragging'), false);
+
+  dragHandle.onpointerdown();
+  row.ondragstart({ dataTransfer: { setData() {} } });
+  assert.equal(document.body.classList.contains('meal-dragging'), true);
+});
