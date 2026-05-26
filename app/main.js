@@ -117,16 +117,21 @@ const elements = {
   taskList: $('#task-list'),
   taskCount: $('#task-count'),
   taskOverviewList: $('#task-overview-list'),
-  wishForm: $('#wish-form'),
-  wishName: $('#wish-name'),
-  wishUrl: $('#wish-url'),
-  wishIngredients: $('#wish-ingredients'),
   wishList: $('#wish-list'),
   mealBreakfast: $('#meal-breakfast'),
   mealLunch: $('#meal-lunch'),
   mealDinner: $('#meal-dinner'),
   mealLog: $('#meal-log'),
   mealCount: $('#meal-count'),
+  openWishModal: $('#open-wish-modal'),
+  mealModal: $('#meal-modal'),
+  mealForm: $('#meal-form'),
+  mealFormTitle: $('#meal-form-title'),
+  mealFormName: $('#meal-form-name'),
+  mealFormCategory: $('#meal-form-category'),
+  mealFormUrl: $('#meal-form-url'),
+  mealFormIngredients: $('#meal-form-ingredients'),
+  mealCancel: $('#meal-cancel'),
 };
 
 applyPreferences();
@@ -171,11 +176,10 @@ elements.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await createTask();
 });
-elements.wishForm?.addEventListener('submit', (event) => {
-  event.preventDefault();
-  addWishMenu();
-});
 elements.openTaskComposer.addEventListener('click', () => setTaskComposerOpen(true));
+elements.openWishModal?.addEventListener('click', () => openMealModal({ slot: 'wish' }));
+elements.mealForm?.addEventListener('submit', submitMealForm);
+elements.mealCancel?.addEventListener('click', closeMealModal);
 elements.openTaskSummary?.addEventListener('click', () => setTaskPanel('summary'));
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
 
@@ -1069,19 +1073,75 @@ function rolloverMeals() {
   saveMeals();
 }
 
-function addWishMenu() {
-  const name = elements.wishName.value.trim();
+function addWishMenu(data) {
+  const name = data.name.trim();
   if (!name) return;
   const item = {
     id: `meal-${Date.now()}`,
     name,
-    url: elements.wishUrl.value.trim(),
-    ingredients: elements.wishIngredients.value.trim(),
+    category: data.category || 'korean',
+    url: data.url.trim(),
+    ingredients: data.ingredients.trim(),
     done: false,
   };
   state.meals.wish.unshift(item);
-  elements.wishForm.reset();
   logMealAction(`added wish menu "${name}"`);
+  saveMeals();
+  renderMeals();
+}
+
+function submitMealForm(event) {
+  event.preventDefault();
+  const mode = elements.mealForm.dataset.mode || 'create';
+  const slot = elements.mealForm.dataset.slot || 'wish';
+  const payload = {
+    name: elements.mealFormName.value,
+    category: elements.mealFormCategory.value,
+    url: elements.mealFormUrl.value || '',
+    ingredients: elements.mealFormIngredients.value || '',
+  };
+  if (mode === 'edit') {
+    saveMealEdit(elements.mealForm.dataset.id, payload);
+  } else if (slot === 'wish') {
+    addWishMenu(payload);
+  } else {
+    upsertPlannedMeal(slot, payload);
+  }
+  closeMealModal();
+}
+
+function openMealModal({ slot = 'wish', item = null } = {}) {
+  if (!elements.mealModal) return;
+  elements.mealForm.dataset.mode = item ? 'edit' : 'create';
+  elements.mealForm.dataset.slot = slot;
+  elements.mealForm.dataset.id = item?.id || '';
+  elements.mealFormTitle.textContent = item ? 'Edit meal' : `Add ${slot} menu`;
+  elements.mealFormName.value = item?.name || '';
+  elements.mealFormCategory.value = item?.category || 'korean';
+  elements.mealFormUrl.value = item?.url || '';
+  elements.mealFormIngredients.value = item?.ingredients || '';
+  elements.mealModal.showModal();
+}
+
+function closeMealModal() {
+  elements.mealModal?.close();
+}
+
+function upsertPlannedMeal(slot, data) {
+  const name = data.name.trim();
+  if (!name) return;
+  const item = { id: `meal-${Date.now()}`, name, category: data.category || 'korean', url: data.url.trim(), ingredients: data.ingredients.trim(), done: false };
+  state.meals[slot].unshift(item);
+  logMealAction(`added ${slot} menu "${name}"`);
+  saveMeals();
+  renderMeals();
+}
+
+function saveMealEdit(id, data) {
+  const found = findMeal(id);
+  if (!found) return;
+  Object.assign(found.item, { name: data.name.trim(), category: data.category, url: data.url.trim(), ingredients: data.ingredients.trim() });
+  logMealAction(`edited "${found.item.name}"`);
   saveMeals();
   renderMeals();
 }
@@ -1102,7 +1162,14 @@ function renderMeals() {
   ];
   slots.forEach(([slot, container]) => {
     const items = state.meals[slot] || [];
-    if (!items.length) {
+    if (!items.length && slot !== 'wish') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'meal-placeholder';
+      button.textContent = '+ Add menu';
+      button.onclick = () => openMealModal({ slot });
+      container.replaceChildren(button);
+    } else if (!items.length) {
       container.innerHTML = '<p class="empty">No menu</p>';
     } else {
       container.replaceChildren(...items.map((item) => renderMealItem(item)));
@@ -1124,13 +1191,18 @@ function renderMeals() {
 
 function renderMealItem(item) {
   const row = document.createElement('article');
-  row.className = `meal-item ${item.done ? 'done' : ''}`;
+  row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
   row.draggable = true;
   row.ondragstart = (event) => event.dataTransfer.setData('text/plain', item.id);
 
   const title = document.createElement('strong');
-  title.textContent = item.name;
+  title.textContent = `＋ ${item.name}`;
   row.appendChild(title);
+  const thumb = document.createElement('img');
+  thumb.className = 'meal-thumb';
+  thumb.alt = `${item.name} thumbnail`;
+  thumb.src = mealThumbnailUrl(item.url);
+  row.appendChild(thumb);
   if (item.url) {
     const link = document.createElement('a');
     link.href = item.url;
@@ -1196,14 +1268,7 @@ function toggleMealDone(id) {
 function editMeal(id) {
   const found = findMeal(id);
   if (!found) return;
-  const name = prompt('Menu name', found.item.name);
-  if (!name) return;
-  const url = prompt('Recipe URL', found.item.url || '') || '';
-  const ingredients = prompt('Ingredients', found.item.ingredients || '') || '';
-  Object.assign(found.item, { name: name.trim(), url: url.trim(), ingredients: ingredients.trim() });
-  logMealAction(`edited "${found.item.name}"`);
-  saveMeals();
-  renderMeals();
+  openMealModal({ slot: found.slot, item: found.item });
 }
 
 function deleteMeal(id) {
@@ -1213,4 +1278,10 @@ function deleteMeal(id) {
   logMealAction(`deleted "${item.name}" from ${found.slot}`);
   saveMeals();
   renderMeals();
+}
+
+function mealThumbnailUrl(url) {
+  const clean = (url || '').trim();
+  if (!clean) return 'https://placehold.co/220x140/f5f5f7/7a7a7a?text=Meal';
+  return `https://image.thum.io/get/width/220/crop/140/noanimate/${encodeURIComponent(clean)}`;
 }
