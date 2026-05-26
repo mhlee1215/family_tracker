@@ -1088,46 +1088,33 @@ label {
 .meal-columns { display:grid; grid-template-columns:1.3fr 1fr; gap:12px; }
 .meal-column { border:1px solid var(--hairline); border-radius:12px; background:var(--canvas); padding:12px; }
 .meal-slot { margin-bottom:10px; }
-.meal-slot .task-list.drag-target,
-.meal-column-wish .task-list.drag-target {
-  border: 1px dashed var(--primary);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--primary) 8%, white);
-}
 .meal-slot-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
 .meal-wish-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .meal-placeholder { width:100%; min-height:64px; border:1px dashed var(--hairline); background:var(--canvas-parchment); color:var(--muted); }
-.meal-dragging .meal-placeholder { pointer-events: none; }
 .meal-item {
-  position: relative;
   display:grid;
-  gap:6px;
-  padding-left: 12px;
+  gap:8px;
+  padding:12px;
+  border:1px solid var(--hairline);
+  border-radius:12px;
+  background: var(--canvas);
 }
-.meal-item.dragging { opacity: 0.6; }
-.meal-drag-handle {
-  position: absolute;
-  top: 10px;
-  left: -6px;
-  width: 10px;
-  min-width: 10px;
-  height: 36px;
-  border: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--muted) 60%, var(--hairline));
-  color: var(--muted);
-  opacity: 0.45;
-  overflow: hidden;
+.meal-item-handle {
   cursor: grab;
-  padding: 0;
+  font-size: 14px;
+  letter-spacing: 0.2px;
 }
-.meal-item:hover .meal-drag-handle,
-.meal-item:focus-within .meal-drag-handle {
-  background: var(--primary);
-  color: var(--on-primary);
-  opacity: 1;
+.meal-item-handle:active { cursor: grabbing; }
+.meal-item-chosen {
+  border-color: var(--primary);
 }
-.meal-drag-handle:active { cursor: grabbing; }
+.meal-item-ghost {
+  opacity: 0.45;
+  background: color-mix(in srgb, var(--primary) 6%, white);
+}
+.meal-item-drag {
+  transform: rotate(1deg);
+}
 .meal-thumb { width:100%; max-width:220px; height:140px; object-fit:cover; border-radius:8px; border:1px solid var(--hairline); background:var(--canvas-parchment); }
 .category-korean { border-left:4px solid #e07a5f; }
 .category-japanese { border-left:4px solid #3d5a80; }
@@ -1138,20 +1125,3 @@ label {
 .meal-modal-form { display:grid; gap:10px; padding:16px; min-width:320px; }
 .meal-modal menu { display:flex; gap:8px; justify-content:flex-end; margin:0; padding:0; }
 
-.meal-dragging .task-list {
-  position: relative;
-}
-.meal-dragging .task-list::before {
-  content: attr(data-drop-label);
-  display: block;
-  margin-bottom: 6px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  font-size: 11px;
-  color: var(--muted);
-  background: var(--canvas-parchment);
-}
-.meal-dragging .task-list.drag-target::before {
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 10%, white);
-}
