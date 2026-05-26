@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { createClient } from '@libsql/client/web';
 
 const root = resolve('.');
 loadEnv();
+ensureProxyAwareRerun();
 
 const url = process.env.TURSO_DATABASE_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN;
@@ -38,4 +40,20 @@ function loadEnv() {
     const value = trimmed.slice(separator + 1).trim().replace(/^["']|["']$/g, '');
     if (!process.env[key]) process.env[key] = value;
   }
+}
+
+function ensureProxyAwareRerun() {
+  const hasProxyArg = process.execArgv.includes('--use-env-proxy');
+  const hasDnsArg = process.execArgv.some((arg) => arg.startsWith('--dns-result-order='));
+  if (hasProxyArg && hasDnsArg) return;
+
+  const rerun = spawnSync(
+    process.execPath,
+    ['--use-env-proxy', '--dns-result-order=ipv4first', ...process.execArgv, ...process.argv.slice(1)],
+    {
+      stdio: 'inherit',
+      env: { ...process.env, NODE_USE_ENV_PROXY: process.env.NODE_USE_ENV_PROXY || '1' },
+    },
+  );
+  process.exit(rerun.status ?? 1);
 }

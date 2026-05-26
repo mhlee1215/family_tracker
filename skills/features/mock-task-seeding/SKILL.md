@@ -4,6 +4,11 @@
 - Creating or updating demo/mock task data for local development.
 - Rebalancing due-mode distribution for realistic product demos.
 
+## Environment policy (project-specific)
+- For all data-modification requests, treat **Turso** as the source of truth.
+- Default target family scope for task data operations is **`family-admin`**.
+- Seeded/mock task titles and text content must be written in **English**.
+
 ## Target profile
 - Total task count: **about 100** (default exactly 100).
 - Daily volume: **10 tasks/day** for the last 10 days.
@@ -18,7 +23,7 @@
 - Use meaningful, action-oriented titles (avoid generic placeholders like `Task #12`).
 - Keep titles realistic for household/baby-care workflows.
 - Mix repeated routines with lightly varied wording.
-- Keep date suffix/tag if needed for quick visual verification in UI.
+- Do not append date strings to titles unless explicitly requested.
 
 ## Implementation hints
 - Seed in deterministic order so screenshots/tests remain stable.
