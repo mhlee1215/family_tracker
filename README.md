@@ -2,24 +2,58 @@
 
 ![Build 024](https://img.shields.io/badge/build-024-0066cc)
 
-A local-first web/PWA prototype for logging baby and family activity with almost no input friction.
+Family Tracker is a local-first web/PWA for busy families.
+It supports three everyday workflows with low-friction logging and review:
+
+- **Baby tracking** (sleep, feeding, diaper, and timeline history)
+- **Task tracking** (household/family task capture and management)
+- **Meal tracking/planning** (meal ideas, meal state, and daily planning)
 
 Live app: <https://family-tracker-fex9.onrender.com/>
 
-The MVP focuses on baby tracking:
+---
 
-- sleep
-- milk feeding
-- solid feeding
-- diaper
+## Core Features
 
-The product goal is to let parents enter very short natural-language logs such as `낮잠`, `깸`, `분유 먹음`, or `고구마 먹음`. The app stores the original text, extracts explicit facts, fills missing fields from context/defaults, and marks inferred values separately from user-provided values.
+### 1) Baby Tracking
 
-## Roadmap
+Designed for very short natural-language input such as `낮잠`, `깸`, `분유 먹음`, or `고구마 먹음`.
 
-1. Local web/PWA with SQLite.
-2. Cloud accounts and sync.
-3. Capacitor packaging for iOS and Android.
+- Captures original user text
+- Extracts explicit facts from the message
+- Fills missing fields from context/defaults when possible
+- Marks inferred values separately from user-provided values
+- Supports core baby event types:
+  - sleep
+  - milk feeding
+  - solid feeding
+  - diaper
+
+### 2) Task Tracking
+
+Track family and household tasks in one place.
+
+- Create/manage task items
+- Keep local-first task state for quick daily updates
+- Optional seeded/demo task flow for development and testing
+
+### 3) Meal Tracking & Planning
+
+Plan and track meals alongside baby/task workflows.
+
+- Meal-planner navigation and local meal state
+- Daily meal organization and review
+- Built to fit into the same lightweight family routine UI
+
+---
+
+## Product Direction
+
+1. Local web/PWA with SQLite
+2. Cloud accounts and sync
+3. Capacitor packaging for iOS and Android
+
+---
 
 ## Run Locally
 
@@ -44,13 +78,21 @@ http://localhost:4174
 
 The app runs in mock parsing mode unless a provider key is configured.
 
+---
+
 ## Test
 
 ```bash
 npm test
 ```
 
-`npm test` runs the core Node unit suite. For browserless UI tests, run `npm run test:unit` (Vitest + happy-dom).
+`npm test` runs the core Node unit suite. For browserless UI tests:
+
+```bash
+npm run test:unit
+```
+
+---
 
 ## Turso Sync
 
@@ -62,12 +104,14 @@ TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 ```
 
-Verify the database credentials without printing secrets:
+Verify credentials without printing secrets:
 
 ```bash
 npm run check:turso
 npm run seed:turso:tasks
 ```
+
+---
 
 ## API
 
@@ -80,15 +124,18 @@ GET  /api/profile
 POST /api/profile
 ```
 
-## Pipeline
+---
 
-GitHub, Render, and Slack automation are prepared but secrets stay outside the repo.
+## CI/CD & Integrations
+
+Pipeline automation exists for GitHub, Render, and Slack while keeping secrets outside the repo.
 
 - GitHub CI: `.github/workflows/ci.yml`
 - Render blueprint: `render.yaml`
 - Slack task intake bot: `slack-codex-bot/`
 
-Render should be connected to `mhlee1215/family_tracker` with `autoDeploy` enabled. Add runtime secrets in the Render dashboard rather than committing them:
+Render should be connected to `mhlee1215/family_tracker` with `autoDeploy` enabled.
+Set runtime secrets in the Render dashboard:
 
 ```text
 OPENAI_API_KEY
@@ -111,11 +158,12 @@ GITHUB_REPO=mhlee1215/family_tracker
 GITHUB_DISPATCH_EVENT=family_tracker_slack_request
 ```
 
-When `GITHUB_DISPATCH_EVENT` is configured, the Slack bot sends a `repository_dispatch` event. `.github/workflows/slack-request.yml` receives that event, comments on the created issue, runs syntax/tests, and posts a status update back through Slack's `response_url`.
+When `GITHUB_DISPATCH_EVENT` is configured, the Slack bot sends a `repository_dispatch` event.
+`.github/workflows/slack-request.yml` receives it, comments on the issue, runs checks, and posts a status back via Slack `response_url`.
 
-The current GitHub Actions runner is intentionally an intake verifier. A later runner can add the code-changing layer: create a `codex/*` branch, implement the issue, open a draft PR, and post the PR link back to Slack.
+---
 
-## Structure
+## Project Structure
 
 ```text
 app/                  Browser UI
@@ -127,6 +175,8 @@ server.js             Local static server and API
 slack-codex-bot/      Slack command to GitHub issue intake
 ```
 
+---
+
 ## E2E Test (Playwright)
 
 ```bash
@@ -134,4 +184,5 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures). Each E2E spec now also attaches per-step screenshots plus a `scenario-steps` markdown narrative for PR review.
+Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures).
+Each E2E spec also attaches per-step screenshots and a `scenario-steps` markdown narrative for PR review.
