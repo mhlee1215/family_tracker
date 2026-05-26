@@ -26,6 +26,7 @@ const root = resolve('.');
 loadEnv();
 const storageConfig = getStorageConfig();
 const store = await createBabyStore();
+const processedAlexaRequestIds = new Set();
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -143,6 +144,52 @@ async function handleApi(request, response) {
       const sessionId = getSessionIdFromRequest(request);
       if (sessionId) await store.deleteSession(sessionId);
       sendJson(response, 200, { ok: true }, { 'set-cookie': clearSessionCookie(request) });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/integrations/alexa/task') {
+      const token = String(process.env.ALEXA_INTEGRATION_TOKEN || '');
+      const authHeader = String(request.headers.authorization || '');
+      if (!token || authHeader !== `Bearer ${token}`) {
+        sendJson(response, 401, { error: 'Unauthorized integration request.' });
+        return;
+      }
+
+      const body = await readJson(request);
+      const text = String(body.text || '').trim();
+      const requestId = String(body.requestId || '').trim();
+      if (!text || text.length > 300) {
+        sendJson(response, 400, { error: 'Field \"text\" is required and must be <= 300 chars.' });
+        return;
+      }
+      if (!requestId || requestId.length > 200) {
+        sendJson(response, 400, { error: 'Field \"requestId\" is required and must be <= 200 chars.' });
+        return;
+      }
+      if (processedAlexaRequestIds.has(requestId)) {
+        sendJson(response, 409, { error: 'Duplicate requestId.' });
+        return;
+      }
+
+      const familyId = String(process.env.ALEXA_FAMILY_ID || 'family-admin');
+      const assignees = await store.ensureDefaultTaskAssignees(familyId);
+      const assigneeId = assignees[0]?.id;
+      if (!assigneeId) {
+        sendJson(response, 500, { error: 'No task assignee available for Alexa integration.' });
+        return;
+      }
+
+      const task = await store.createTask({
+        id: createId('task'),
+        familyId,
+        title: text,
+        assigneeId,
+        dueMode: 'asap',
+        dueDate: null,
+      });
+      processedAlexaRequestIds.add(requestId);
+      if (processedAlexaRequestIds.size > 5000) processedAlexaRequestIds.clear();
+      sendJson(response, 200, { ok: true, task });
       return;
     }
 

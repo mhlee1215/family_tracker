@@ -1,0 +1,103 @@
+# Alexa Interface Integration (MVP)
+
+This document defines the Alexa-to-Family-Tracker interface.
+
+## Scope
+
+- In scope: Alexa custom skill and server integration contract.
+- Out of scope: natural-language parsing internals (handled by Family Tracker domain logic).
+
+## High-level flow
+
+1. User speaks a command to Alexa.
+2. Alexa invokes a custom skill intent (`RecordTaskIntent`).
+3. AWS Lambda receives the intent and extracts `task_text`.
+4. Lambda calls Family Tracker integration API.
+5. Family Tracker stores the raw task request and routes text into internal task pipeline.
+
+## Endpoint
+
+`POST /api/integrations/alexa/task`
+
+### Authentication
+
+Use Bearer token from Lambda:
+
+```http
+Authorization: Bearer <ALEXA_INTEGRATION_TOKEN>
+```
+
+- Configure `ALEXA_INTEGRATION_TOKEN` on both Lambda and Family Tracker server.
+- Reject missing/invalid tokens with `401`.
+
+### Request body
+
+```json
+{
+  "text": "clean the restroom by tomorrow",
+  "requestId": "amzn1.echo-api.request.123",
+  "requestedAt": "2026-05-26T12:34:56.000Z",
+  "locale": "en-US",
+  "timezone": "America/Los_Angeles"
+}
+```
+
+### Validation rules
+
+- `text`: required, string, trimmed, max 300 chars.
+- `requestId`: required, string, max 200 chars.
+- `requestedAt`: optional ISO timestamp (defaults to now when absent).
+- `locale`: optional string, default `en-US`.
+- `timezone`: optional string, default `UTC`.
+
+### Response body (success)
+
+```json
+{
+  "ok": true,
+  "task": {
+    "id": "task_xxx",
+    "title": "clean the restroom by tomorrow",
+    "status": "open"
+  }
+}
+```
+
+### Error responses
+
+- `400`: invalid payload
+- `401`: unauthorized integration token
+- `409`: duplicated `requestId`
+- `500`: unexpected server error
+
+## Idempotency
+
+- `requestId` must be unique for each Alexa request.
+- Server stores processed request IDs in memory (MVP).
+- Duplicate requests return `409` to prevent accidental double task creation.
+
+## Environment variables
+
+- Family Tracker server:
+  - `ALEXA_INTEGRATION_TOKEN`
+- Alexa Lambda:
+  - `FAMILY_TRACKER_API_URL`
+  - `FAMILY_TRACKER_API_TOKEN`
+
+## Alexa interaction model (minimum)
+
+- Invocation name: `family tracker`
+- Intent: `RecordTaskIntent`
+- Sample utterances:
+  - `record {task_text}`
+  - `add task {task_text}`
+  - `track {task_text}`
+
+- Slot:
+  - `task_text` (`AMAZON.SearchQuery`)
+
+## Operational notes
+
+- Keep this integration endpoint server-to-server only.
+- Never pass user speech text via query string.
+- Keep raw text out of public access logs where possible.
