@@ -1174,9 +1174,18 @@ function renderMeals() {
     } else {
       container.replaceChildren(...items.map((item) => renderMealItem(item)));
     }
-    container.ondragover = (event) => event.preventDefault();
+    container.ondragenter = () => container.classList.add('drag-target');
+    container.ondragleave = (event) => {
+      if (container.contains(event.relatedTarget)) return;
+      container.classList.remove('drag-target');
+    };
+    container.ondragover = (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    };
     container.ondrop = (event) => {
       event.preventDefault();
+      container.classList.remove('drag-target');
       moveMeal(event.dataTransfer.getData('text/plain'), slot);
     };
   });
@@ -1192,8 +1201,19 @@ function renderMeals() {
 function renderMealItem(item) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
-  row.draggable = true;
-  row.ondragstart = (event) => event.dataTransfer.setData('text/plain', item.id);
+  row.dataset.mealId = item.id;
+
+  const dragHandle = document.createElement('button');
+  dragHandle.type = 'button';
+  dragHandle.className = 'meal-drag-handle';
+  dragHandle.draggable = true;
+  dragHandle.setAttribute('aria-label', `Drag ${item.name}`);
+  dragHandle.textContent = '⋮⋮';
+  dragHandle.ondragstart = (event) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', item.id);
+  };
+  row.appendChild(dragHandle);
 
   const title = document.createElement('strong');
   title.textContent = `＋ ${item.name}`;

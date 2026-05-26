@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 022](https://img.shields.io/badge/build-022-0066cc)
+![Build 023](https://img.shields.io/badge/build-023-0066cc)
 
 A local-first web/PWA prototype for logging baby and family activity with almost no input friction.
 
