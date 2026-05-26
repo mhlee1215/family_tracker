@@ -1161,6 +1161,7 @@ function renderMeals() {
     ['dinner', elements.mealDinner],
   ];
   slots.forEach(([slot, container]) => {
+    container.dataset.dropLabel = slot === 'wish' ? 'Drop here to move to Wish menu' : `Drop here to plan for ${slot}`;
     const items = state.meals[slot] || [];
     if (!items.length && slot !== 'wish') {
       const button = document.createElement('button');
@@ -1202,6 +1203,7 @@ function renderMealItem(item) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
   row.dataset.mealId = item.id;
+  row.draggable = true;
 
   const dragHandle = document.createElement('button');
   dragHandle.type = 'button';
@@ -1209,10 +1211,21 @@ function renderMealItem(item) {
   dragHandle.draggable = true;
   dragHandle.setAttribute('aria-label', `Drag ${item.name}`);
   dragHandle.textContent = '⋮⋮';
-  dragHandle.ondragstart = (event) => {
+  const handleDragStart = (event) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', item.id);
+    document.body.classList.add('meal-dragging');
+    row.classList.add('dragging');
   };
+  const handleDragEnd = () => {
+    document.body.classList.remove('meal-dragging');
+    row.classList.remove('dragging');
+    document.querySelectorAll('.task-list.drag-target').forEach((node) => node.classList.remove('drag-target'));
+  };
+  dragHandle.ondragstart = handleDragStart;
+  dragHandle.ondragend = handleDragEnd;
+  row.ondragstart = handleDragStart;
+  row.ondragend = handleDragEnd;
   row.appendChild(dragHandle);
 
   const title = document.createElement('strong');
