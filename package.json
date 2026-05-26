@@ -20,7 +20,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.15"
+    "@libsql/client": "^0.15.15",
+    "sortablejs": "^1.15.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

@@ -1177,6 +1177,21 @@ function renderMeals() {
     } else {
       container.replaceChildren(...items.map((item) => renderMealItem(item)));
     }
+
+    container.ondragenter = () => container.classList.add('drag-target');
+    container.ondragleave = (event) => {
+      if (container.contains(event.relatedTarget)) return;
+      container.classList.remove('drag-target');
+    };
+    container.ondragover = (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    };
+    container.ondrop = (event) => {
+      event.preventDefault();
+      container.classList.remove('drag-target');
+      moveMeal(event.dataTransfer.getData('text/plain'), slot);
+    };
   });
   initMealSortables(slots);
   elements.mealLog.replaceChildren(...(state.meals.log || []).slice(0, 10).map((entry) => {
@@ -1192,11 +1207,18 @@ function renderMealItem(item) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
   row.dataset.mealId = item.id;
+  row.draggable = true;
 
   const title = document.createElement('strong');
   title.className = 'meal-item-handle';
   title.textContent = `☰ ${item.name}`;
   row.appendChild(title);
+  row.addEventListener('dragstart', (event) => {
+    event.dataTransfer?.setData('text/plain', item.id);
+    event.dataTransfer?.setData('application/x-family-meal-id', item.id);
+    event.dataTransfer?.setData('text/id', item.id);
+  });
+
   const thumb = document.createElement('img');
   thumb.className = 'meal-thumb';
   thumb.alt = `${item.name} thumbnail`;
