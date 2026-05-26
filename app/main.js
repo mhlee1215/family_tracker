@@ -1302,6 +1302,14 @@ function deleteMeal(id) {
 
 function mealThumbnailUrl(url) {
   const clean = (url || '').trim();
-  if (!clean) return 'https://placehold.co/220x140/f5f5f7/7a7a7a?text=Meal';
-  return `https://image.thum.io/get/width/220/crop/140/noanimate/${encodeURIComponent(clean)}`;
+  const host = (() => {
+    if (!clean) return 'Meal';
+    try {
+      return new URL(clean).hostname.replace(/^www\./, '') || 'Meal';
+    } catch {
+      return 'Meal';
+    }
+  })();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140"><rect width="220" height="140" fill="#f5f5f7"/><text x="110" y="72" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#7a7a7a">${escapeHtml(host)}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
