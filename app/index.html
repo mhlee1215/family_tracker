@@ -15,6 +15,7 @@
         <nav class="module-tabs" aria-label="Trackers">
           <button id="baby-tab" type="button" class="module-tab active" data-tab="baby">Baby</button>
           <button id="task-tab" type="button" class="module-tab" data-tab="task">Task</button>
+          <button id="meal-tab" type="button" class="module-tab" data-tab="meal">Meal</button>
         </nav>
         <div class="top-actions">
           <section id="auth-panel" class="auth-panel hidden" aria-live="polite">
@@ -79,6 +80,11 @@
                   </label>
                   <button type="submit" class="menu-action">Add member</button>
                 </form>
+              </section>
+
+              <section class="settings-block module-settings hidden" data-settings="meal">
+                <div class="menu-section-title">Meal settings</div>
+                <p class="settings-note">Meal templates and planning defaults will live here.</p>
               </section>
 
               <button id="refresh" type="button" class="ghost-button menu-action">Refresh</button>
@@ -193,23 +199,6 @@
             <div id="task-list" class="task-list"></div>
           </section>
 
-
-          <section id="meal-panel" class="task-section">
-            <div class="section-header"><h2>Meals</h2><span id="meal-count" class="muted-count">0 menus</span></div>
-            <form id="wish-form" class="task-composer" autocomplete="off"><div class="task-form-grid">
-              <input id="wish-name" type="text" placeholder="Wish menu name">
-              <input id="wish-url" type="url" placeholder="Recipe URL">
-              <input id="wish-ingredients" type="text" placeholder="Ingredients">
-              <button type="submit">Add wish</button></div></form>
-            <div class="meal-grid">
-              <section><h3>Wish menu</h3><div id="wish-list" class="task-list"></div></section>
-              <section><h3>Breakfast</h3><div id="meal-breakfast" class="task-list"></div></section>
-              <section><h3>Lunch</h3><div id="meal-lunch" class="task-list"></div></section>
-              <section><h3>Dinner</h3><div id="meal-dinner" class="task-list"></div></section>
-            </div>
-            <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
-          </section>
-
           <section class="task-section task-overview hidden" id="task-summary-panel">
             <div class="section-header">
               <h2>Overview</h2>
@@ -226,6 +215,34 @@
               </select>
             </div>
             <div id="event-summary" class="task-overview-list"></div>
+          </section>
+        </section>
+      </section>
+
+      <section id="meal-view" class="module-view">
+        <header class="top-bar task-hero">
+          <p class="eyebrow">Meal Planner</p>
+          <div class="date-heading">
+            <div class="date-picker-label">
+              <h1 class="day-label">Meals</h1>
+            </div>
+          </div>
+        </header>
+        <section class="task-layout">
+          <section class="task-section">
+            <div class="section-header"><h2>Meals</h2><span id="meal-count" class="muted-count">0 menus</span></div>
+            <form id="wish-form" class="task-composer" autocomplete="off"><div class="task-form-grid">
+              <input id="wish-name" type="text" placeholder="Wish menu name">
+              <input id="wish-url" type="url" placeholder="Recipe URL">
+              <input id="wish-ingredients" type="text" placeholder="Ingredients">
+              <button type="submit">Add wish</button></div></form>
+            <div class="meal-grid">
+              <section><h3>Wish menu</h3><div id="wish-list" class="task-list"></div></section>
+              <section><h3>Breakfast</h3><div id="meal-breakfast" class="task-list"></div></section>
+              <section><h3>Lunch</h3><div id="meal-lunch" class="task-list"></div></section>
+              <section><h3>Dinner</h3><div id="meal-dinner" class="task-list"></div></section>
+            </div>
+            <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
           </section>
         </section>
       </section>

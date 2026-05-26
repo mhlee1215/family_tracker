@@ -863,6 +863,8 @@ function refreshActiveTab() {
   if (state.activeTab === 'baby') {
     loadBabyProfile();
     loadToday();
+  } else if (state.activeTab === 'meal') {
+    renderMeals();
   } else {
     loadTaskData();
   }
@@ -948,12 +950,13 @@ function normalizeTheme(value) {
 }
 
 function normalizeTab(value) {
-  return ['baby', 'task'].includes(value) ? value : 'baby';
+  return ['baby', 'task', 'meal'].includes(value) ? value : 'baby';
 }
 
 function tabFromLocation() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (path === '/tasks') return 'task';
+  if (path === '/meals') return 'meal';
   if (path === '/' || path === '/baby') return 'baby';
   return null;
 }
@@ -963,7 +966,7 @@ function getInitialTab() {
 }
 
 function syncUrlForTab(tab, { pushHistory = false } = {}) {
-  const targetPath = tab === 'task' ? '/tasks' : '/';
+  const targetPath = tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : '/';
   const params = new URLSearchParams(window.location.search);
   params.set('day', state.selectedDay);
   params.set('taskDay', state.selectedTaskDay);

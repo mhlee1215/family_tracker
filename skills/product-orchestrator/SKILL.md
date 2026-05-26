@@ -21,6 +21,7 @@ Any non-trivial product/code change.
 - Natural language parsing/LLM contract -> `skills/features/llm-parser/SKILL.md`
 - SQLite/Turso/storage/sync -> `skills/features/database-sync/SKILL.md`
 - Demo/mock task data seeding -> `skills/features/mock-task-seeding/SKILL.md`
+- Meal planning/navigation/local meal state -> `skills/features/meal-planner/SKILL.md`
 
 ## Workflow routing
 - New feature -> `skills/workflows/implement-feature/SKILL.md`
