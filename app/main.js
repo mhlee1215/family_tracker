@@ -46,6 +46,7 @@ const state = {
   taskCalendarMonth: null,
   taskCalendarDots: {},
   taskPanel: 'today',
+  meals: loadMeals(),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -116,6 +117,16 @@ const elements = {
   taskList: $('#task-list'),
   taskCount: $('#task-count'),
   taskOverviewList: $('#task-overview-list'),
+  wishForm: $('#wish-form'),
+  wishName: $('#wish-name'),
+  wishUrl: $('#wish-url'),
+  wishIngredients: $('#wish-ingredients'),
+  wishList: $('#wish-list'),
+  mealBreakfast: $('#meal-breakfast'),
+  mealLunch: $('#meal-lunch'),
+  mealDinner: $('#meal-dinner'),
+  mealLog: $('#meal-log'),
+  mealCount: $('#meal-count'),
 };
 
 applyPreferences();
@@ -159,6 +170,10 @@ elements.askForm.addEventListener('submit', async (event) => {
 elements.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await createTask();
+});
+elements.wishForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  addWishMenu();
 });
 elements.openTaskComposer.addEventListener('click', () => setTaskComposerOpen(true));
 elements.openTaskSummary?.addEventListener('click', () => setTaskPanel('summary'));
@@ -664,6 +679,7 @@ function renderTasks() {
     elements.taskOverviewList.replaceChildren(...state.taskOverview.map(renderOverviewTask));
   }
   renderEventSummary();
+  renderMeals();
 }
 
 
@@ -981,4 +997,217 @@ function escapeHtml(value) {
     '"': '&quot;',
     "'": '&#39;',
   })[char]);
+}
+
+function emptyMealState() {
+  return { wish: [], breakfast: [], lunch: [], dinner: [], log: [], lastDay: localDateKey(new Date()) };
+}
+
+function defaultDemoMeals() {
+  return {
+    wish: [
+      { id: 'meal-demo-wish-1', name: 'Soy-braised tofu', url: 'https://example.com/tofu', ingredients: 'tofu, soy sauce, garlic', done: false },
+      { id: 'meal-demo-wish-2', name: 'Pumpkin porridge', url: 'https://example.com/pumpkin-porridge', ingredients: 'pumpkin, rice, water', done: false },
+    ],
+    breakfast: [
+      { id: 'meal-demo-breakfast-1', name: 'Egg toast', url: 'https://example.com/egg-toast', ingredients: 'bread, egg, butter', done: false },
+    ],
+    lunch: [
+      { id: 'meal-demo-lunch-1', name: 'Beef seaweed soup', url: 'https://example.com/seaweed-soup', ingredients: 'beef, seaweed, sesame oil', done: false },
+    ],
+    dinner: [
+      { id: 'meal-demo-dinner-1', name: 'Salmon rice bowl', url: 'https://example.com/salmon-bowl', ingredients: 'salmon, rice, avocado', done: false },
+    ],
+  };
+}
+
+function loadMeals() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('familyTracker.meals') || '');
+    if (!parsed || typeof parsed !== 'object') return emptyMealState();
+    const next = {
+      ...emptyMealState(),
+      ...parsed,
+      wish: Array.isArray(parsed.wish) ? parsed.wish : [],
+      breakfast: Array.isArray(parsed.breakfast) ? parsed.breakfast : [],
+      lunch: Array.isArray(parsed.lunch) ? parsed.lunch : [],
+      dinner: Array.isArray(parsed.dinner) ? parsed.dinner : [],
+      log: Array.isArray(parsed.log) ? parsed.log : [],
+    };
+    const totalCount = next.wish.length + next.breakfast.length + next.lunch.length + next.dinner.length;
+    if (totalCount > 0) return next;
+    return { ...next, ...defaultDemoMeals() };
+  } catch {
+    return { ...emptyMealState(), ...defaultDemoMeals() };
+  }
+}
+
+function saveMeals() {
+  localStorage.setItem('familyTracker.meals', JSON.stringify(state.meals));
+}
+
+function rolloverMeals() {
+  const today = localDateKey(new Date());
+  if (state.meals.lastDay === today) return;
+  const carriedBySlot = { breakfast: 0, lunch: 0, dinner: 0 };
+  for (const slot of ['breakfast', 'lunch', 'dinner']) {
+    const carry = state.meals[slot].filter((item) => !item.done).map((item) => ({ ...item, day: today }));
+    carriedBySlot[slot] = carry.length;
+    state.meals[slot] = carry;
+  }
+  state.meals.lastDay = today;
+  const carriedTotal = carriedBySlot.breakfast + carriedBySlot.lunch + carriedBySlot.dinner;
+  if (carriedTotal > 0) {
+    logMealAction(
+      `carried ${carriedTotal} unfinished menu(s) to ${today} (breakfast ${carriedBySlot.breakfast}, lunch ${carriedBySlot.lunch}, dinner ${carriedBySlot.dinner})`,
+      'system',
+    );
+  }
+  saveMeals();
+}
+
+function addWishMenu() {
+  const name = elements.wishName.value.trim();
+  if (!name) return;
+  const item = {
+    id: `meal-${Date.now()}`,
+    name,
+    url: elements.wishUrl.value.trim(),
+    ingredients: elements.wishIngredients.value.trim(),
+    done: false,
+  };
+  state.meals.wish.unshift(item);
+  elements.wishForm.reset();
+  logMealAction(`added wish menu "${name}"`);
+  saveMeals();
+  renderMeals();
+}
+
+function logMealAction(action, actor = state.user?.name || state.user?.email || 'Family member') {
+  state.meals.log.unshift({ id: `log-${Date.now()}-${Math.random()}`, actor, action, at: new Date().toISOString() });
+  state.meals.log = state.meals.log.slice(0, 60);
+}
+
+function renderMeals() {
+  if (!elements.wishList) return;
+  rolloverMeals();
+  const slots = [
+    ['wish', elements.wishList],
+    ['breakfast', elements.mealBreakfast],
+    ['lunch', elements.mealLunch],
+    ['dinner', elements.mealDinner],
+  ];
+  slots.forEach(([slot, container]) => {
+    const items = state.meals[slot] || [];
+    if (!items.length) {
+      container.innerHTML = '<p class="empty">No menu</p>';
+    } else {
+      container.replaceChildren(...items.map((item) => renderMealItem(item)));
+    }
+    container.ondragover = (event) => event.preventDefault();
+    container.ondrop = (event) => {
+      event.preventDefault();
+      moveMeal(event.dataTransfer.getData('text/plain'), slot);
+    };
+  });
+  elements.mealLog.replaceChildren(...(state.meals.log || []).slice(0, 10).map((entry) => {
+    const node = document.createElement('article');
+    node.className = 'overview-item';
+    node.innerHTML = `<strong>${escapeHtml(entry.actor)}</strong><span>${escapeHtml(entry.action)} · ${escapeHtml(relativeDateTime(entry.at))}</span>`;
+    return node;
+  }));
+  elements.mealCount.textContent = `${state.meals.breakfast.length + state.meals.lunch.length + state.meals.dinner.length} menus`;
+}
+
+function renderMealItem(item) {
+  const row = document.createElement('article');
+  row.className = `meal-item ${item.done ? 'done' : ''}`;
+  row.draggable = true;
+  row.ondragstart = (event) => event.dataTransfer.setData('text/plain', item.id);
+
+  const title = document.createElement('strong');
+  title.textContent = item.name;
+  row.appendChild(title);
+  if (item.url) {
+    const link = document.createElement('a');
+    link.href = item.url;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.textContent = 'recipe';
+    const linkWrap = document.createElement('small');
+    linkWrap.appendChild(link);
+    row.appendChild(linkWrap);
+  }
+  const ingredients = document.createElement('small');
+  ingredients.textContent = item.ingredients || '';
+  row.appendChild(ingredients);
+
+  const controls = document.createElement('div');
+  controls.className = 'row';
+  const done = document.createElement('button');
+  done.type = 'button';
+  done.textContent = item.done ? 'Undo' : 'Done';
+  done.onclick = () => toggleMealDone(item.id);
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.textContent = 'Edit';
+  edit.onclick = () => editMeal(item.id);
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.textContent = 'Delete';
+  del.onclick = () => deleteMeal(item.id);
+  controls.append(done, edit, del);
+  row.appendChild(controls);
+  return row;
+}
+
+function findMeal(id) {
+  for (const slot of ['wish', 'breakfast', 'lunch', 'dinner']) {
+    const idx = (state.meals[slot] || []).findIndex((item) => item.id === id);
+    if (idx >= 0) return { slot, idx, item: state.meals[slot][idx] };
+  }
+  return null;
+}
+
+function moveMeal(id, to) {
+  const found = findMeal(id);
+  if (!found || found.slot === to) return;
+  const [item] = state.meals[found.slot].splice(found.idx, 1);
+  if (found.slot === 'wish' && to !== 'wish') item.done = true;
+  if (to === 'wish') item.done = false;
+  state.meals[to].unshift(item);
+  logMealAction(`moved "${item.name}" from ${found.slot} to ${to}`);
+  saveMeals();
+  renderMeals();
+}
+
+function toggleMealDone(id) {
+  const found = findMeal(id);
+  if (!found) return;
+  found.item.done = !found.item.done;
+  logMealAction(`${found.item.done ? 'completed' : 'reopened'} "${found.item.name}" in ${found.slot}`);
+  saveMeals();
+  renderMeals();
+}
+
+function editMeal(id) {
+  const found = findMeal(id);
+  if (!found) return;
+  const name = prompt('Menu name', found.item.name);
+  if (!name) return;
+  const url = prompt('Recipe URL', found.item.url || '') || '';
+  const ingredients = prompt('Ingredients', found.item.ingredients || '') || '';
+  Object.assign(found.item, { name: name.trim(), url: url.trim(), ingredients: ingredients.trim() });
+  logMealAction(`edited "${found.item.name}"`);
+  saveMeals();
+  renderMeals();
+}
+
+function deleteMeal(id) {
+  const found = findMeal(id);
+  if (!found) return;
+  const [item] = state.meals[found.slot].splice(found.idx, 1);
+  logMealAction(`deleted "${item.name}" from ${found.slot}`);
+  saveMeals();
+  renderMeals();
 }

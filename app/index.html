@@ -193,6 +193,23 @@
             <div id="task-list" class="task-list"></div>
           </section>
 
+
+          <section id="meal-panel" class="task-section">
+            <div class="section-header"><h2>Meals</h2><span id="meal-count" class="muted-count">0 menus</span></div>
+            <form id="wish-form" class="task-composer" autocomplete="off"><div class="task-form-grid">
+              <input id="wish-name" type="text" placeholder="Wish menu name">
+              <input id="wish-url" type="url" placeholder="Recipe URL">
+              <input id="wish-ingredients" type="text" placeholder="Ingredients">
+              <button type="submit">Add wish</button></div></form>
+            <div class="meal-grid">
+              <section><h3>Wish menu</h3><div id="wish-list" class="task-list"></div></section>
+              <section><h3>Breakfast</h3><div id="meal-breakfast" class="task-list"></div></section>
+              <section><h3>Lunch</h3><div id="meal-lunch" class="task-list"></div></section>
+              <section><h3>Dinner</h3><div id="meal-dinner" class="task-list"></div></section>
+            </div>
+            <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
+          </section>
+
           <section class="task-section task-overview hidden" id="task-summary-panel">
             <div class="section-header">
               <h2>Overview</h2>
