@@ -229,22 +229,36 @@
           </div>
         </header>
         <section class="task-layout">
-          <section class="task-section">
+          <section class="task-section meal-board">
             <div class="section-header"><h2>Meals</h2><span id="meal-count" class="muted-count">0 menus</span></div>
-            <form id="wish-form" class="task-composer" autocomplete="off"><div class="task-form-grid">
-              <input id="wish-name" type="text" placeholder="Wish menu name">
-              <input id="wish-url" type="url" placeholder="Recipe URL">
-              <input id="wish-ingredients" type="text" placeholder="Ingredients">
-              <button type="submit">Add wish</button></div></form>
-            <div class="meal-grid">
-              <section><h3>Wish menu</h3><div id="wish-list" class="task-list"></div></section>
-              <section><h3>Breakfast</h3><div id="meal-breakfast" class="task-list"></div></section>
-              <section><h3>Lunch</h3><div id="meal-lunch" class="task-list"></div></section>
-              <section><h3>Dinner</h3><div id="meal-dinner" class="task-list"></div></section>
+            <div class="meal-columns">
+              <section class="meal-column meal-column-planned">
+                <h3>Planned meals</h3>
+                <div class="meal-slot"><div class="meal-slot-label">Breakfast</div><div id="meal-breakfast" class="task-list"></div></div>
+                <div class="meal-slot"><div class="meal-slot-label">Lunch</div><div id="meal-lunch" class="task-list"></div></div>
+                <div class="meal-slot"><div class="meal-slot-label">Dinner</div><div id="meal-dinner" class="task-list"></div></div>
+              </section>
+              <section class="meal-column meal-column-wish">
+                <div class="meal-wish-header"><h3>Wish menu</h3><button id="open-wish-modal" type="button" class="compact-button">+ Add wish</button></div>
+                <div id="wish-list" class="task-list"></div>
+              </section>
             </div>
             <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
           </section>
         </section>
+
+        <dialog id="meal-modal" class="meal-modal">
+          <form id="meal-form" class="meal-modal-form" method="dialog" autocomplete="off">
+            <h3 id="meal-form-title">Add meal</h3>
+            <input id="meal-form-name" type="text" placeholder="Menu name" required>
+            <select id="meal-form-category">
+              <option value="korean">한식</option><option value="japanese">일식</option><option value="chinese">중식</option><option value="western">양식</option><option value="snack">간식</option>
+            </select>
+            <input id="meal-form-url" type="url" placeholder="Recipe URL">
+            <input id="meal-form-ingredients" type="text" placeholder="Ingredients">
+            <menu><button id="meal-cancel" type="button" class="ghost-button">Cancel</button><button type="submit">Save</button></menu>
+          </form>
+        </dialog>
       </section>
     </main>
     <div id="build-badge" class="build-badge" aria-label="Build and metadata version">
