@@ -1088,10 +1088,27 @@ label {
 .meal-columns { display:grid; grid-template-columns:1.3fr 1fr; gap:12px; }
 .meal-column { border:1px solid var(--hairline); border-radius:12px; background:var(--canvas); padding:12px; }
 .meal-slot { margin-bottom:10px; }
+.meal-slot .task-list.drag-target {
+  border: 1px dashed var(--primary);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 8%, white);
+}
 .meal-slot-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
 .meal-wish-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .meal-placeholder { width:100%; min-height:64px; border:1px dashed var(--hairline); background:var(--canvas-parchment); color:var(--muted); }
 .meal-item { display:grid; gap:6px; }
+.meal-drag-handle {
+  justify-self: start;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--canvas-parchment);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 8px;
+  cursor: grab;
+}
+.meal-drag-handle:active { cursor: grabbing; }
 .meal-thumb { width:100%; max-width:220px; height:140px; object-fit:cover; border-radius:8px; border:1px solid var(--hairline); background:var(--canvas-parchment); }
 .category-korean { border-left:4px solid #e07a5f; }
 .category-japanese { border-left:4px solid #3d5a80; }

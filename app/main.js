@@ -1174,9 +1174,18 @@ function renderMeals() {
     } else {
       container.replaceChildren(...items.map((item) => renderMealItem(item)));
     }
-    container.ondragover = (event) => event.preventDefault();
+    container.ondragenter = () => container.classList.add('drag-target');
+    container.ondragleave = (event) => {
+      if (container.contains(event.relatedTarget)) return;
+      container.classList.remove('drag-target');
+    };
+    container.ondragover = (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    };
     container.ondrop = (event) => {
       event.preventDefault();
+      container.classList.remove('drag-target');
       moveMeal(event.dataTransfer.getData('text/plain'), slot);
     };
   });
@@ -1192,8 +1201,19 @@ function renderMeals() {
 function renderMealItem(item) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
-  row.draggable = true;
-  row.ondragstart = (event) => event.dataTransfer.setData('text/plain', item.id);
+  row.dataset.mealId = item.id;
+
+  const dragHandle = document.createElement('button');
+  dragHandle.type = 'button';
+  dragHandle.className = 'meal-drag-handle';
+  dragHandle.draggable = true;
+  dragHandle.setAttribute('aria-label', `Drag ${item.name}`);
+  dragHandle.textContent = '⋮⋮';
+  dragHandle.ondragstart = (event) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', item.id);
+  };
+  row.appendChild(dragHandle);
 
   const title = document.createElement('strong');
   title.textContent = `＋ ${item.name}`;
@@ -1282,6 +1302,14 @@ function deleteMeal(id) {
 
 function mealThumbnailUrl(url) {
   const clean = (url || '').trim();
-  if (!clean) return 'https://placehold.co/220x140/f5f5f7/7a7a7a?text=Meal';
-  return `https://image.thum.io/get/width/220/crop/140/noanimate/${encodeURIComponent(clean)}`;
+  const host = (() => {
+    if (!clean) return 'Meal';
+    try {
+      return new URL(clean).hostname.replace(/^www\./, '') || 'Meal';
+    } catch {
+      return 'Meal';
+    }
+  })();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140"><rect width="220" height="140" fill="#f5f5f7"/><text x="110" y="72" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#7a7a7a">${escapeHtml(host)}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
