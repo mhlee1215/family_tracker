@@ -1,6 +1,7 @@
-import { wireMealDragHandle } from './meal-drag.js';
 const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
+
+const mealSortableInstances = new Map();
 
 const storageKeys = {
   theme: 'familyTracker.theme',
@@ -1162,7 +1163,7 @@ function renderMeals() {
     ['dinner', elements.mealDinner],
   ];
   slots.forEach(([slot, container]) => {
-    container.dataset.dropLabel = slot === 'wish' ? 'Drop here to move to Wish menu' : `Drop here to plan for ${slot}`;
+    container.dataset.slot = slot;
     const items = state.meals[slot] || [];
     if (!items.length && slot !== 'wish') {
       const button = document.createElement('button');
@@ -1176,21 +1177,8 @@ function renderMeals() {
     } else {
       container.replaceChildren(...items.map((item) => renderMealItem(item)));
     }
-    container.ondragenter = () => container.classList.add('drag-target');
-    container.ondragleave = (event) => {
-      if (container.contains(event.relatedTarget)) return;
-      container.classList.remove('drag-target');
-    };
-    container.ondragover = (event) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
-    };
-    container.ondrop = (event) => {
-      event.preventDefault();
-      container.classList.remove('drag-target');
-      moveMeal(event.dataTransfer.getData('text/plain'), slot);
-    };
   });
+  initMealSortables(slots);
   elements.mealLog.replaceChildren(...(state.meals.log || []).slice(0, 10).map((entry) => {
     const node = document.createElement('article');
     node.className = 'overview-item';
@@ -1204,18 +1192,10 @@ function renderMealItem(item) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
   row.dataset.mealId = item.id;
-  row.draggable = false;
-
-  const dragHandle = document.createElement('button');
-  dragHandle.type = 'button';
-  dragHandle.className = 'meal-drag-handle';
-  dragHandle.setAttribute('aria-label', `Drag ${item.name}`);
-  dragHandle.textContent = '⋮⋮';
-  wireMealDragHandle({ row, dragHandle, mealId: item.id });
-  row.appendChild(dragHandle);
 
   const title = document.createElement('strong');
-  title.textContent = `＋ ${item.name}`;
+  title.className = 'meal-item-handle';
+  title.textContent = `☰ ${item.name}`;
   row.appendChild(title);
   const thumb = document.createElement('img');
   thumb.className = 'meal-thumb';
@@ -1253,6 +1233,48 @@ function renderMealItem(item) {
   controls.append(done, edit, del);
   row.appendChild(controls);
   return row;
+}
+
+function initMealSortables(slots) {
+  if (typeof window.Sortable !== 'function') return;
+  const knownContainers = new Set(slots.map(([, container]) => container));
+  mealSortableInstances.forEach((sortable, container) => {
+    if (!knownContainers.has(container)) {
+      sortable.destroy();
+      mealSortableInstances.delete(container);
+    }
+  });
+
+  slots.forEach(([slot, container]) => {
+    const hasMealItems = container.querySelector('.meal-item');
+    if (!hasMealItems) {
+      const existing = mealSortableInstances.get(container);
+      if (existing) {
+        existing.destroy();
+        mealSortableInstances.delete(container);
+      }
+      return;
+    }
+
+    const existing = mealSortableInstances.get(container);
+    if (existing) existing.destroy();
+    const sortable = window.Sortable.create(container, {
+      group: 'family-meal-board',
+      animation: 180,
+      handle: '.meal-item-handle',
+      draggable: '.meal-item',
+      ghostClass: 'meal-item-ghost',
+      chosenClass: 'meal-item-chosen',
+      dragClass: 'meal-item-drag',
+      onEnd: (event) => {
+        const id = event.item?.dataset.mealId;
+        const to = event.to?.dataset.slot;
+        if (!id || !to) return renderMeals();
+        moveMeal(id, to);
+      },
+    });
+    mealSortableInstances.set(container, sortable);
+  });
 }
 
 function findMeal(id) {
