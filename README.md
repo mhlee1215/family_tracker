@@ -66,6 +66,7 @@ Verify the database credentials without printing secrets:
 
 ```bash
 npm run check:turso
+npm run seed:turso:tasks
 ```
 
 ## API

@@ -279,30 +279,31 @@ async function handleApi(request, response) {
       const mom = assignees.find((item) => item.name === 'Mom') || assignees[0];
       const dad = assignees.find((item) => item.name === 'Dad') || assignees[1] || assignees[0];
       const momTaskPool = [
-        '아침 이유식 재료 해동하기', '낮잠 기록 확인하기', '유축 보관팩 라벨 붙이기', '산책 가방 간식 채우기',
-        '저녁 목욕 수건 세팅하기', '수면등 배터리 점검하기', '기저귀 파우치 보충하기', '밤중 수유 기록 정리하기',
-        '이유식 용기 소분하기', '주간 성장사진 정리하기', '알림장 메모 업데이트하기', '세탁 완료 옷 분류하기'
+        'Defrost baby food ingredients', 'Review nap records', 'Label pumped milk storage bags', 'Pack snacks for stroller bag',
+        'Set bath towels for evening routine', 'Check night light batteries', 'Refill diaper pouch', 'Organize overnight feeding logs',
+        'Portion baby food containers', 'Sort weekly growth photos', 'Update daycare notes', 'Sort freshly laundered baby clothes'
       ];
       const dadTaskPool = [
-        '분유포트 물 채워두기', '젖병 소독기 비우기', '유모차 바퀴 상태 확인하기', '놀이매트 먼지 청소하기',
-        '체온계 충전 상태 확인하기', '저녁 루틴 타이머 맞추기', '외출용 물티슈 리필하기', '아기침대 시트 정돈하기',
-        '수면 카메라 각도 점검하기', '주방 턱받이 세탁 돌리기', '주간 기저귀 재고 체크하기', '아기방 가습기 세척하기'
+        'Refill formula kettle', 'Empty bottle sterilizer', 'Inspect stroller wheel condition', 'Dust and clean play mat',
+        'Check thermometer charge level', 'Set evening routine timer', 'Refill travel wipes pack', 'Tidy baby crib sheets',
+        'Adjust sleep camera angle', 'Run bib laundry cycle', 'Check weekly diaper stock', 'Clean nursery humidifier'
       ];
-      const dueModeCounts = { on_date: 60, before_date: 30, asap: 5, someday: 5 };
+      const dueModeCounts = { on_date: 50, before_date: 20, asap: 3, someday: 2 };
       const dueModeOrder = Object.entries(dueModeCounts).flatMap(([mode, count]) => Array.from({ length: count }, () => mode));
       const base = new Date('2026-05-25T12:00:00.000Z');
+      const totalTasks = dueModeOrder.length;
       let created = 0;
-      for (let dayOffset = 0; dayOffset < 10; dayOffset += 1) {
+      for (let dayOffset = 0; created < totalTasks; dayOffset += 1) {
         const dayDate = new Date(base);
         dayDate.setUTCDate(base.getUTCDate() - dayOffset);
         const day = dayDate.toISOString().slice(0, 10);
-        for (let i = 0; i < 10; i += 1) {
+        for (let i = 0; i < 10 && created < totalTasks; i += 1) {
           const assignee = i < 5 ? mom : dad;
           const roleIndex = i % 5;
           const titleBase = i < 5
             ? momTaskPool[(dayOffset * 5 + roleIndex) % momTaskPool.length]
             : dadTaskPool[(dayOffset * 5 + roleIndex) % dadTaskPool.length];
-          const title = `${titleBase} (${day})`;
+          const title = titleBase;
           const dueMode = dueModeOrder[created % dueModeOrder.length];
           const task = await store.createTask({
             id: createId('task'),
