@@ -1,3 +1,4 @@
+import { wireMealDragHandle } from './meal-drag.js';
 const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
 
@@ -1203,29 +1204,14 @@ function renderMealItem(item) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
   row.dataset.mealId = item.id;
-  row.draggable = true;
+  row.draggable = false;
 
   const dragHandle = document.createElement('button');
   dragHandle.type = 'button';
   dragHandle.className = 'meal-drag-handle';
-  dragHandle.draggable = true;
   dragHandle.setAttribute('aria-label', `Drag ${item.name}`);
   dragHandle.textContent = '⋮⋮';
-  const handleDragStart = (event) => {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', item.id);
-    document.body.classList.add('meal-dragging');
-    row.classList.add('dragging');
-  };
-  const handleDragEnd = () => {
-    document.body.classList.remove('meal-dragging');
-    row.classList.remove('dragging');
-    document.querySelectorAll('.task-list.drag-target').forEach((node) => node.classList.remove('drag-target'));
-  };
-  dragHandle.ondragstart = handleDragStart;
-  dragHandle.ondragend = handleDragEnd;
-  row.ondragstart = handleDragStart;
-  row.ondragend = handleDragEnd;
+  wireMealDragHandle({ row, dragHandle, mealId: item.id });
   row.appendChild(dragHandle);
 
   const title = document.createElement('strong');
