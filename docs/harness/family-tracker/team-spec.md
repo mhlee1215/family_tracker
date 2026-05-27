@@ -14,3 +14,8 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - 코덱스 미러: `.codex/skills/harness/`
 - 제품 라우팅: `.agents/skills/family-tracker-orchestrator/SKILL.md`
 - 기존 제품 스킬: `skills/`
+
+## Validation Gate (PR 전 필수)
+- 코드 변경이 있으면 로컬에서 아래를 모두 통과해야 한다.
+  - `npm test`
+  - `npm run test:e2e`

@@ -13,6 +13,7 @@ Fixing a bug/regression.
 - Add regression test.
 - Review provenance and data-safety impact.
 - Run `npm test`.
+- Run `npm run test:e2e` locally before PR.
 - After code changes, always proceed to PR workflow: if no PR exists, create one; if a PR already exists, update that existing PR instead of creating a new one.
 
 ## Checklist
@@ -21,6 +22,7 @@ Fixing a bug/regression.
 - Apply minimal targeted fix.
 - Add regression test.
 - Run full tests.
+- Run `npm run test:e2e`.
 - Complete PR workflow (create new PR or update existing PR).
 
 ## When to update this skill

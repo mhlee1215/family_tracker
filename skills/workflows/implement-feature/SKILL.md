@@ -15,6 +15,7 @@ Building a new feature.
 - Keep domain logic in `src/domain/`, UI in `app/`, persistence in `src/server/db/`.
 - Add/update tests for behavior changes.
 - Run `npm test`.
+- Run `npm run test:e2e` locally before PR.
 - Bump README build badge.
 - If reusable rule emerges, update skills/docs.
 - After code changes, always proceed to PR workflow: if no PR exists, create one; if a PR already exists, update that existing PR instead of creating a new one.
@@ -24,6 +25,7 @@ Building a new feature.
 - Implement minimal, coherent slice.
 - Add or adjust tests.
 - Run `npm test` and fix failures.
+- Run `npm run test:e2e` and fix failures.
 - Update badge/docs/skills as required.
 - Complete PR workflow (create new PR or update existing PR).
 
