@@ -1268,16 +1268,6 @@ function initMealSortables(slots) {
   });
 
   slots.forEach(([slot, container]) => {
-    const hasMealItems = container.querySelector('.meal-item');
-    if (!hasMealItems) {
-      const existing = mealSortableInstances.get(container);
-      if (existing) {
-        existing.destroy();
-        mealSortableInstances.delete(container);
-      }
-      return;
-    }
-
     const existing = mealSortableInstances.get(container);
     if (existing) existing.destroy();
     const sortable = window.Sortable.create(container, {
