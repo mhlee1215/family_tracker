@@ -1035,20 +1035,19 @@ function emptyMealState() {
 }
 
 function defaultDemoMeals() {
+  const today = localDateKey(new Date());
   return {
     wish: [
-      { id: 'meal-demo-wish-1', name: 'Soy-braised tofu', url: 'https://example.com/tofu', ingredients: 'tofu, soy sauce, garlic', done: false },
-      { id: 'meal-demo-wish-2', name: 'Pumpkin porridge', url: 'https://example.com/pumpkin-porridge', ingredients: 'pumpkin, rice, water', done: false },
+      { id: 'meal-demo-wish-1', name: 'Soy-braised tofu', url: 'https://example.com/tofu', ingredients: 'tofu, soy sauce, garlic', likes: 0 },
+      { id: 'meal-demo-wish-2', name: 'Pumpkin porridge', url: 'https://example.com/pumpkin-porridge', ingredients: 'pumpkin, rice, water', likes: 0 },
     ],
-    breakfast: [
-      { id: 'meal-demo-breakfast-1', name: 'Egg toast', url: 'https://example.com/egg-toast', ingredients: 'bread, egg, butter', done: false },
-    ],
-    lunch: [
-      { id: 'meal-demo-lunch-1', name: 'Beef seaweed soup', url: 'https://example.com/seaweed-soup', ingredients: 'beef, seaweed, sesame oil', done: false },
-    ],
-    dinner: [
-      { id: 'meal-demo-dinner-1', name: 'Salmon rice bowl', url: 'https://example.com/salmon-bowl', ingredients: 'salmon, rice, avocado', done: false },
-    ],
+    plannedByDay: {
+      [today]: {
+        breakfast: [{ id: 'meal-demo-breakfast-1', name: 'Egg toast', url: 'https://example.com/egg-toast', ingredients: 'bread, egg, butter', likes: 0 }],
+        lunch: [{ id: 'meal-demo-lunch-1', name: 'Beef seaweed soup', url: 'https://example.com/seaweed-soup', ingredients: 'beef, seaweed, sesame oil', likes: 0 }],
+        dinner: [{ id: 'meal-demo-dinner-1', name: 'Salmon rice bowl', url: 'https://example.com/salmon-bowl', ingredients: 'salmon, rice, avocado', likes: 0 }],
+      },
+    },
   };
 }
 
@@ -1067,8 +1066,10 @@ function loadMeals() {
     if (!Object.keys(next.plannedByDay).length && (Array.isArray(parsed.breakfast) || Array.isArray(parsed.lunch) || Array.isArray(parsed.dinner))) {
       next.plannedByDay[localDateKey(new Date())] = { breakfast: parsed.breakfast || [], lunch: parsed.lunch || [], dinner: parsed.dinner || [] };
     }
-    const plan = next.plannedByDay[state.selectedMealDay] || { breakfast: [], lunch: [], dinner: [] };
-    const totalCount = next.wish.length + plan.breakfast.length + plan.lunch.length + plan.dinner.length;
+    const assignedCount = Object.values(next.plannedByDay).reduce((sum, dayPlan) => (
+      sum + (dayPlan?.breakfast?.length || 0) + (dayPlan?.lunch?.length || 0) + (dayPlan?.dinner?.length || 0)
+    ), 0);
+    const totalCount = next.wish.length + assignedCount;
     if (totalCount > 0) return next;
     return { ...next, ...defaultDemoMeals() };
   } catch {
@@ -1213,7 +1214,7 @@ function renderMeals() {
   elements.mealCount.textContent = `${dayPlan.breakfast.length + dayPlan.lunch.length + dayPlan.dinner.length} menus`;
   if (elements.mealDayLabel) elements.mealDayLabel.textContent = dayHeading(state.selectedMealDay);
   if (elements.mealDayPicker) elements.mealDayPicker.value = state.selectedMealDay;
-  renderMealSummary();
+  if (elements.mealSummaryPanel && !elements.mealSummaryPanel.classList.contains('hidden')) renderMealSummary();
 }
 
 function renderMealItem(item, slot) {
@@ -1333,7 +1334,7 @@ function initMealSortables(slots) {
 
   slots.forEach(([slot, container]) => {
     const existing = mealSortableInstances.get(container);
-    if (existing) existing.destroy();
+    if (existing) return;
     const sortable = window.Sortable.create(container, {
       group: 'family-meal-board',
       animation: 180,
@@ -1416,6 +1417,7 @@ function renderMealSummary() {
 function toggleMealSummaryPanel() {
   if (!elements.mealSummaryPanel) return;
   elements.mealSummaryPanel.classList.toggle('hidden');
+  if (!elements.mealSummaryPanel.classList.contains('hidden')) renderMealSummary();
 }
 
 function editMeal(id) {
