@@ -107,11 +107,19 @@ test.describe('Meal drag/drop reliability', () => {
     ];
 
     for (const { slot, meal, target } of scenarios) {
-      await page.locator(`#meal-${slot} .meal-item .meal-item-handle`).dragTo(page.locator('#wish-list'));
+      const fromHandle = page.locator(`#meal-${slot} .meal-item`, { hasText: meal }).first().locator('.meal-item-handle');
+      const wishDropZone = page.locator('.meal-column-wish').first();
+      await fromHandle.scrollIntoViewIfNeeded();
+      await wishDropZone.scrollIntoViewIfNeeded();
+      await fromHandle.dragTo(wishDropZone);
       await expect(page.locator(`#meal-${slot} .meal-item`, { hasText: meal })).toHaveCount(0);
       await expect(page.locator('#wish-list .meal-item', { hasText: meal })).toHaveCount(1);
 
-      await page.locator('#wish-list .meal-item', { hasText: meal }).locator('.meal-item-handle').dragTo(page.locator(target));
+      const wishHandle = page.locator('#wish-list .meal-item', { hasText: meal }).first().locator('.meal-item-handle');
+      const slotDropZone = page.locator(target);
+      await wishHandle.scrollIntoViewIfNeeded();
+      await slotDropZone.scrollIntoViewIfNeeded();
+      await wishHandle.dragTo(slotDropZone);
       await expect(page.locator(target + ' .meal-item', { hasText: meal })).toHaveCount(1);
       await expect(page.locator('#wish-list .meal-item', { hasText: meal })).toHaveCount(0);
     }
