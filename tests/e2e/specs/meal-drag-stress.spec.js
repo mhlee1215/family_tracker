@@ -12,7 +12,7 @@ async function dragMeal(page, mealName, toSlotSelector) {
     }
 
     const dataTransfer = new DataTransfer();
-    const handle = source.querySelector('.meal-drag-handle');
+    const handle = source.querySelector('.meal-item-handle');
     handle?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }));
     target.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer }));
