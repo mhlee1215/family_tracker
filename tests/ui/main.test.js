@@ -79,6 +79,26 @@ describe('app/main', () => {
     expect(summaryPanel.classList.contains('hidden')).toBe(true);
   });
 
+  it('changes meal date when clicking previous/next meal day arrows', async () => {
+    await import('../../app/main.js?case=meal-day-arrows');
+
+    const previousButton = document.querySelector('#previous-meal-day');
+    const nextButton = document.querySelector('#next-meal-day');
+    const picker = document.querySelector('#meal-day-picker');
+    const mealTabButton = document.querySelector('#meal-tab');
+
+    fireEvent.click(mealTabButton);
+
+    fireEvent.click(previousButton);
+    const previousDayValue = picker.value;
+    expect(previousDayValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    fireEvent.click(nextButton);
+    const nextDayValue = picker.value;
+    expect(nextDayValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(nextDayValue > previousDayValue).toBe(true);
+  });
+
   it('submits question form and renders response', async () => {
     await import('../../app/main.js?case=ask');
 
