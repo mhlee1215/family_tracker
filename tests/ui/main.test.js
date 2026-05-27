@@ -39,7 +39,6 @@ describe('app/main', () => {
 
     const button = document.querySelector('#toggle-meal-log');
     const panel = document.querySelector('#meal-log-panel');
-    const board = document.querySelector('#meal-board');
 
     expect(panel.classList.contains('hidden')).toBe(true);
     expect(button.getAttribute('aria-expanded')).toBe('false');
@@ -49,14 +48,35 @@ describe('app/main', () => {
     expect(panel.classList.contains('hidden')).toBe(false);
     expect(panel.getAttribute('aria-hidden')).toBe('false');
     expect(button.getAttribute('aria-expanded')).toBe('true');
-    expect(board.classList.contains('meal-log-open')).toBe(true);
 
     fireEvent.click(button);
 
     expect(panel.classList.contains('hidden')).toBe(true);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(button.getAttribute('aria-expanded')).toBe('false');
-    expect(board.classList.contains('meal-log-open')).toBe(false);
+  });
+
+
+  it('closes floating meal log and summary when clicking outside', async () => {
+    await import('../../app/main.js?case=meal-panels');
+
+    const logButton = document.querySelector('#toggle-meal-log');
+    const logPanel = document.querySelector('#meal-log-panel');
+    const summaryButton = document.querySelector('#open-meal-summary');
+    const summaryPanel = document.querySelector('#meal-summary-panel');
+
+    fireEvent.click(logButton);
+    expect(logPanel.classList.contains('hidden')).toBe(false);
+
+    fireEvent.pointerDown(document.body);
+    expect(logPanel.classList.contains('hidden')).toBe(true);
+
+    fireEvent.click(summaryButton);
+    expect(summaryPanel.classList.contains('hidden')).toBe(false);
+    expect(summaryPanel.querySelector('.meal-summary-chart')).toBeTruthy();
+
+    fireEvent.pointerDown(document.body);
+    expect(summaryPanel.classList.contains('hidden')).toBe(true);
   });
 
   it('submits question form and renders response', async () => {
