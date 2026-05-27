@@ -1207,17 +1207,36 @@ function renderMealItem(item) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
   row.dataset.mealId = item.id;
-  row.draggable = true;
+  row.draggable = false;
+  let dragArmed = false;
 
   const title = document.createElement('strong');
   title.className = 'meal-item-handle';
   title.textContent = `☰ ${item.name}`;
   row.appendChild(title);
+  const armDrag = () => {
+    dragArmed = true;
+    row.draggable = true;
+  };
+  const disarmDrag = () => {
+    dragArmed = false;
+    row.draggable = false;
+  };
+  title.addEventListener('pointerdown', armDrag);
+  title.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') armDrag();
+  });
+
   row.addEventListener('dragstart', (event) => {
+    if (!dragArmed) {
+      event.preventDefault();
+      return;
+    }
     event.dataTransfer?.setData('text/plain', item.id);
     event.dataTransfer?.setData('application/x-family-meal-id', item.id);
     event.dataTransfer?.setData('text/id', item.id);
   });
+  row.addEventListener('dragend', () => disarmDrag());
 
   const thumb = document.createElement('img');
   thumb.className = 'meal-thumb';
@@ -1268,16 +1287,6 @@ function initMealSortables(slots) {
   });
 
   slots.forEach(([slot, container]) => {
-    const hasMealItems = container.querySelector('.meal-item');
-    if (!hasMealItems) {
-      const existing = mealSortableInstances.get(container);
-      if (existing) {
-        existing.destroy();
-        mealSortableInstances.delete(container);
-      }
-      return;
-    }
-
     const existing = mealSortableInstances.get(container);
     if (existing) existing.destroy();
     const sortable = window.Sortable.create(container, {

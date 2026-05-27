@@ -12,7 +12,7 @@ async function dragMeal(page, mealName, toSlotSelector) {
     }
 
     const dataTransfer = new DataTransfer();
-    const handle = source.querySelector('.meal-drag-handle');
+    const handle = source.querySelector('.meal-item-handle');
     handle?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }));
     target.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer }));
@@ -23,6 +23,102 @@ async function dragMeal(page, mealName, toSlotSelector) {
 }
 
 test.describe('Meal drag/drop reliability', () => {
+  test('dragging planned menu to empty wish list works with real pointer interaction', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+
+    await page.addInitScript(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem('familyTracker.meals', JSON.stringify({
+        lastDay: today,
+        breakfast: [{ id: 'meal-b-1', name: 'Egg toast', category: 'korean', url: '', ingredients: '', done: false, day: today }],
+        lunch: [],
+        dinner: [],
+        wish: [],
+        log: [],
+      }));
+    });
+
+    await page.goto('/');
+    await page.locator('#meal-tab').click();
+    await expect(page.locator('#wish-list .meal-item')).toHaveCount(0);
+    await expect(page.locator('#meal-breakfast .meal-item', { hasText: 'Egg toast' })).toHaveCount(1);
+
+    await page.locator('#meal-breakfast .meal-item .meal-item-handle').dragTo(page.locator('#wish-list'));
+
+    await expect(page.locator('#wish-list .meal-item', { hasText: 'Egg toast' })).toHaveCount(1);
+    await expect(page.locator('#meal-breakfast .meal-item', { hasText: 'Egg toast' })).toHaveCount(0);
+    await expect(page.locator('body')).not.toHaveClass(/meal-dragging/);
+  });
+
+  test('BUG: drag should start only from handle, not entire meal card', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+
+    await page.addInitScript(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem('familyTracker.meals', JSON.stringify({
+        lastDay: today,
+        breakfast: [{ id: 'meal-b-1', name: 'Egg toast', category: 'korean', url: '', ingredients: 'bread, egg', done: false, day: today }],
+        lunch: [],
+        dinner: [],
+        wish: [],
+        log: [],
+      }));
+    });
+
+    await page.goto('/');
+    await page.locator('#meal-tab').click();
+    await expect(page.locator('#meal-breakfast .meal-item', { hasText: 'Egg toast' })).toHaveCount(1);
+
+    await page.locator('#meal-breakfast .meal-item .meal-thumb').dragTo(page.locator('#wish-list'));
+
+    // Expected UX: non-handle drag should not move item.
+    // Current implementation moves it, so this assertion reveals the bug.
+    await expect(page.locator('#meal-breakfast .meal-item', { hasText: 'Egg toast' })).toHaveCount(1);
+    await expect(page.locator('#wish-list .meal-item', { hasText: 'Egg toast' })).toHaveCount(0);
+  });
+
+  
+
+  test('menu (breakfast/lunch/dinner) <-> wish menu drag/drop cases', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+
+    await page.addInitScript(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem('familyTracker.meals', JSON.stringify({
+        lastDay: today,
+        breakfast: [{ id: 'meal-b-1', name: 'Egg toast', category: 'korean', url: '', ingredients: '', done: false, day: today }],
+        lunch: [{ id: 'meal-l-1', name: 'Seaweed soup', category: 'korean', url: '', ingredients: '', done: false, day: today }],
+        dinner: [{ id: 'meal-d-1', name: 'Salmon bowl', category: 'korean', url: '', ingredients: '', done: false, day: today }],
+        wish: [{ id: 'meal-w-1', name: 'Tofu stew', category: 'korean', url: '', ingredients: '', done: false, day: today }],
+        log: [],
+      }));
+    });
+
+    await page.goto('/');
+    await page.locator('#meal-tab').click();
+
+    const scenarios = [
+      { slot: 'breakfast', meal: 'Egg toast', target: '#meal-breakfast' },
+      { slot: 'lunch', meal: 'Seaweed soup', target: '#meal-lunch' },
+      { slot: 'dinner', meal: 'Salmon bowl', target: '#meal-dinner' },
+    ];
+
+    for (const { slot, meal, target } of scenarios) {
+      await page.locator(`#meal-${slot} .meal-item .meal-item-handle`).dragTo(page.locator('#wish-list'));
+      await expect(page.locator(`#meal-${slot} .meal-item`, { hasText: meal })).toHaveCount(0);
+      await expect(page.locator('#wish-list .meal-item', { hasText: meal })).toHaveCount(1);
+
+      await page.locator('#wish-list .meal-item', { hasText: meal }).locator('.meal-item-handle').dragTo(page.locator(target));
+      await expect(page.locator(target + ' .meal-item', { hasText: meal })).toHaveCount(1);
+      await expect(page.locator('#wish-list .meal-item', { hasText: meal })).toHaveCount(0);
+    }
+
+    await expect(page.locator('body')).not.toHaveClass(/meal-dragging/);
+  });
+
   test('repeated multi-slot drags preserve integrity and UI state', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
