@@ -1490,7 +1490,7 @@ function moveMeal(id, to) {
 }
 
 function shiftSelectedMealDay(days) {
-  state.selectedMealDay = shiftDay(state.selectedMealDay, days);
+  state.selectedMealDay = shiftDateKey(state.selectedMealDay, days);
   syncUrlForTab(state.activeTab, { pushHistory: true });
   renderMeals();
 }
