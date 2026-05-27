@@ -221,6 +221,26 @@ async function handleApi(request, response) {
       sendJson(response, 200, { events, summary: buildTodaySummary(events) });
       return;
     }
+    if (request.method === 'GET' && requestUrl.pathname === '/api/logs/calendar') {
+      const month = requestUrl.searchParams.get('month') || new Date().toISOString().slice(0, 7);
+      const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
+      const events = await store.listEvents({ ...scope, limit: 2000 });
+      const days = {};
+      for (const event of events) {
+        const value = event.occurredAt?.value || event.startAt?.value || event.endAt?.value;
+        if (!value) continue;
+        const day = localDateKeyFromIso(value, timezone);
+        if (!day.startsWith(month)) continue;
+        if (!days[day]) days[day] = [];
+        const color = event.type === 'sleep' ? '#6366f1'
+          : event.type === 'feeding_milk' ? '#0ea5e9'
+            : event.type === 'feeding_solid' ? '#f59e0b'
+              : event.type === 'diaper' ? '#22c55e' : '#9ca3af';
+        if (!days[day].includes(color)) days[day].push(color);
+      }
+      sendJson(response, 200, { days });
+      return;
+    }
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/logs') {
       const body = await readJson(request);
@@ -544,6 +564,17 @@ function getLLMProvider() {
 
 function getProviderKey(provider) {
   return provider === 'openai' ? process.env.OPENAI_API_KEY || '' : '';
+}
+
+function localDateKeyFromIso(value, timezone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone || 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(value));
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
 function buildEventSummary(period, day, tasks, events) {

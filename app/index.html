@@ -103,6 +103,15 @@
             <div class="date-picker-label">
               <h1 id="day-label" class="day-label">Today</h1>
               <input id="day-picker" class="day-picker" type="date" aria-label="Browse day">
+              <button id="baby-calendar-toggle" type="button" class="calendar-toggle" aria-expanded="false" aria-controls="baby-calendar-popover">Open baby calendar</button>
+              <div id="baby-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Baby calendar">
+                <div class="task-calendar-header">
+                  <button id="baby-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
+                  <strong id="baby-calendar-month"></strong>
+                  <button id="baby-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+                </div>
+                <div id="baby-calendar-grid" class="task-calendar-grid"></div>
+              </div>
             </div>
             <button id="next-day" type="button" class="date-step" aria-label="Next day">›</button>
           </div>
@@ -227,6 +236,15 @@
             <div class="date-picker-label">
               <h1 id="meal-day-label" class="day-label">Meals</h1>
               <input id="meal-day-picker" class="day-picker" type="date" aria-label="Browse meal day">
+              <button id="meal-calendar-toggle" type="button" class="calendar-toggle" aria-expanded="false" aria-controls="meal-calendar-popover">Open meal calendar</button>
+              <div id="meal-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Meal calendar">
+                <div class="task-calendar-header">
+                  <button id="meal-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
+                  <strong id="meal-calendar-month"></strong>
+                  <button id="meal-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+                </div>
+                <div id="meal-calendar-grid" class="task-calendar-grid"></div>
+              </div>
             </div>
             <button id="next-meal-day" type="button" class="date-step" aria-label="Next meal day">›</button>
           </div>
