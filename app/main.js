@@ -7,6 +7,7 @@ const mealThumbnailCache = new Map();
 const storageKeys = {
   theme: 'familyTracker.theme',
   activeTab: 'familyTracker.activeTab',
+  mealsLegacy: 'familyTracker.meals',
 };
 
 const copy = {
@@ -54,7 +55,7 @@ const state = {
   mealCalendarMonth: null,
   mealCalendarDots: {},
   taskPanel: 'today',
-  meals: loadMeals(),
+  meals: emptyMealState(),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -171,6 +172,7 @@ renderQuickActions();
 renderTabletActions();
 if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
 await loadCurrentUser();
+state.meals = loadMealsForUser(state.user);
 if (state.user) await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
 renderAuthState();
 
@@ -486,6 +488,7 @@ async function devLogin() {
     return;
   }
   state.user = payload.user;
+  state.meals = loadMealsForUser(state.user);
   renderAuthState();
   await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
 }
@@ -493,6 +496,7 @@ async function devLogin() {
 async function logout() {
   await fetch('/api/auth/logout', { method: 'POST' });
   state.user = null;
+  state.meals = loadMealsForUser(null);
   state.events = [];
   state.summary = null;
   state.tasks = [];
@@ -506,6 +510,7 @@ async function logout() {
 function handleAuthFailure(response) {
   if (response.status !== 401) return false;
   state.user = null;
+  state.meals = loadMealsForUser(null);
   renderAuthState();
   renderBaby();
   renderTasks();
@@ -1159,9 +1164,16 @@ function defaultDemoMeals() {
   };
 }
 
-function loadMeals() {
+function mealStorageKey(user = state.user) {
+  const userId = user?.id || user?.email || 'guest';
+  return `familyTracker.meals.${userId}`;
+}
+
+function loadMealsForUser(user = state.user) {
   try {
-    const parsed = JSON.parse(localStorage.getItem('familyTracker.meals') || '');
+    const scopedRaw = localStorage.getItem(mealStorageKey(user));
+    const legacyRaw = localStorage.getItem(storageKeys.mealsLegacy);
+    const parsed = JSON.parse(scopedRaw || legacyRaw || '');
     if (!parsed || typeof parsed !== 'object') return emptyMealState();
     const next = {
       ...emptyMealState(),
@@ -1186,7 +1198,7 @@ function loadMeals() {
 }
 
 function saveMeals() {
-  localStorage.setItem('familyTracker.meals', JSON.stringify(state.meals));
+  localStorage.setItem(mealStorageKey(state.user), JSON.stringify(state.meals));
 }
 
 function planForDay(day = state.selectedMealDay) {
