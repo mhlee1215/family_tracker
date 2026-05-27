@@ -2,6 +2,7 @@ const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
 
 const mealSortableInstances = new Map();
+const mealThumbnailCache = new Map();
 
 const storageKeys = {
   theme: 'familyTracker.theme',
@@ -1362,6 +1363,7 @@ function renderMealItem(item, slot) {
   thumb.className = 'meal-thumb';
   thumb.alt = `${item.name} thumbnail`;
   thumb.src = mealThumbnailUrl(item.url);
+  hydrateMealThumbnail(thumb, item.url);
   row.appendChild(thumb);
   if (item.url) {
     const link = document.createElement('a');
@@ -1573,4 +1575,25 @@ function mealThumbnailUrl(url) {
   })();
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140"><rect width="220" height="140" fill="#f5f5f7"/><text x="110" y="72" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#7a7a7a">${escapeHtml(host)}</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+async function hydrateMealThumbnail(imageElement, url) {
+  const clean = String(url || '').trim();
+  if (!clean) return;
+  if (mealThumbnailCache.has(clean)) {
+    const cached = mealThumbnailCache.get(clean);
+    if (cached) imageElement.src = cached;
+    return;
+  }
+  try {
+    const params = new URLSearchParams({ url: clean });
+    const response = await fetch(`/api/meal-thumbnail?${params.toString()}`);
+    if (!response.ok) throw new Error('failed to resolve thumbnail');
+    const payload = await response.json();
+    const resolved = String(payload.thumbnail || '').trim();
+    mealThumbnailCache.set(clean, resolved || '');
+    if (resolved) imageElement.src = resolved;
+  } catch {
+    mealThumbnailCache.set(clean, '');
+  }
 }

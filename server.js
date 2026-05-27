@@ -202,6 +202,34 @@ async function handleApi(request, response) {
       return;
     }
 
+    if (request.method === 'GET' && requestUrl.pathname === '/api/meal-thumbnail') {
+      const target = String(requestUrl.searchParams.get('url') || '').trim();
+      if (!target) {
+        sendJson(response, 400, { error: 'url query is required.' });
+        return;
+      }
+      let parsed;
+      try {
+        parsed = new URL(target);
+      } catch {
+        sendJson(response, 400, { error: 'url must be a valid absolute URL.' });
+        return;
+      }
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        sendJson(response, 400, { error: 'url must be http or https.' });
+        return;
+      }
+
+      let thumbnail = '';
+      try {
+        thumbnail = await resolveMealThumbnail(target);
+      } catch {
+        thumbnail = '';
+      }
+      sendJson(response, 200, { thumbnail });
+      return;
+    }
+
     if (request.method === 'POST' && requestUrl.pathname === '/api/profile') {
       const body = await readJson(request);
       sendJson(response, 200, {
@@ -472,6 +500,44 @@ async function handleApi(request, response) {
   } catch (error) {
     sendJson(response, error.status || 500, { error: error.message || 'Unexpected server error.' });
   }
+}
+
+async function resolveMealThumbnail(url) {
+  const response = await fetch(url, {
+    headers: {
+      'user-agent': 'family-tracker-thumbnail-bot/1.0',
+      accept: 'text/html,application/xhtml+xml',
+    },
+    redirect: 'follow',
+  });
+  if (!response.ok) return '';
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('text/html')) return '';
+  const html = await response.text();
+  return extractFirstImageFromHtml(html, response.url) || '';
+}
+
+function extractFirstImageFromHtml(html, baseUrl) {
+  const candidates = [
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["'][^>]*>/i,
+    /<img[^>]+src=["']([^"']+)["'][^>]*>/i,
+  ];
+
+  for (const regex of candidates) {
+    const match = html.match(regex);
+    const raw = match?.[1]?.trim();
+    if (!raw) continue;
+    try {
+      const resolved = new URL(raw, baseUrl);
+      if (['http:', 'https:'].includes(resolved.protocol)) return resolved.toString();
+    } catch {
+      continue;
+    }
+  }
+  return '';
 }
 
 async function currentSession(request) {
