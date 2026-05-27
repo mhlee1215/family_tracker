@@ -243,7 +243,10 @@
                 <div id="wish-list" class="task-list"></div>
               </section>
             </div>
-            <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
+            <div class="meal-log-toggle-row"><button id="toggle-meal-log" type="button" class="compact-button meal-log-toggle" aria-expanded="false" aria-controls="meal-log-panel">🧾 Show log</button></div>
+            <aside id="meal-log-panel" class="meal-log-panel hidden" aria-hidden="true">
+              <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
+            </aside>
           </section>
         </section>
 
@@ -252,7 +255,7 @@
             <h3 id="meal-form-title">Add meal</h3>
             <input id="meal-form-name" type="text" placeholder="Menu name" required>
             <select id="meal-form-category">
-              <option value="korean">한식</option><option value="japanese">일식</option><option value="chinese">중식</option><option value="western">양식</option><option value="snack">간식</option>
+              <option value="korean">Korean</option><option value="japanese">Japanese</option><option value="chinese">Chinese</option><option value="western">Western</option><option value="snack">Snack</option>
             </select>
             <input id="meal-form-url" type="url" placeholder="Recipe URL">
             <input id="meal-form-ingredients" type="text" placeholder="Ingredients">
