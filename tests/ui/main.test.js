@@ -33,6 +33,32 @@ describe('app/main', () => {
     expect(authPanel.classList.contains('hidden')).toBe(false);
   });
 
+
+  it('opens meal log as overlay without collapsing meal columns', async () => {
+    await import('../../app/main.js?case=meal-log');
+
+    const button = document.querySelector('#toggle-meal-log');
+    const panel = document.querySelector('#meal-log-panel');
+    const board = document.querySelector('#meal-board');
+
+    expect(panel.classList.contains('hidden')).toBe(true);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(button);
+
+    expect(panel.classList.contains('hidden')).toBe(false);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(board.classList.contains('meal-log-open')).toBe(true);
+
+    fireEvent.click(button);
+
+    expect(panel.classList.contains('hidden')).toBe(true);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(board.classList.contains('meal-log-open')).toBe(false);
+  });
+
   it('submits question form and renders response', async () => {
     await import('../../app/main.js?case=ask');
 
