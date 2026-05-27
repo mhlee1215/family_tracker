@@ -49,7 +49,7 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 아래 규칙은 권장사항이 아니라 **강제 규칙**이다.
 
 1. **Pre-commit gate**
-   - 코드 변경이 있는 턴에서는 커밋 전에 반드시 `npm test`, `npm run test:ui`, `npm run test:e2e`를 순서대로 실행한다.
+   - 코드 변경이 있는 턴에서는 커밋 전에 반드시 `npm test`, `npm run test:ui`, `npm run test:e2e`, `npm run test:ci`를 실행한다.
    - 3개 중 하나라도 미실행이면 커밋/PR 진행 금지.
 
 2. **Failure handling**
@@ -68,3 +68,11 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 5. **Scope**
    - 문서만 수정한 경우에는 최소 `npm test`를 실행한다.
    - UI/라우팅/상태 로직 변경이 있으면 3종 전체 실행을 기본값으로 한다.
+
+
+## CI Failure Prevention Policy (Local-first, Mandatory)
+- CI 실패 이력이 있으면, 코드 수정 난이도와 무관하게 **로컬에서 실행 가능한 모든 테스트를 커밋 전에 수행**한다.
+- 기본 강제 세트: `npm test`, `npm run test:ui`, `npm run test:e2e`, `npm run test:ci`
+- 가능한 추가 검증(프로젝트에 명령이 존재할 경우): `npm run lint`, `npm run typecheck` 등도 포함한다.
+- 일부 테스트가 환경 제약으로 실행 불가하면, 실패로 숨기지 말고 **실행 시도 + 제한 사유**를 최종 보고에 남긴다.
+- "난이도가 낮아서 일부 테스트 생략"은 허용하지 않는다.
