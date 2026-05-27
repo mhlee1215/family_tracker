@@ -48,6 +48,10 @@ const state = {
   selectedMealDay: getInitialDayParam('mealDay'),
   taskCalendarMonth: null,
   taskCalendarDots: {},
+  babyCalendarMonth: null,
+  babyCalendarDots: {},
+  mealCalendarMonth: null,
+  mealCalendarDots: {},
   taskPanel: 'today',
   meals: loadMeals(),
 };
@@ -84,6 +88,12 @@ const elements = {
   metadataVersion: $('#metadata-version'),
   dayLabel: $('#day-label'),
   dayPicker: $('#day-picker'),
+  babyCalendarToggle: $('#baby-calendar-toggle'),
+  babyCalendarPopover: $('#baby-calendar-popover'),
+  babyCalendarPrev: $('#baby-calendar-prev'),
+  babyCalendarNext: $('#baby-calendar-next'),
+  babyCalendarMonth: $('#baby-calendar-month'),
+  babyCalendarGrid: $('#baby-calendar-grid'),
   previousDay: $('#previous-day'),
   nextDay: $('#next-day'),
   taskDayLabel: $('#task-day-label'),
@@ -122,6 +132,12 @@ const elements = {
   taskOverviewList: $('#task-overview-list'),
   wishList: $('#wish-list'),
   mealDayLabel: $('#meal-day-label'),
+  mealCalendarToggle: $('#meal-calendar-toggle'),
+  mealCalendarPopover: $('#meal-calendar-popover'),
+  mealCalendarPrev: $('#meal-calendar-prev'),
+  mealCalendarNext: $('#meal-calendar-next'),
+  mealCalendarMonth: $('#meal-calendar-month'),
+  mealCalendarGrid: $('#meal-calendar-grid'),
   mealDayPicker: $('#meal-day-picker'),
   previousMealDay: $('#previous-meal-day'),
   nextMealDay: $('#next-meal-day'),
@@ -248,6 +264,12 @@ elements.taskDayPicker.addEventListener('change', () => {
 elements.taskCalendarToggle?.addEventListener('click', () => toggleTaskCalendar());
 elements.taskCalendarPrev?.addEventListener('click', () => shiftTaskCalendarMonth(-1));
 elements.taskCalendarNext?.addEventListener('click', () => shiftTaskCalendarMonth(1));
+elements.babyCalendarToggle?.addEventListener('click', () => toggleBabyCalendar());
+elements.babyCalendarPrev?.addEventListener('click', () => shiftBabyCalendarMonth(-1));
+elements.babyCalendarNext?.addEventListener('click', () => shiftBabyCalendarMonth(1));
+elements.mealCalendarToggle?.addEventListener('click', () => toggleMealCalendar());
+elements.mealCalendarPrev?.addEventListener('click', () => shiftMealCalendarMonth(-1));
+elements.mealCalendarNext?.addEventListener('click', () => shiftMealCalendarMonth(1));
 
 elements.themeSelect.addEventListener('change', () => {
   state.theme = normalizeTheme(elements.themeSelect.value);
@@ -262,9 +284,15 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('click', (event) => {
-  if (!elements.taskCalendarPopover || elements.taskCalendarPopover.classList.contains('hidden')) return;
-  if (elements.taskCalendarPopover.contains(event.target) || elements.taskCalendarToggle.contains(event.target)) return;
-  setTaskCalendarOpen(false);
+  if (elements.taskCalendarPopover && !elements.taskCalendarPopover.classList.contains('hidden')) {
+    if (!(elements.taskCalendarPopover.contains(event.target) || elements.taskCalendarToggle.contains(event.target))) setTaskCalendarOpen(false);
+  }
+  if (elements.babyCalendarPopover && !elements.babyCalendarPopover.classList.contains('hidden')) {
+    if (!(elements.babyCalendarPopover.contains(event.target) || elements.babyCalendarToggle.contains(event.target))) setBabyCalendarOpen(false);
+  }
+  if (elements.mealCalendarPopover && !elements.mealCalendarPopover.classList.contains('hidden')) {
+    if (!(elements.mealCalendarPopover.contains(event.target) || elements.mealCalendarToggle.contains(event.target))) setMealCalendarOpen(false);
+  }
 });
 
 document.addEventListener('pointerdown', (event) => {
@@ -547,8 +575,7 @@ function renderBaby() {
 }
 
 function renderDayControls() {
-  elements.dayPicker.value = state.selectedDay;
-  elements.dayLabel.textContent = dayHeading(state.selectedDay);
+  renderBabyDayControls();
 }
 
 function renderBabySettings() {
@@ -804,7 +831,83 @@ function shiftTaskCalendarMonth(delta) {
 
 function renderTaskCalendar() {
   if (!elements.taskCalendarGrid || !state.taskCalendarMonth) return;
-  const [year, month] = state.taskCalendarMonth.split('-').map(Number);
+  renderCalendarGrid({ monthKey: state.taskCalendarMonth, selectedDay: state.selectedTaskDay, dotsByDay: state.taskCalendarDots, monthElement: elements.taskCalendarMonth, gridElement: elements.taskCalendarGrid, onSelect: (iso) => { state.selectedTaskDay = iso; syncUrlForTab(state.activeTab, { pushHistory: true }); setTaskCalendarOpen(false); loadTaskData(); } });
+}
+
+
+
+async function loadBabyCalendarDots(monthKey) {
+  const response = await fetch(`/api/logs/calendar?month=${encodeURIComponent(monthKey)}&timezone=${encodeURIComponent(localTimezone())}`);
+  const payload = await response.json();
+  state.babyCalendarDots = payload.days || {};
+  renderBabyCalendar();
+}
+
+function renderBabyDayControls() {
+  elements.dayPicker.value = state.selectedDay;
+  elements.dayLabel.textContent = dayHeading(state.selectedDay);
+  if (elements.babyCalendarToggle) elements.babyCalendarToggle.textContent = 'Open baby calendar';
+  renderBabyCalendar();
+}
+
+function setBabyCalendarOpen(open) { elements.babyCalendarPopover?.classList.toggle('hidden', !open); elements.babyCalendarToggle?.setAttribute('aria-expanded', String(open)); }
+function toggleBabyCalendar() {
+  if (!elements.babyCalendarPopover) return;
+  const open = elements.babyCalendarPopover.classList.contains('hidden');
+  if (open) { state.babyCalendarMonth = state.selectedDay.slice(0, 7); loadBabyCalendarDots(state.babyCalendarMonth); }
+  setBabyCalendarOpen(open);
+}
+function shiftBabyCalendarMonth(delta) {
+  const monthKey = state.babyCalendarMonth || state.selectedDay.slice(0, 7);
+  const base = new Date(`${monthKey}-01T00:00:00`);
+  base.setMonth(base.getMonth() + delta);
+  state.babyCalendarMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+  loadBabyCalendarDots(state.babyCalendarMonth);
+}
+function renderBabyCalendar() {
+  if (!elements.babyCalendarGrid || !state.babyCalendarMonth) return;
+  renderCalendarGrid({monthKey: state.babyCalendarMonth, selectedDay: state.selectedDay, dotsByDay: state.babyCalendarDots, monthElement: elements.babyCalendarMonth, gridElement: elements.babyCalendarGrid, onSelect: (iso) => {state.selectedDay = iso; syncUrlForTab(state.activeTab, { pushHistory: true }); setBabyCalendarOpen(false); loadToday();}});
+}
+
+function renderMealDayControls() {
+  if (elements.mealDayLabel) elements.mealDayLabel.textContent = dayHeading(state.selectedMealDay);
+  if (elements.mealDayPicker) elements.mealDayPicker.value = state.selectedMealDay;
+  if (elements.mealCalendarToggle) elements.mealCalendarToggle.textContent = 'Open meal calendar';
+  renderMealCalendar();
+}
+
+function loadMealCalendarDots(monthKey) {
+  const dots = {};
+  Object.keys(state.meals.plannedByDay || {}).filter((day) => day.startsWith(monthKey)).forEach((day) => {
+    const plan = state.meals.plannedByDay[day] || {};
+    const colors = [];
+    if ((plan.breakfast || []).length) colors.push('#f59e0b');
+    if ((plan.lunch || []).length) colors.push('#22c55e');
+    if ((plan.dinner || []).length) colors.push('#8b5cf6');
+    if (colors.length) dots[day] = colors;
+  });
+  state.mealCalendarDots = dots;
+  renderMealCalendar();
+}
+function setMealCalendarOpen(open) { elements.mealCalendarPopover?.classList.toggle('hidden', !open); elements.mealCalendarToggle?.setAttribute('aria-expanded', String(open)); }
+function toggleMealCalendar() {
+  if (!elements.mealCalendarPopover) return;
+  const open = elements.mealCalendarPopover.classList.contains('hidden');
+  if (open) { state.mealCalendarMonth = state.selectedMealDay.slice(0, 7); loadMealCalendarDots(state.mealCalendarMonth); }
+  setMealCalendarOpen(open);
+}
+function shiftMealCalendarMonth(delta) {
+  const monthKey = state.mealCalendarMonth || state.selectedMealDay.slice(0, 7);
+  const base = new Date(`${monthKey}-01T00:00:00`); base.setMonth(base.getMonth() + delta);
+  state.mealCalendarMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`; loadMealCalendarDots(state.mealCalendarMonth);
+}
+function renderMealCalendar() {
+  if (!elements.mealCalendarGrid || !state.mealCalendarMonth) return;
+  renderCalendarGrid({monthKey: state.mealCalendarMonth, selectedDay: state.selectedMealDay, dotsByDay: state.mealCalendarDots, monthElement: elements.mealCalendarMonth, gridElement: elements.mealCalendarGrid, onSelect: (iso) => {state.selectedMealDay = iso; syncUrlForTab(state.activeTab, { pushHistory: true }); setMealCalendarOpen(false); renderMeals();}});
+}
+
+function renderCalendarGrid({ monthKey, selectedDay, dotsByDay, monthElement, gridElement, onSelect }) {
+  const [year, month] = monthKey.split('-').map(Number);
   const first = new Date(year, month - 1, 1);
   const startWeekday = first.getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -814,23 +917,15 @@ function renderTaskCalendar() {
     const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `calendar-day ${iso === state.selectedTaskDay ? 'selected' : ''}`;
-    const dots = (state.taskCalendarDots[iso] || []).slice(0, 4)
-      .map((color) => `<span class="calendar-dot" style="background:${escapeHtml(color)}"></span>`).join('');
+    button.className = `calendar-day ${iso === selectedDay ? 'selected' : ''}`;
+    const dots = (dotsByDay[iso] || []).slice(0, 4).map((color) => `<span class="calendar-dot" style="background:${escapeHtml(color)}"></span>`).join('');
     button.innerHTML = `<span>${day}</span><span class="calendar-dots">${dots}</span>`;
-    button.addEventListener('click', () => {
-      state.selectedTaskDay = iso;
-      syncUrlForTab(state.activeTab, { pushHistory: true });
-      setTaskCalendarOpen(false);
-      loadTaskData();
-    });
+    button.addEventListener('click', () => onSelect(iso));
     cells.push(button);
   }
-  elements.taskCalendarMonth.textContent = first.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-  elements.taskCalendarGrid.replaceChildren(...cells);
+  monthElement.textContent = first.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+  gridElement.replaceChildren(...cells);
 }
-
-
 function renderTaskColumn(group) {
   const column = document.createElement('section');
   column.className = 'task-column';
@@ -1224,8 +1319,7 @@ function renderMeals() {
     return node;
   }));
   elements.mealCount.textContent = `${dayPlan.breakfast.length + dayPlan.lunch.length + dayPlan.dinner.length} menus`;
-  if (elements.mealDayLabel) elements.mealDayLabel.textContent = dayHeading(state.selectedMealDay);
-  if (elements.mealDayPicker) elements.mealDayPicker.value = state.selectedMealDay;
+  renderMealDayControls();
   if (elements.mealSummaryPanel && !elements.mealSummaryPanel.classList.contains('hidden')) renderMealSummary();
 }
 

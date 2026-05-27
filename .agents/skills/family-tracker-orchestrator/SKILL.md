@@ -44,3 +44,27 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - 로컬 기본 검증은 항상 `npm test`가 통과해야 한다.
 - CI 동등 검증은 `npm run test:ci` (`npm run test:node && npm run test:ui`)로 수행한다.
 - 테스트 명령 정책이 바뀌면 README가 아니라 이 하네스 문서를 우선 갱신한다.
+
+## Enforcement (Must-follow)
+아래 규칙은 권장사항이 아니라 **강제 규칙**이다.
+
+1. **Pre-commit gate**
+   - 코드 변경이 있는 턴에서는 커밋 전에 반드시 `npm test`, `npm run test:ui`, `npm run test:e2e`를 순서대로 실행한다.
+   - 3개 중 하나라도 미실행이면 커밋/PR 진행 금지.
+
+2. **Failure handling**
+   - 테스트 실패 시 수정 없이 PR/완료 보고 금지.
+   - 환경 제약으로 실행 불가한 경우에만 예외 허용하고, 해당 사유를 명시적으로 남긴다.
+
+3. **Reporting format**
+   - 최종 보고에는 테스트 3종의 실행 결과를 명령어 단위로 모두 기재한다.
+   - 상태 표기는 `✅/⚠️/❌`를 사용한다.
+   - 누락된 명령이 있으면 작업 미완료로 간주한다.
+
+4. **No partial-pass acceptance**
+   - `npm test` 단독 통과는 완료 기준이 아니다.
+   - 완료 기준은 테스트 정책 3종 실행 + 결과 보고다.
+
+5. **Scope**
+   - 문서만 수정한 경우에는 최소 `npm test`를 실행한다.
+   - UI/라우팅/상태 로직 변경이 있으면 3종 전체 실행을 기본값으로 한다.
