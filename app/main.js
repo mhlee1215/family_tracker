@@ -124,6 +124,8 @@ const elements = {
   mealLunch: $('#meal-lunch'),
   mealDinner: $('#meal-dinner'),
   mealLog: $('#meal-log'),
+  mealLogPanel: $('#meal-log-panel'),
+  toggleMealLog: $('#toggle-meal-log'),
   mealCount: $('#meal-count'),
   openWishModal: $('#open-wish-modal'),
   mealModal: $('#meal-modal'),
@@ -180,6 +182,7 @@ elements.taskForm.addEventListener('submit', async (event) => {
 });
 elements.openTaskComposer.addEventListener('click', () => setTaskComposerOpen(true));
 elements.openWishModal?.addEventListener('click', () => openMealModal({ slot: 'wish' }));
+elements.toggleMealLog?.addEventListener('click', toggleMealLogPanel);
 elements.mealForm?.addEventListener('submit', submitMealForm);
 elements.mealCancel?.addEventListener('click', closeMealModal);
 elements.openTaskSummary?.addEventListener('click', () => setTaskPanel('summary'));
@@ -1262,29 +1265,43 @@ function renderMealItem(item, slot) {
   if (slot !== 'wish') {
     const saveForLater = document.createElement('button');
     saveForLater.type = 'button';
-    saveForLater.textContent = 'Save for later';
+    saveForLater.className = 'meal-action-button';
+    saveForLater.textContent = '🗂️ Save';
     saveForLater.onclick = () => moveMeal(item.id, 'wish');
     controls.appendChild(saveForLater);
   } else {
     for (const mealSlot of ['breakfast', 'lunch', 'dinner']) {
       const assign = document.createElement('button');
       assign.type = 'button';
-      assign.textContent = `Add to ${mealSlot}`;
+      assign.className = 'meal-action-button';
+      assign.textContent = `${mealSlot === 'breakfast' ? '🌅' : mealSlot === 'lunch' ? '🌞' : '🌙'} ${mealSlot}`;
       assign.onclick = () => moveMeal(item.id, mealSlot);
       controls.appendChild(assign);
     }
   }
   const edit = document.createElement('button');
   edit.type = 'button';
-  edit.textContent = 'Edit';
+  edit.className = 'meal-action-button';
+  edit.textContent = '✏️ Edit';
   edit.onclick = () => editMeal(item.id);
   const del = document.createElement('button');
   del.type = 'button';
-  del.textContent = 'Delete';
+  del.className = 'meal-action-button';
+  del.textContent = '🗑️ Delete';
   del.onclick = () => deleteMeal(item.id);
   controls.append(edit, del);
   row.appendChild(controls);
   return row;
+}
+
+
+function toggleMealLogPanel() {
+  if (!elements.mealLogPanel || !elements.toggleMealLog) return;
+  const shouldShow = elements.mealLogPanel.classList.contains('hidden');
+  elements.mealLogPanel.classList.toggle('hidden', !shouldShow);
+  elements.mealLogPanel.setAttribute('aria-hidden', String(!shouldShow));
+  elements.toggleMealLog.setAttribute('aria-expanded', String(shouldShow));
+  elements.toggleMealLog.textContent = shouldShow ? '🧾 Hide log' : '🧾 Show log';
 }
 
 function initMealSortables(slots) {

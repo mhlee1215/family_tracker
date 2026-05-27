@@ -506,6 +506,7 @@ Error and validation states were not surfaced in the analyzed pages.
 - Don't tighten line-height below 1.47 for body copy — the editorial leading is part of the brand.
 - Don't mix radii grammars — use `{rounded.sm}` for compact utility, `{rounded.lg}` for utility cards, `{rounded.pill}` for pills, and nothing in between (except the rare `{rounded.md}` Pearl Button).
 - Don't use `{colors.primary-on-dark}` (Sky Link Blue) on light surfaces — it's the dark-tile-only variant. Action Blue is for light surfaces.
+- Keep all user-facing UI copy in English for consistency across navigation, controls, forms, and status text.
 
 ## Responsive Behavior
 
