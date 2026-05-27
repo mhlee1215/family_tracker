@@ -1175,7 +1175,7 @@ function renderMeals() {
     } else if (!items.length) {
       container.innerHTML = '<p class="empty">No menu</p>';
     } else {
-      container.replaceChildren(...items.map((item) => renderMealItem(item)));
+      container.replaceChildren(...items.map((item) => renderMealItem(item, slot)));
     }
 
     container.ondragenter = () => container.classList.add('drag-target');
@@ -1203,7 +1203,7 @@ function renderMeals() {
   elements.mealCount.textContent = `${state.meals.breakfast.length + state.meals.lunch.length + state.meals.dinner.length} menus`;
 }
 
-function renderMealItem(item) {
+function renderMealItem(item, slot) {
   const row = document.createElement('article');
   row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
   row.dataset.mealId = item.id;
@@ -1259,10 +1259,21 @@ function renderMealItem(item) {
 
   const controls = document.createElement('div');
   controls.className = 'row';
-  const done = document.createElement('button');
-  done.type = 'button';
-  done.textContent = item.done ? 'Undo' : 'Done';
-  done.onclick = () => toggleMealDone(item.id);
+  if (slot !== 'wish') {
+    const saveForLater = document.createElement('button');
+    saveForLater.type = 'button';
+    saveForLater.textContent = 'Save for later';
+    saveForLater.onclick = () => moveMeal(item.id, 'wish');
+    controls.appendChild(saveForLater);
+  } else {
+    for (const mealSlot of ['breakfast', 'lunch', 'dinner']) {
+      const assign = document.createElement('button');
+      assign.type = 'button';
+      assign.textContent = `Add to ${mealSlot}`;
+      assign.onclick = () => moveMeal(item.id, mealSlot);
+      controls.appendChild(assign);
+    }
+  }
   const edit = document.createElement('button');
   edit.type = 'button';
   edit.textContent = 'Edit';
@@ -1271,7 +1282,7 @@ function renderMealItem(item) {
   del.type = 'button';
   del.textContent = 'Delete';
   del.onclick = () => deleteMeal(item.id);
-  controls.append(done, edit, del);
+  controls.append(edit, del);
   row.appendChild(controls);
   return row;
 }
@@ -1324,15 +1335,6 @@ function moveMeal(id, to) {
   if (to === 'wish') item.done = false;
   state.meals[to].unshift(item);
   logMealAction(`moved "${item.name}" from ${found.slot} to ${to}`);
-  saveMeals();
-  renderMeals();
-}
-
-function toggleMealDone(id) {
-  const found = findMeal(id);
-  if (!found) return;
-  found.item.done = !found.item.done;
-  logMealAction(`${found.item.done ? 'completed' : 'reopened'} "${found.item.name}" in ${found.slot}`);
   saveMeals();
   renderMeals();
 }
