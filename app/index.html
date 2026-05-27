@@ -230,7 +230,7 @@
         </header>
         <section class="task-layout">
           <section class="task-section meal-board">
-            <div class="section-header"><h2>Meals</h2><span id="meal-count" class="muted-count">0 menus</span></div>
+            <div class="section-header"><h2>Meals</h2><div class="section-actions"><button id="toggle-meal-log" type="button" class="compact-button meal-log-toggle" aria-expanded="false" aria-controls="meal-log-panel">Log</button><span id="meal-count" class="muted-count">0 menus</span></div></div>
             <div class="meal-columns">
               <section class="meal-column meal-column-planned">
                 <h3>Planned meals</h3>
@@ -243,8 +243,7 @@
                 <div id="wish-list" class="task-list"></div>
               </section>
             </div>
-            <div class="meal-log-toggle-row"><button id="toggle-meal-log" type="button" class="compact-button meal-log-toggle" aria-expanded="false" aria-controls="meal-log-panel">🧾 Show log</button></div>
-            <aside id="meal-log-panel" class="meal-log-panel hidden" aria-hidden="true">
+                        <aside id="meal-log-panel" class="meal-log-panel hidden" aria-hidden="true">
               <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
             </aside>
           </section>

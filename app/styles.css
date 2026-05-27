@@ -1085,7 +1085,7 @@ label {
 }
 
 .meal-board { gap: 16px; }
-.meal-columns { display:grid; grid-template-columns:1.3fr 1fr; gap:12px; }
+.meal-columns { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
 .meal-column { border:1px solid var(--hairline); border-radius:12px; background:var(--canvas); padding:12px; }
 .meal-slot { margin-bottom:10px; }
 .meal-slot-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
@@ -1133,18 +1133,18 @@ label {
   line-height: 1.2;
 }
 
-.meal-log-toggle-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
 .meal-log-panel {
   border: 1px solid var(--hairline);
   border-radius: 12px;
   padding: 10px;
   background: var(--canvas);
-  margin-top: 8px;
+  margin-top: 12px;
+}
+
+.meal-board {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 @media (min-width: 1069px) {
@@ -1155,8 +1155,7 @@ label {
     column-gap: 12px;
   }
 
-  .meal-columns,
-  .meal-log-toggle-row {
+  .meal-columns {
     grid-column: 1;
   }
 
