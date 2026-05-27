@@ -32,3 +32,15 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - 새로운 공용 하네스 규칙은 `.agents/skills/harness/` 기준으로 작성한다.
 - 제품 도메인 규칙은 기존 `skills/` 폴더를 source of truth로 유지한다.
 - 재사용 가능한 규칙이 생기면 `skills/`와 `docs/harness/family-tracker/`를 함께 갱신한다.
+
+
+## Required Post-change Test Routine
+코드 변경 후 에이전트가 반드시 확인할 테스트 순서:
+1. `npm test` (Node 기본 테스트)
+2. `npm run test:ui` (Vitest UI 테스트)
+3. `npm run test:e2e` (Playwright E2E, 로컬/환경 가능 시)
+
+추가 규칙:
+- 로컬 기본 검증은 항상 `npm test`가 통과해야 한다.
+- CI 동등 검증은 `npm run test:ci` (`npm run test:node && npm run test:ui`)로 수행한다.
+- 테스트 명령 정책이 바뀌면 README가 아니라 이 하네스 문서를 우선 갱신한다.

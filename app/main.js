@@ -267,6 +267,18 @@ document.addEventListener('click', (event) => {
   setTaskCalendarOpen(false);
 });
 
+document.addEventListener('pointerdown', (event) => {
+  const target = event.target;
+  if (elements.mealLogPanel && !elements.mealLogPanel.classList.contains('hidden')) {
+    const insideLog = elements.mealLogPanel.contains(target) || elements.toggleMealLog?.contains(target);
+    if (!insideLog) setMealLogPanelOpen(false);
+  }
+  if (elements.mealSummaryPanel && !elements.mealSummaryPanel.classList.contains('hidden')) {
+    const insideSummary = elements.mealSummaryPanel.contains(target) || elements.openMealSummary?.contains(target);
+    if (!insideSummary) setMealSummaryPanelOpen(false);
+  }
+});
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') setMenuOpen(false);
 });
@@ -1312,14 +1324,17 @@ function renderMealItem(item, slot) {
 }
 
 
+function setMealLogPanelOpen(open) {
+  if (!elements.mealLogPanel || !elements.toggleMealLog) return;
+  elements.mealLogPanel.classList.toggle('hidden', !open);
+  elements.mealLogPanel.setAttribute('aria-hidden', String(!open));
+  elements.toggleMealLog.setAttribute('aria-expanded', String(open));
+  elements.toggleMealLog.textContent = open ? 'Hide log' : 'Log';
+}
+
 function toggleMealLogPanel() {
-  if (!elements.mealLogPanel || !elements.toggleMealLog || !elements.mealBoard) return;
-  const shouldShow = elements.mealLogPanel.classList.contains('hidden');
-  elements.mealLogPanel.classList.toggle('hidden', !shouldShow);
-  elements.mealLogPanel.setAttribute('aria-hidden', String(!shouldShow));
-  elements.mealBoard.classList.toggle('meal-log-open', shouldShow);
-  elements.toggleMealLog.setAttribute('aria-expanded', String(shouldShow));
-  elements.toggleMealLog.textContent = shouldShow ? 'Hide log' : 'Log';
+  if (!elements.mealLogPanel) return;
+  setMealLogPanelOpen(elements.mealLogPanel.classList.contains('hidden'));
 }
 
 function initMealSortables(slots) {
@@ -1398,9 +1413,11 @@ function likeMeal(id) {
 function renderMealSummary() {
   if (!elements.mealSummary) return;
   const counts = new Map();
+  const slotTotals = { breakfast: 0, lunch: 0, dinner: 0 };
   for (const dayPlan of Object.values(state.meals.plannedByDay || {})) {
     for (const slot of ['breakfast', 'lunch', 'dinner']) {
       for (const item of (dayPlan[slot] || [])) {
+        slotTotals[slot] += 1;
         const key = item.name.trim().toLowerCase();
         const current = counts.get(key) || { name: item.name, assigned: 0, likes: 0 };
         current.assigned += 1;
@@ -1411,13 +1428,27 @@ function renderMealSummary() {
   }
   const top = [...counts.values()].sort((a, b) => (b.likes - a.likes) || (b.assigned - a.assigned)).slice(0, 5);
   const totalAssigned = [...counts.values()].reduce((sum, item) => sum + item.assigned, 0);
-  elements.mealSummary.innerHTML = `<article class="overview-item"><strong>Total assigned meals</strong><span>${totalAssigned}</span></article>${top.map((item, i) => `<article class="overview-item"><strong>#${i + 1} ${escapeHtml(item.name)}</strong><span>assigned ${item.assigned} · 👍 ${item.likes}</span></article>`).join('') || '<p class=\"empty\">No assigned meals yet.</p>'}`;
+  const maxSlotTotal = Math.max(...Object.values(slotTotals), 1);
+  const chart = ['breakfast', 'lunch', 'dinner'].map((slot) => {
+    const value = slotTotals[slot];
+    const width = Math.round((value / maxSlotTotal) * 100);
+    return `<article class="meal-summary-bar"><strong>${slot}</strong><div class="meal-summary-bar-track"><span style="width:${width}%"></span></div><em>${value}</em></article>`;
+  }).join('');
+  elements.mealSummary.innerHTML = `<article class="overview-item"><strong>Total assigned meals</strong><span>${totalAssigned}</span></article><section class="meal-summary-chart" aria-label="Meal slot distribution">${chart}</section>${top.map((item, i) => `<article class="overview-item"><strong>#${i + 1} ${escapeHtml(item.name)}</strong><span>assigned ${item.assigned} · 👍 ${item.likes}</span></article>`).join('') || '<p class=\"empty\">No assigned meals yet.</p>'}`;
+}
+
+function setMealSummaryPanelOpen(open) {
+  if (!elements.mealSummaryPanel || !elements.openMealSummary) return;
+  elements.mealSummaryPanel.classList.toggle('hidden', !open);
+  elements.mealSummaryPanel.setAttribute('aria-hidden', String(!open));
+  elements.openMealSummary.setAttribute('aria-expanded', String(open));
 }
 
 function toggleMealSummaryPanel() {
   if (!elements.mealSummaryPanel) return;
-  elements.mealSummaryPanel.classList.toggle('hidden');
-  if (!elements.mealSummaryPanel.classList.contains('hidden')) renderMealSummary();
+  const open = elements.mealSummaryPanel.classList.contains('hidden');
+  setMealSummaryPanelOpen(open);
+  if (open) renderMealSummary();
 }
 
 function editMeal(id) {

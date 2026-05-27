@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "npm run sync:build && node server.js",
-    "test": "node --test tests/*.test.js",
+    "test": "npm run test:node",
     "check:turso": "node scripts/check-turso.js",
     "seed:turso:tasks": "node scripts/reset-seed-tasks.js",
     "sync:build": "node scripts/sync-build-metadata.js",
@@ -17,7 +17,10 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:setup": "playwright install --with-deps chromium",
     "test:unit": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:node": "node --test tests/*.test.js",
+    "test:ui": "vitest run tests/ui/main.test.js",
+    "test:ci": "npm run test:node && npm run test:ui"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
