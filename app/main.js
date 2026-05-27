@@ -1274,7 +1274,7 @@ function renderMealItem(item, slot) {
       const assign = document.createElement('button');
       assign.type = 'button';
       assign.className = 'meal-action-button';
-      assign.textContent = `${mealSlot === 'breakfast' ? '🌅' : mealSlot === 'lunch' ? '🌞' : '🌙'} ${mealSlot}`;
+      assign.textContent = `Assign ${mealSlot}`;
       assign.onclick = () => moveMeal(item.id, mealSlot);
       controls.appendChild(assign);
     }
@@ -1301,7 +1301,7 @@ function toggleMealLogPanel() {
   elements.mealLogPanel.classList.toggle('hidden', !shouldShow);
   elements.mealLogPanel.setAttribute('aria-hidden', String(!shouldShow));
   elements.toggleMealLog.setAttribute('aria-expanded', String(shouldShow));
-  elements.toggleMealLog.textContent = shouldShow ? '🧾 Hide log' : '🧾 Show log';
+  elements.toggleMealLog.textContent = shouldShow ? 'Hide log' : 'Log';
 }
 
 function initMealSortables(slots) {
