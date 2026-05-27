@@ -45,6 +45,7 @@ const state = {
   activeTab: normalizeTab(getInitialTab()),
   selectedDay: getInitialDayParam('day'),
   selectedTaskDay: getInitialDayParam('taskDay'),
+  selectedMealDay: getInitialDayParam('mealDay'),
   taskCalendarMonth: null,
   taskCalendarDots: {},
   taskPanel: 'today',
@@ -120,6 +121,13 @@ const elements = {
   taskCount: $('#task-count'),
   taskOverviewList: $('#task-overview-list'),
   wishList: $('#wish-list'),
+  mealDayLabel: $('#meal-day-label'),
+  mealDayPicker: $('#meal-day-picker'),
+  previousMealDay: $('#previous-meal-day'),
+  nextMealDay: $('#next-meal-day'),
+  openMealSummary: $('#open-meal-summary'),
+  mealSummaryPanel: $('#meal-summary-panel'),
+  mealSummary: $('#meal-summary'),
   mealBreakfast: $('#meal-breakfast'),
   mealLunch: $('#meal-lunch'),
   mealDinner: $('#meal-dinner'),
@@ -208,6 +216,9 @@ elements.previousDay.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextDay.addEventListener('click', () => shiftSelectedDay(1));
 elements.previousTaskDay.addEventListener('click', () => shiftSelectedTaskDay(-1));
 elements.nextTaskDay.addEventListener('click', () => shiftSelectedTaskDay(1));
+elements.previousMealDay?.addEventListener('click', () => shiftSelectedMealDay(-1));
+elements.nextMealDay?.addEventListener('click', () => shiftSelectedMealDay(1));
+elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 
 elements.dayPicker.addEventListener('change', () => {
   if (!elements.dayPicker.value) return;
@@ -219,6 +230,12 @@ elements.dayPicker.addEventListener('change', () => {
 elements.summaryPeriod?.addEventListener('change', () => {
   syncUrlForTab(state.activeTab, { pushHistory: true });
   loadTaskData();
+});
+elements.mealDayPicker?.addEventListener('change', () => {
+  if (!elements.mealDayPicker.value) return;
+  state.selectedMealDay = elements.mealDayPicker.value;
+  syncUrlForTab(state.activeTab, { pushHistory: true });
+  renderMeals();
 });
 elements.taskDueMode?.addEventListener('change', renderTaskComposerDueState);
 
@@ -980,6 +997,7 @@ function syncUrlForTab(tab, { pushHistory = false } = {}) {
   const params = new URLSearchParams(window.location.search);
   params.set('day', state.selectedDay);
   params.set('taskDay', state.selectedTaskDay);
+  params.set('mealDay', state.selectedMealDay);
   const period = elements.summaryPeriod?.value || 'week';
   params.set('period', period);
   const targetUrl = `${targetPath}?${params.toString()}`;
@@ -1013,24 +1031,23 @@ function escapeHtml(value) {
 }
 
 function emptyMealState() {
-  return { wish: [], breakfast: [], lunch: [], dinner: [], log: [], lastDay: localDateKey(new Date()) };
+  return { wish: [], plannedByDay: {}, likes: {}, log: [] };
 }
 
 function defaultDemoMeals() {
+  const today = localDateKey(new Date());
   return {
     wish: [
-      { id: 'meal-demo-wish-1', name: 'Soy-braised tofu', url: 'https://example.com/tofu', ingredients: 'tofu, soy sauce, garlic', done: false },
-      { id: 'meal-demo-wish-2', name: 'Pumpkin porridge', url: 'https://example.com/pumpkin-porridge', ingredients: 'pumpkin, rice, water', done: false },
+      { id: 'meal-demo-wish-1', name: 'Soy-braised tofu', url: 'https://example.com/tofu', ingredients: 'tofu, soy sauce, garlic', likes: 0 },
+      { id: 'meal-demo-wish-2', name: 'Pumpkin porridge', url: 'https://example.com/pumpkin-porridge', ingredients: 'pumpkin, rice, water', likes: 0 },
     ],
-    breakfast: [
-      { id: 'meal-demo-breakfast-1', name: 'Egg toast', url: 'https://example.com/egg-toast', ingredients: 'bread, egg, butter', done: false },
-    ],
-    lunch: [
-      { id: 'meal-demo-lunch-1', name: 'Beef seaweed soup', url: 'https://example.com/seaweed-soup', ingredients: 'beef, seaweed, sesame oil', done: false },
-    ],
-    dinner: [
-      { id: 'meal-demo-dinner-1', name: 'Salmon rice bowl', url: 'https://example.com/salmon-bowl', ingredients: 'salmon, rice, avocado', done: false },
-    ],
+    plannedByDay: {
+      [today]: {
+        breakfast: [{ id: 'meal-demo-breakfast-1', name: 'Egg toast', url: 'https://example.com/egg-toast', ingredients: 'bread, egg, butter', likes: 0 }],
+        lunch: [{ id: 'meal-demo-lunch-1', name: 'Beef seaweed soup', url: 'https://example.com/seaweed-soup', ingredients: 'beef, seaweed, sesame oil', likes: 0 }],
+        dinner: [{ id: 'meal-demo-dinner-1', name: 'Salmon rice bowl', url: 'https://example.com/salmon-bowl', ingredients: 'salmon, rice, avocado', likes: 0 }],
+      },
+    },
   };
 }
 
@@ -1042,12 +1059,17 @@ function loadMeals() {
       ...emptyMealState(),
       ...parsed,
       wish: Array.isArray(parsed.wish) ? parsed.wish : [],
-      breakfast: Array.isArray(parsed.breakfast) ? parsed.breakfast : [],
-      lunch: Array.isArray(parsed.lunch) ? parsed.lunch : [],
-      dinner: Array.isArray(parsed.dinner) ? parsed.dinner : [],
+      plannedByDay: parsed.plannedByDay && typeof parsed.plannedByDay === 'object' ? parsed.plannedByDay : {},
+      likes: parsed.likes && typeof parsed.likes === 'object' ? parsed.likes : {},
       log: Array.isArray(parsed.log) ? parsed.log : [],
     };
-    const totalCount = next.wish.length + next.breakfast.length + next.lunch.length + next.dinner.length;
+    if (!Object.keys(next.plannedByDay).length && (Array.isArray(parsed.breakfast) || Array.isArray(parsed.lunch) || Array.isArray(parsed.dinner))) {
+      next.plannedByDay[localDateKey(new Date())] = { breakfast: parsed.breakfast || [], lunch: parsed.lunch || [], dinner: parsed.dinner || [] };
+    }
+    const assignedCount = Object.values(next.plannedByDay).reduce((sum, dayPlan) => (
+      sum + (dayPlan?.breakfast?.length || 0) + (dayPlan?.lunch?.length || 0) + (dayPlan?.dinner?.length || 0)
+    ), 0);
+    const totalCount = next.wish.length + assignedCount;
     if (totalCount > 0) return next;
     return { ...next, ...defaultDemoMeals() };
   } catch {
@@ -1059,24 +1081,9 @@ function saveMeals() {
   localStorage.setItem('familyTracker.meals', JSON.stringify(state.meals));
 }
 
-function rolloverMeals() {
-  const today = localDateKey(new Date());
-  if (state.meals.lastDay === today) return;
-  const carriedBySlot = { breakfast: 0, lunch: 0, dinner: 0 };
-  for (const slot of ['breakfast', 'lunch', 'dinner']) {
-    const carry = state.meals[slot].filter((item) => !item.done).map((item) => ({ ...item, day: today }));
-    carriedBySlot[slot] = carry.length;
-    state.meals[slot] = carry;
-  }
-  state.meals.lastDay = today;
-  const carriedTotal = carriedBySlot.breakfast + carriedBySlot.lunch + carriedBySlot.dinner;
-  if (carriedTotal > 0) {
-    logMealAction(
-      `carried ${carriedTotal} unfinished menu(s) to ${today} (breakfast ${carriedBySlot.breakfast}, lunch ${carriedBySlot.lunch}, dinner ${carriedBySlot.dinner})`,
-      'system',
-    );
-  }
-  saveMeals();
+function planForDay(day = state.selectedMealDay) {
+  if (!state.meals.plannedByDay[day]) state.meals.plannedByDay[day] = { breakfast: [], lunch: [], dinner: [] };
+  return state.meals.plannedByDay[day];
 }
 
 function addWishMenu(data) {
@@ -1088,7 +1095,7 @@ function addWishMenu(data) {
     category: data.category || 'korean',
     url: data.url.trim(),
     ingredients: data.ingredients.trim(),
-    done: false,
+    likes: 0,
   };
   state.meals.wish.unshift(item);
   logMealAction(`added wish menu "${name}"`);
@@ -1136,9 +1143,9 @@ function closeMealModal() {
 function upsertPlannedMeal(slot, data) {
   const name = data.name.trim();
   if (!name) return;
-  const item = { id: `meal-${Date.now()}`, name, category: data.category || 'korean', url: data.url.trim(), ingredients: data.ingredients.trim(), done: false };
-  state.meals[slot].unshift(item);
-  logMealAction(`added ${slot} menu "${name}"`);
+  const item = { id: `meal-${Date.now()}`, name, category: data.category || 'korean', url: data.url.trim(), ingredients: data.ingredients.trim(), likes: 0 };
+  planForDay()[slot].unshift(item);
+  logMealAction(`added ${slot} menu "${name}" on ${state.selectedMealDay}`);
   saveMeals();
   renderMeals();
 }
@@ -1159,16 +1166,16 @@ function logMealAction(action, actor = state.user?.name || state.user?.email || 
 
 function renderMeals() {
   if (!elements.wishList) return;
-  rolloverMeals();
+  const dayPlan = planForDay();
   const slots = [
     ['wish', elements.wishList],
-    ['breakfast', elements.mealBreakfast],
-    ['lunch', elements.mealLunch],
-    ['dinner', elements.mealDinner],
+    ['breakfast', elements.mealBreakfast, dayPlan.breakfast],
+    ['lunch', elements.mealLunch, dayPlan.lunch],
+    ['dinner', elements.mealDinner, dayPlan.dinner],
   ];
-  slots.forEach(([slot, container]) => {
+  slots.forEach(([slot, container, dayItems]) => {
     container.dataset.slot = slot;
-    const items = state.meals[slot] || [];
+    const items = slot === 'wish' ? (state.meals.wish || []) : (dayItems || []);
     if (!items.length && slot !== 'wish') {
       const button = document.createElement('button');
       button.type = 'button';
@@ -1204,7 +1211,10 @@ function renderMeals() {
     node.innerHTML = `<strong>${escapeHtml(entry.actor)}</strong><span>${escapeHtml(entry.action)} · ${escapeHtml(relativeDateTime(entry.at))}</span>`;
     return node;
   }));
-  elements.mealCount.textContent = `${state.meals.breakfast.length + state.meals.lunch.length + state.meals.dinner.length} menus`;
+  elements.mealCount.textContent = `${dayPlan.breakfast.length + dayPlan.lunch.length + dayPlan.dinner.length} menus`;
+  if (elements.mealDayLabel) elements.mealDayLabel.textContent = dayHeading(state.selectedMealDay);
+  if (elements.mealDayPicker) elements.mealDayPicker.value = state.selectedMealDay;
+  if (elements.mealSummaryPanel && !elements.mealSummaryPanel.classList.contains('hidden')) renderMealSummary();
 }
 
 function renderMealItem(item, slot) {
@@ -1264,6 +1274,12 @@ function renderMealItem(item, slot) {
   const controls = document.createElement('div');
   controls.className = 'row';
   if (slot !== 'wish') {
+    const like = document.createElement('button');
+    like.type = 'button';
+    like.className = 'meal-action-button';
+    like.textContent = `👍 ${item.likes || 0}`;
+    like.onclick = () => likeMeal(item.id);
+    controls.appendChild(like);
     const saveForLater = document.createElement('button');
     saveForLater.type = 'button';
     saveForLater.className = 'meal-action-button';
@@ -1318,7 +1334,7 @@ function initMealSortables(slots) {
 
   slots.forEach(([slot, container]) => {
     const existing = mealSortableInstances.get(container);
-    if (existing) existing.destroy();
+    if (existing) return;
     const sortable = window.Sortable.create(container, {
       group: 'family-meal-board',
       animation: 180,
@@ -1339,6 +1355,12 @@ function initMealSortables(slots) {
 }
 
 function findMeal(id) {
+  for (const day of Object.keys(state.meals.plannedByDay || {})) {
+    for (const slot of ['breakfast', 'lunch', 'dinner']) {
+      const idx = (state.meals.plannedByDay[day]?.[slot] || []).findIndex((item) => item.id === id);
+      if (idx >= 0) return { slot, idx, item: state.meals.plannedByDay[day][slot][idx], day };
+    }
+  }
   for (const slot of ['wish', 'breakfast', 'lunch', 'dinner']) {
     const idx = (state.meals[slot] || []).findIndex((item) => item.id === id);
     if (idx >= 0) return { slot, idx, item: state.meals[slot][idx] };
@@ -1349,13 +1371,53 @@ function findMeal(id) {
 function moveMeal(id, to) {
   const found = findMeal(id);
   if (!found || found.slot === to) return;
-  const [item] = state.meals[found.slot].splice(found.idx, 1);
-  if (found.slot === 'wish' && to !== 'wish') item.done = true;
-  if (to === 'wish') item.done = false;
-  state.meals[to].unshift(item);
-  logMealAction(`moved "${item.name}" from ${found.slot} to ${to}`);
+  const sourceList = found.slot === 'wish' ? state.meals.wish : state.meals.plannedByDay[found.day || state.selectedMealDay][found.slot];
+  const [item] = sourceList.splice(found.idx, 1);
+  const targetList = to === 'wish' ? state.meals.wish : planForDay()[to];
+  targetList.unshift(item);
+  logMealAction(`moved "${item.name}" from ${found.slot} to ${to} (${state.selectedMealDay})`);
   saveMeals();
   renderMeals();
+}
+
+function shiftSelectedMealDay(days) {
+  state.selectedMealDay = shiftDay(state.selectedMealDay, days);
+  syncUrlForTab(state.activeTab, { pushHistory: true });
+  renderMeals();
+}
+
+function likeMeal(id) {
+  const found = findMeal(id);
+  if (!found) return;
+  found.item.likes = (found.item.likes || 0) + 1;
+  logMealAction(`liked "${found.item.name}"`);
+  saveMeals();
+  renderMeals();
+}
+
+function renderMealSummary() {
+  if (!elements.mealSummary) return;
+  const counts = new Map();
+  for (const dayPlan of Object.values(state.meals.plannedByDay || {})) {
+    for (const slot of ['breakfast', 'lunch', 'dinner']) {
+      for (const item of (dayPlan[slot] || [])) {
+        const key = item.name.trim().toLowerCase();
+        const current = counts.get(key) || { name: item.name, assigned: 0, likes: 0 };
+        current.assigned += 1;
+        current.likes += item.likes || 0;
+        counts.set(key, current);
+      }
+    }
+  }
+  const top = [...counts.values()].sort((a, b) => (b.likes - a.likes) || (b.assigned - a.assigned)).slice(0, 5);
+  const totalAssigned = [...counts.values()].reduce((sum, item) => sum + item.assigned, 0);
+  elements.mealSummary.innerHTML = `<article class="overview-item"><strong>Total assigned meals</strong><span>${totalAssigned}</span></article>${top.map((item, i) => `<article class="overview-item"><strong>#${i + 1} ${escapeHtml(item.name)}</strong><span>assigned ${item.assigned} · 👍 ${item.likes}</span></article>`).join('') || '<p class=\"empty\">No assigned meals yet.</p>'}`;
+}
+
+function toggleMealSummaryPanel() {
+  if (!elements.mealSummaryPanel) return;
+  elements.mealSummaryPanel.classList.toggle('hidden');
+  if (!elements.mealSummaryPanel.classList.contains('hidden')) renderMealSummary();
 }
 
 function editMeal(id) {
@@ -1367,7 +1429,8 @@ function editMeal(id) {
 function deleteMeal(id) {
   const found = findMeal(id);
   if (!found) return;
-  const [item] = state.meals[found.slot].splice(found.idx, 1);
+  const source = found.slot === 'wish' ? state.meals.wish : state.meals.plannedByDay[found.day || state.selectedMealDay][found.slot];
+  const [item] = source.splice(found.idx, 1);
   logMealAction(`deleted "${item.name}" from ${found.slot}`);
   saveMeals();
   renderMeals();

@@ -223,14 +223,17 @@
         <header class="top-bar task-hero">
           <p class="eyebrow">Meal Planner</p>
           <div class="date-heading">
+            <button id="previous-meal-day" type="button" class="date-step" aria-label="Previous meal day">‹</button>
             <div class="date-picker-label">
-              <h1 class="day-label">Meals</h1>
+              <h1 id="meal-day-label" class="day-label">Meals</h1>
+              <input id="meal-day-picker" class="day-picker" type="date" aria-label="Browse meal day">
             </div>
+            <button id="next-meal-day" type="button" class="date-step" aria-label="Next meal day">›</button>
           </div>
         </header>
         <section class="task-layout">
           <section id="meal-board" class="task-section meal-board">
-            <div class="section-header"><h2>Meals</h2><div class="section-actions"><button id="toggle-meal-log" type="button" class="compact-button meal-log-toggle" aria-expanded="false" aria-controls="meal-log-panel">Log</button><span id="meal-count" class="muted-count">0 menus</span></div></div>
+            <div class="section-header"><h2>Meals</h2><div class="section-actions"><button id="open-meal-summary" type="button" class="compact-button">Summary</button><button id="toggle-meal-log" type="button" class="compact-button meal-log-toggle" aria-expanded="false" aria-controls="meal-log-panel">Log</button><span id="meal-count" class="muted-count">0 menus</span></div></div>
             <div class="meal-columns">
               <section class="meal-column meal-column-planned">
                 <h3>Planned meals</h3>
@@ -246,6 +249,9 @@
                         <aside id="meal-log-panel" class="meal-log-panel hidden" aria-hidden="true">
               <div class="section-header"><h3>Action log</h3></div><div id="meal-log" class="task-overview-list"></div>
             </aside>
+          </section>
+          <section id="meal-summary-panel" class="task-section task-overview hidden">
+            <div class="section-header"><h2>Meal summary</h2></div><div id="meal-summary" class="task-overview-list"></div>
           </section>
         </section>
 
