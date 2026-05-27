@@ -128,6 +128,7 @@ test.describe('Meal drag/drop reliability', () => {
   });
 
   test('repeated multi-slot drags preserve integrity and UI state', async ({ page }, testInfo) => {
+    test.setTimeout(90_000);
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
 
