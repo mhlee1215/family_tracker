@@ -125,6 +125,7 @@ const elements = {
   mealDinner: $('#meal-dinner'),
   mealLog: $('#meal-log'),
   mealLogPanel: $('#meal-log-panel'),
+  mealBoard: $('#meal-board'),
   toggleMealLog: $('#toggle-meal-log'),
   mealCount: $('#meal-count'),
   openWishModal: $('#open-wish-modal'),
@@ -1296,10 +1297,11 @@ function renderMealItem(item, slot) {
 
 
 function toggleMealLogPanel() {
-  if (!elements.mealLogPanel || !elements.toggleMealLog) return;
+  if (!elements.mealLogPanel || !elements.toggleMealLog || !elements.mealBoard) return;
   const shouldShow = elements.mealLogPanel.classList.contains('hidden');
   elements.mealLogPanel.classList.toggle('hidden', !shouldShow);
   elements.mealLogPanel.setAttribute('aria-hidden', String(!shouldShow));
+  elements.mealBoard.classList.toggle('meal-log-open', shouldShow);
   elements.toggleMealLog.setAttribute('aria-expanded', String(shouldShow));
   elements.toggleMealLog.textContent = shouldShow ? 'Hide log' : 'Log';
 }
