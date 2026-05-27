@@ -1145,28 +1145,25 @@ label {
   max-width: 1280px;
   margin: 0 auto;
   width: 100%;
+  position: relative;
 }
 
 @media (min-width: 1069px) {
-  .meal-board {
-    display: grid;
+  .meal-columns {
     grid-template-columns: minmax(0, 1fr) 300px;
     align-items: start;
-    column-gap: 12px;
-  }
-
-  .meal-columns {
-    grid-column: 1;
   }
 
   .meal-log-panel {
-    grid-column: 2;
-    grid-row: 1 / span 2;
     margin-top: 0;
-    position: sticky;
-    top: 112px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
     max-height: calc(100vh - 132px);
     overflow: auto;
+    z-index: 5;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
   }
 }
 
