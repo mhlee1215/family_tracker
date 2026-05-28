@@ -15,6 +15,7 @@ Any non-trivial product/code change.
 
 ## Feature routing
 - Baby log creation/history/general event flow -> `skills/features/baby-logs/SKILL.md`
+- Baby growth measurements/history/summary -> `skills/features/growth/SKILL.md`
 - Sleep start/end/session linking -> `skills/features/sleep/SKILL.md`
 - Milk/solid feeding -> `skills/features/feeding/SKILL.md`
 - Diaper wet/dirty/mixed parsing -> `skills/features/diaper/SKILL.md`

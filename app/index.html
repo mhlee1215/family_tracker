@@ -60,6 +60,43 @@
                   <input id="birth-date" name="birthDate" type="date">
                 </label>
                 <label class="select-control">
+                  <span>Birth time</span>
+                  <input id="birth-time" name="birthTime" type="time">
+                </label>
+                <label class="select-control">
+                  <span>Height, cm</span>
+                  <input id="baby-height" name="heightCm" type="number" min="0" step="0.1" placeholder="52.1">
+                </label>
+                <label class="select-control">
+                  <span>Head, cm</span>
+                  <input id="baby-head" name="headCm" type="number" min="0" step="0.1" placeholder="34">
+                </label>
+                <label class="select-control">
+                  <span>Weight, g</span>
+                  <input id="baby-weight" name="weightG" type="number" min="0" step="1" placeholder="3600">
+                </label>
+                <label class="select-control">
+                  <span>Apgar, %</span>
+                  <input id="baby-apgar" name="apgarPercent" type="number" min="0" max="100" step="1" placeholder="99">
+                </label>
+                <label class="select-control">
+                  <span>Record date</span>
+                  <select id="growth-record-mode" name="growthRecordMode">
+                    <option value="birth">At birth</option>
+                    <option value="now">Now</option>
+                    <option value="custom">Specific date</option>
+                  </select>
+                </label>
+                <label class="select-control hidden" id="growth-record-date-control">
+                  <span>Specific date</span>
+                  <input id="growth-record-date" name="growthRecordDate" type="date">
+                </label>
+                <label class="select-control hidden" id="growth-record-time-control">
+                  <span>Specific time</span>
+                  <input id="growth-record-time" name="growthRecordTime" type="time">
+                </label>
+                <p class="settings-note">Every changed growth value is saved to the growth history for later summaries.</p>
+                <label class="select-control">
                   <span>Default milk amount, ml</span>
                   <input id="milk-amount" name="milkAmountMlOverride" type="number" min="0" step="5" placeholder="160">
                 </label>
@@ -119,6 +156,7 @@
 
         <section id="summary" class="summary-strip" aria-label="Today summary"></section>
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
+        <section id="growth-summary" class="growth-summary" aria-label="Growth summary"></section>
 
         <section id="workspace" class="workspace-grid">
           <section class="phone-flow">

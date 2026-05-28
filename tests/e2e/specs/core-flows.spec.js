@@ -79,4 +79,57 @@ test.describe('Family Tracker core flows', () => {
     await app.attachScenarioNarrative();
     await app.attachDiagnostics();
   });
+
+  test('baby growth records save birth and custom-date history with summary', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+    await app.captureStep('Opened baby settings for growth scenario', 'Starting on baby tab before saving birth measurements.');
+
+    await page.locator('#menu-toggle').click();
+    await page.locator('#baby-name').fill('Growth E2E Baby');
+    await page.locator('#birth-date').fill('2026-01-01');
+    await page.locator('#birth-time').fill('20:06');
+    await page.locator('#baby-height').fill('52.1');
+    await page.locator('#baby-head').fill('34');
+    await page.locator('#baby-weight').fill('3600');
+    await page.locator('#baby-apgar').fill('99');
+    await page.locator('#growth-record-mode').selectOption('birth');
+    await page.locator('#baby-settings-form').evaluate((form) => form.requestSubmit());
+
+    await expect(page.locator('#growth-summary')).toContainText('52.1cm');
+    await expect(page.locator('#growth-summary')).toContainText('Apgar 99%');
+    await app.captureStep('Saved birth growth record', 'Growth summary displays the at-birth height, head, weight, and Apgar values.');
+
+    await page.locator('#menu-toggle').click();
+    await page.locator('#baby-height').fill('55.2');
+    await page.locator('#baby-head').fill('36');
+    await page.locator('#baby-weight').fill('4300');
+    await page.locator('#growth-record-mode').selectOption('custom');
+    await expect(page.locator('#growth-record-date-control')).toBeVisible();
+    await expect(page.locator('#growth-record-time-control')).toBeVisible();
+    await page.locator('#growth-record-date').fill('2099-03-14');
+    await page.locator('#growth-record-time').fill('09:30');
+    await page.locator('#baby-settings-form').evaluate((form) => form.requestSubmit());
+
+    await expect(page.locator('#growth-summary')).toContainText('55.2cm');
+    await expect(page.locator('#growth-summary')).toContainText('+3.1cm from baseline');
+    await expect(page.locator('#growth-summary')).toContainText('4300g');
+    await expect(page.locator('#growth-summary')).toContainText('Specific date');
+    await app.captureStep('Saved custom-date growth record', 'Latest custom-date growth record is shown with baseline deltas and history.');
+
+    const growthResponse = await page.request.get('/api/growth');
+    expect(growthResponse.ok()).toBeTruthy();
+    const growthPayload = await growthResponse.json();
+    expect(growthPayload.growthRecords.some((record) => (
+      record.occurredDate === '2099-03-14'
+      && record.occurredTime === '09:30'
+      && record.heightCm === 55.2
+      && record.weightG === 4300
+    ))).toBeTruthy();
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
 });

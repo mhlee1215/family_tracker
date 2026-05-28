@@ -31,6 +31,8 @@ postgres-baby-store.js later
 
 ## Cloud Path
 
+Profile records store baby identity, current newborn measurements, and feeding/sleep defaults. Dated growth records preserve each changed height/head/weight/Apgar entry for birth, current, or custom dates so summaries can show growth over time.
+
 Schema objects already include family/user-friendly boundaries:
 
 - `family_id`

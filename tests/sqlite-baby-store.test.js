@@ -46,14 +46,64 @@ test('SQLiteBabyStore saves editable baby profile defaults', () => {
     babyId: 'local-baby',
     babyName: 'Ari',
     birthDate: '2026-01-01',
+    birthTime: '20:06',
+    heightCm: 52.1,
+    headCm: 34,
+    weightG: 3600,
+    apgarPercent: 99,
     milkAmountMlOverride: 155,
     napDurationMinutesOverride: 50,
   });
   store.close();
 
   assert.equal(profile.babyName, 'Ari');
+  assert.equal(profile.birthTime, '20:06');
+  assert.equal(profile.heightCm, 52.1);
+  assert.equal(profile.headCm, 34);
+  assert.equal(profile.weightG, 3600);
+  assert.equal(profile.apgarPercent, 99);
   assert.equal(profile.milkAmountMlOverride, 155);
   assert.equal(profile.napDurationMinutesOverride, 50);
+});
+
+test('SQLiteBabyStore saves dated growth records as history', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+
+  store.saveGrowthRecord({
+    id: 'growth-test-birth',
+    familyId: 'local-family',
+    babyId: 'local-baby',
+    authorId: 'local-user',
+    recordedFor: 'birth',
+    occurredDate: '2026-01-01',
+    occurredTime: '20:06',
+    heightCm: 52.1,
+    headCm: 34,
+    weightG: 3600,
+    apgarPercent: 99,
+  });
+  store.saveGrowthRecord({
+    id: 'growth-test-checkup',
+    familyId: 'local-family',
+    babyId: 'local-baby',
+    authorId: 'local-user',
+    recordedFor: 'custom',
+    occurredDate: '2026-02-01',
+    heightCm: 55.2,
+    headCm: 36,
+    weightG: 4300,
+  });
+
+  const records = store.listGrowthRecords({ familyId: 'local-family', babyId: 'local-baby' });
+  store.close();
+
+  assert.equal(records.length, 2);
+  assert.equal(records[0].id, 'growth-test-checkup');
+  assert.equal(records[0].heightCm, 55.2);
+  assert.equal(records[1].recordedFor, 'birth');
+  assert.equal(records[1].occurredTime, '20:06');
+  assert.equal(records[1].apgarPercent, 99);
 });
 
 test('SQLiteBabyStore separates sessions and family scopes by user', () => {
