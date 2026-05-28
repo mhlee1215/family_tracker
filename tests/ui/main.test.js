@@ -79,24 +79,32 @@ describe('app/main', () => {
     expect(summaryPanel.classList.contains('hidden')).toBe(true);
   });
 
-  it('changes meal date when clicking previous/next meal day arrows', async () => {
-    await import('../../app/main.js?case=meal-day-arrows');
+  it('keeps one selected date across baby, task, and meal date controls', async () => {
+    await import('../../app/main.js?case=shared-day');
 
     const previousButton = document.querySelector('#previous-meal-day');
     const nextButton = document.querySelector('#next-meal-day');
-    const picker = document.querySelector('#meal-day-picker');
+    const babyPicker = document.querySelector('#day-picker');
+    const taskPicker = document.querySelector('#task-day-picker');
+    const mealPicker = document.querySelector('#meal-day-picker');
     const mealTabButton = document.querySelector('#meal-tab');
 
     fireEvent.click(mealTabButton);
 
     fireEvent.click(previousButton);
-    const previousDayValue = picker.value;
+    const previousDayValue = mealPicker.value;
     expect(previousDayValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(babyPicker.value).toBe(previousDayValue);
+    expect(taskPicker.value).toBe(previousDayValue);
 
     fireEvent.click(nextButton);
-    const nextDayValue = picker.value;
+    const nextDayValue = mealPicker.value;
     expect(nextDayValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(nextDayValue > previousDayValue).toBe(true);
+    expect(babyPicker.value).toBe(nextDayValue);
+    expect(taskPicker.value).toBe(nextDayValue);
+    expect(window.location.search).not.toContain('taskDay=');
+    expect(window.location.search).not.toContain('mealDay=');
   });
 
   it('keeps baby settings inside Baby Tracker and toggles growth summary chart', async () => {
