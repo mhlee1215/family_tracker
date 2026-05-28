@@ -99,6 +99,42 @@ describe('app/main', () => {
     expect(nextDayValue > previousDayValue).toBe(true);
   });
 
+  it('keeps baby settings inside Baby Tracker and toggles growth summary chart', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) {
+        return new Response(JSON.stringify({
+          profile: { babyName: 'Baby' },
+          growthRecords: [
+            { recordedFor: 'birth', occurredDate: '2026-01-01', heightCm: 50, headCm: 34, weightG: 3200 },
+            { recordedFor: 'now', occurredDate: '2026-02-01', heightCm: 55, headCm: 36, weightG: 4100 },
+          ],
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ events: [], summary: null, tasks: [], overview: [] }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-section-menu');
+
+    fireEvent.click(document.querySelector('#menu-toggle'));
+    expect(document.querySelector('#menu-panel #baby-settings-form')).toBeNull();
+
+    const settingsPanel = document.querySelector('#baby-settings-panel');
+    const summaryPanel = document.querySelector('#growth-summary');
+
+    expect(settingsPanel.classList.contains('hidden')).toBe(true);
+    fireEvent.click(document.querySelector('#open-baby-settings'));
+    expect(settingsPanel.classList.contains('hidden')).toBe(false);
+    expect(document.querySelector('#baby-settings-panel #baby-settings-form')).toBeTruthy();
+
+    fireEvent.click(document.querySelector('#open-baby-summary'));
+    expect(settingsPanel.classList.contains('hidden')).toBe(true);
+    expect(summaryPanel.classList.contains('hidden')).toBe(false);
+    expect(summaryPanel.querySelector('.growth-chart')).toBeTruthy();
+  });
+
   it('submits question form and renders response', async () => {
     await import('../../app/main.js?case=ask');
 
