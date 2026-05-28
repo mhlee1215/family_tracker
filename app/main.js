@@ -322,6 +322,7 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('pointerdown', (event) => {
   const target = event.target;
+  if (swipeState.openItem && !swipeState.openItem.contains(target)) closeSwipeItem(swipeState.openItem);
   closeFloatingSectionPanels(target);
   if (elements.mealLogPanel && !elements.mealLogPanel.classList.contains('hidden')) {
     const insideLog = elements.mealLogPanel.contains(target) || elements.toggleMealLog?.contains(target);
@@ -976,6 +977,125 @@ function renderSleepStatus() {
   elements.sleepStatus.replaceChildren(copyEl, wakeButton);
 }
 
+
+const swipeState = { openItem: null };
+
+function actionIcon(name) {
+  const paths = {
+    edit: '<path d="M4 15.5V20h4.5L18.9 9.6l-4.5-4.5L4 15.5Z"/><path d="m13.2 6.3 4.5 4.5"/>',
+    delete: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+    like: '<path d="M7 11v9"/><path d="M3 11h4v9H3z"/><path d="M7 11l4-7a2 2 0 0 1 3 2v3h5a2 2 0 0 1 2 2l-2 7a2 2 0 0 1-2 2H7"/>',
+    save: '<path d="M5 5a2 2 0 0 1 2-2h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5Z"/><path d="M8 21v-7h8v7"/><path d="M8 3v5h7"/>',
+    breakfast: '<path d="M4 11h16"/><path d="M6 11a6 6 0 0 1 12 0"/><path d="M8 15h8"/><path d="M10 19h4"/><path d="M12 3v2"/>',
+    lunch: '<path d="M5 4v8"/><path d="M9 4v8"/><path d="M7 4v17"/><path d="M15 4v17"/><path d="M15 4c3 2 4 6 1 9"/>',
+    dinner: '<path d="M4 12a8 8 0 0 1 16 0"/><path d="M3 12h18"/><path d="M5 16h14"/><path d="M8 20h8"/>',
+  };
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.edit}</svg>`;
+}
+
+function makeSwipeAction({ label, icon, tone = '', onClick }) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `swipe-action ${tone}`.trim();
+  button.innerHTML = `${actionIcon(icon)}<span>${escapeHtml(label)}</span>`;
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    closeSwipeItem(button.closest('.swipe-item'));
+    onClick?.();
+  });
+  return button;
+}
+
+function makeSwipeItem(content, actions, className = '') {
+  const shell = document.createElement('div');
+  shell.className = `swipe-item ${className}`.trim();
+  shell.tabIndex = 0;
+  shell.setAttribute('aria-label', 'Swipe left to reveal actions');
+
+  const rail = document.createElement('div');
+  rail.className = 'swipe-actions';
+  rail.setAttribute('aria-hidden', 'true');
+  rail.replaceChildren(...actions);
+
+  content.classList.add('swipe-card');
+  content.style.setProperty('--swipe-offset', '0px');
+
+  let startX = 0;
+  let startY = 0;
+  let currentOffset = 0;
+  let swiping = false;
+  let pointerId = null;
+
+  const actionWidth = () => Math.max(88, rail.getBoundingClientRect().width || actions.length * 76);
+  const setOffset = (value, animate = true) => {
+    const next = Math.max(-actionWidth(), Math.min(0, value));
+    currentOffset = next;
+    content.style.setProperty('--swipe-offset', `${next}px`);
+    content.classList.toggle('is-dragging', !animate);
+    shell.classList.toggle('is-open', Math.abs(next) > 1);
+    rail.setAttribute('aria-hidden', Math.abs(next) > 1 ? 'false' : 'true');
+    if (Math.abs(next) > 1) {
+      if (swipeState.openItem && swipeState.openItem !== shell) closeSwipeItem(swipeState.openItem);
+      swipeState.openItem = shell;
+    } else if (swipeState.openItem === shell) {
+      swipeState.openItem = null;
+    }
+  };
+
+  shell.__closeSwipe = () => setOffset(0);
+
+  content.addEventListener('pointerdown', (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (event.target.closest('button, a, input, select, textarea, .meal-item-handle')) return;
+    startX = event.clientX;
+    startY = event.clientY;
+    pointerId = event.pointerId;
+    swiping = false;
+    content.setPointerCapture?.(pointerId);
+  });
+
+  content.addEventListener('pointermove', (event) => {
+    if (pointerId !== event.pointerId) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (!swiping && Math.abs(dx) < 8) return;
+    if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
+    swiping = true;
+    event.preventDefault();
+    const base = shell.classList.contains('is-open') ? -actionWidth() : 0;
+    setOffset(base + dx, false);
+  });
+
+  const finishSwipe = (event) => {
+    if (pointerId !== event.pointerId) return;
+    content.releasePointerCapture?.(pointerId);
+    pointerId = null;
+    if (!swiping) return;
+    swiping = false;
+    const shouldOpen = Math.abs(currentOffset) > actionWidth() * 0.38;
+    setOffset(shouldOpen ? -actionWidth() : 0);
+  };
+  content.addEventListener('pointerup', finishSwipe);
+  content.addEventListener('pointercancel', finishSwipe);
+
+  shell.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setOffset(-actionWidth());
+    } else if (event.key === 'ArrowRight' || event.key === 'Escape') {
+      event.preventDefault();
+      setOffset(0);
+    }
+  });
+
+  shell.replaceChildren(rail, content);
+  return shell;
+}
+
+function closeSwipeItem(item) {
+  item?.__closeSwipe?.();
+}
+
 function renderTimeline() {
   elements.eventCount.textContent = `${state.events.length} items`;
   const visible = state.events.filter((event) => !event.hiddenFromTimeline);
@@ -1001,24 +1121,17 @@ function renderEvent(event) {
   const badges = document.createElement('div');
   badges.className = 'badges';
   badges.replaceChildren(...inferredBadges(event));
-  const editButton = document.createElement('button');
-  editButton.type = 'button';
-  editButton.className = 'inline-action';
-  editButton.textContent = 'Edit';
-  editButton.addEventListener('click', () => editBabyLog(event));
-  const deleteButton = document.createElement('button');
-  deleteButton.type = 'button';
-  deleteButton.className = 'inline-action danger';
-  deleteButton.textContent = 'Delete';
-  deleteButton.addEventListener('click', () => deleteBabyLog(event));
-  const actions = document.createElement('div');
-  actions.className = 'timeline-actions';
-  actions.replaceChildren(editButton, deleteButton);
+  const hint = document.createElement('small');
+  hint.className = 'swipe-hint';
+  hint.textContent = 'Swipe left for actions';
   const main = document.createElement('div');
   main.className = 'timeline-main';
-  main.replaceChildren(meta, raw, actions);
+  main.replaceChildren(meta, raw, hint);
   item.replaceChildren(title, main, badges);
-  return item;
+  return makeSwipeItem(item, [
+    makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editBabyLog(event) }),
+    makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteBabyLog(event) }),
+  ], 'timeline-swipe');
 }
 
 function renderAssignees() {
@@ -1710,46 +1823,37 @@ function renderMeals() {
 }
 
 function renderMealItem(item, slot) {
-  const row = document.createElement('article');
-  row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
-  row.dataset.mealId = item.id;
-  row.draggable = false;
   let dragArmed = false;
+  let swipe = null;
+
+  const card = document.createElement('div');
+  card.className = 'meal-card';
 
   const title = document.createElement('strong');
   title.className = 'meal-item-handle';
   title.textContent = `☰ ${item.name}`;
-  row.appendChild(title);
+  title.setAttribute('aria-label', `Drag ${item.name}`);
+  card.appendChild(title);
+
   const armDrag = () => {
     dragArmed = true;
-    row.draggable = true;
+    if (swipe) swipe.draggable = true;
   };
   const disarmDrag = () => {
     dragArmed = false;
-    row.draggable = false;
+    if (swipe) swipe.draggable = false;
   };
   title.addEventListener('pointerdown', armDrag);
   title.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') armDrag();
   });
 
-  row.addEventListener('dragstart', (event) => {
-    if (!dragArmed) {
-      event.preventDefault();
-      return;
-    }
-    event.dataTransfer?.setData('text/plain', item.id);
-    event.dataTransfer?.setData('application/x-family-meal-id', item.id);
-    event.dataTransfer?.setData('text/id', item.id);
-  });
-  row.addEventListener('dragend', () => disarmDrag());
-
   const thumb = document.createElement('img');
   thumb.className = 'meal-thumb';
   thumb.alt = `${item.name} thumbnail`;
   thumb.src = mealThumbnailUrl(item.url);
   hydrateMealThumbnail(thumb, item.url);
-  row.appendChild(thumb);
+  card.appendChild(thumb);
   if (item.url) {
     const link = document.createElement('a');
     link.href = item.url;
@@ -1758,50 +1862,45 @@ function renderMealItem(item, slot) {
     link.textContent = 'recipe';
     const linkWrap = document.createElement('small');
     linkWrap.appendChild(link);
-    row.appendChild(linkWrap);
+    card.appendChild(linkWrap);
   }
   const ingredients = document.createElement('small');
   ingredients.textContent = item.ingredients || '';
-  row.appendChild(ingredients);
+  card.appendChild(ingredients);
 
-  const controls = document.createElement('div');
-  controls.className = 'row';
+  const hint = document.createElement('small');
+  hint.className = 'swipe-hint';
+  hint.textContent = 'Swipe left for actions';
+  card.appendChild(hint);
+
+  const actions = [];
   if (slot !== 'wish') {
-    const like = document.createElement('button');
-    like.type = 'button';
-    like.className = 'meal-action-button';
-    like.textContent = `👍 ${item.likes || 0}`;
-    like.onclick = () => likeMeal(item.id);
-    controls.appendChild(like);
-    const saveForLater = document.createElement('button');
-    saveForLater.type = 'button';
-    saveForLater.className = 'meal-action-button';
-    saveForLater.textContent = '🗂️ Save';
-    saveForLater.onclick = () => moveMeal(item.id, 'wish');
-    controls.appendChild(saveForLater);
+    actions.push(makeSwipeAction({ label: `${item.likes || 0}`, icon: 'like', onClick: () => likeMeal(item.id) }));
+    actions.push(makeSwipeAction({ label: 'Save', icon: 'save', onClick: () => moveMeal(item.id, 'wish') }));
   } else {
     for (const mealSlot of ['breakfast', 'lunch', 'dinner']) {
-      const assign = document.createElement('button');
-      assign.type = 'button';
-      assign.className = 'meal-action-button';
-      assign.textContent = `Assign ${mealSlot}`;
-      assign.onclick = () => moveMeal(item.id, mealSlot);
-      controls.appendChild(assign);
+      actions.push(makeSwipeAction({ label: mealSlot, icon: mealSlot, onClick: () => moveMeal(item.id, mealSlot) }));
     }
   }
-  const edit = document.createElement('button');
-  edit.type = 'button';
-  edit.className = 'meal-action-button';
-  edit.textContent = '✏️ Edit';
-  edit.onclick = () => editMeal(item.id);
-  const del = document.createElement('button');
-  del.type = 'button';
-  del.className = 'meal-action-button';
-  del.textContent = '🗑️ Delete';
-  del.onclick = () => deleteMeal(item.id);
-  controls.append(edit, del);
-  row.appendChild(controls);
-  return row;
+  actions.push(
+    makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editMeal(item.id) }),
+    makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteMeal(item.id) }),
+  );
+
+  swipe = makeSwipeItem(card, actions, `meal-swipe meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`);
+  swipe.dataset.mealId = item.id;
+  swipe.draggable = false;
+  swipe.addEventListener('dragstart', (event) => {
+    if (!dragArmed) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer?.setData('text/plain', item.id);
+    event.dataTransfer?.setData('application/x-family-meal-id', item.id);
+    event.dataTransfer?.setData('text/id', item.id);
+  });
+  swipe.addEventListener('dragend', () => disarmDrag());
+  return swipe;
 }
 
 

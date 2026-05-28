@@ -248,10 +248,14 @@ describe('app/main', () => {
     await import('../../app/main.js?case=baby-log-actions');
 
     await vi.waitFor(() => expect(document.querySelector('#timeline .raw-text')?.textContent).toBe('formula'));
-    fireEvent.click(screen.getByText('Edit'));
+    const timeline = document.querySelector('#timeline');
+    expect(timeline.querySelector('.timeline-swipe .swipe-hint')?.textContent).toBe('Swipe left for actions');
+    expect(timeline.querySelectorAll('.swipe-action svg').length).toBeGreaterThanOrEqual(2);
+
+    fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'PATCH' })));
 
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'DELETE' })));
   });
 
