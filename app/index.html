@@ -96,15 +96,22 @@
           </div>
         </header>
 
-        <nav class="baby-section-menu" aria-label="Baby tracker sections">
-          <button id="open-baby-settings" type="button" class="baby-section-button icon-button" aria-expanded="false" aria-controls="baby-settings-panel" aria-label="Baby settings">
+        <nav class="app-section-menu" aria-label="Baby tracker menu">
+          <button id="open-baby-settings" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-settings-panel">
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
               <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2.1 2.1 0 0 1-2.97 2.97l-.04-.04a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.09 1.65V21.4a2.1 2.1 0 0 1-4.2 0v-.06a1.8 1.8 0 0 0-1.09-1.65 1.8 1.8 0 0 0-1.98.36l-.04.04a2.1 2.1 0 0 1-2.97-2.97l.04-.04A1.8 1.8 0 0 0 3.6 15a1.8 1.8 0 0 0-1.65-1.09H1.9a2.1 2.1 0 0 1 0-4.2h.06A1.8 1.8 0 0 0 3.6 8.62a1.8 1.8 0 0 0-.36-1.98l-.04-.04a2.1 2.1 0 0 1 2.97-2.97l.04.04a1.8 1.8 0 0 0 1.98.36 1.8 1.8 0 0 0 1.09-1.65V2.2a2.1 2.1 0 0 1 4.2 0v.06a1.8 1.8 0 0 0 1.09 1.65 1.8 1.8 0 0 0 1.98-.36l.04-.04a2.1 2.1 0 0 1 2.97 2.97l-.04.04a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.09h.06a2.1 2.1 0 0 1 0 4.2h-.06A1.8 1.8 0 0 0 19.4 15Z"></path>
             </svg>
             <span>Settings</span>
           </button>
-          <button id="open-baby-summary" type="button" class="baby-section-button" aria-expanded="false" aria-controls="growth-summary">Summary</button>
+          <button id="open-baby-summary" type="button" class="app-menu-button" aria-expanded="false" aria-controls="growth-summary">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 16v-5"></path><path d="M12 16V8"></path><path d="M16 16v-9"></path></svg>
+            <span>Summary</span>
+          </button>
+          <button id="open-baby-log" type="button" class="app-menu-button active" aria-controls="log-form">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6Z"></path><path d="M14 4v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
+            <span>Log</span>
+          </button>
         </nav>
 
         <section id="baby-settings-panel" class="baby-settings-panel hidden" aria-label="Baby settings">
@@ -232,14 +239,27 @@
           </div>
         </header>
 
+        <nav class="app-section-menu" aria-label="Task tracker menu">
+          <button id="open-task-summary" type="button" class="app-menu-button" aria-expanded="false" aria-controls="task-summary-panel">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 16v-5"></path><path d="M12 16V8"></path><path d="M16 16v-9"></path></svg>
+            <span>Summary</span>
+          </button>
+          <button id="open-task-composer" type="button" class="app-menu-button" aria-expanded="false" aria-controls="task-form">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+            <span>Add task</span>
+          </button>
+          <button id="open-task-log" type="button" class="app-menu-button active" aria-expanded="true" aria-controls="task-today-panel">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h12v16H6Z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+            <span>Log</span>
+          </button>
+        </nav>
+
         <section id="task-workspace" class="task-layout">
           <section id="task-today-panel" class="task-section">
             <div class="section-header">
               <h2>Today</h2>
               <div class="section-actions">
                 <span id="task-count" class="muted-count">0 tasks</span>
-                <button id="open-task-summary" type="button" class="compact-button">Task summary</button>
-                <button id="open-task-composer" type="button" class="compact-button">Add task</button>
               </div>
             </div>
             <form id="task-form" class="task-composer hidden" autocomplete="off">
@@ -300,9 +320,20 @@
             <button id="next-meal-day" type="button" class="date-step" aria-label="Next meal day">›</button>
           </div>
         </header>
+        <nav class="app-section-menu" aria-label="Meal tracker menu">
+          <button id="open-meal-summary" type="button" class="app-menu-button" aria-expanded="false" aria-controls="meal-summary-panel">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 16v-5"></path><path d="M12 16V8"></path><path d="M16 16v-9"></path></svg>
+            <span>Summary</span>
+          </button>
+          <button id="toggle-meal-log" type="button" class="app-menu-button meal-log-toggle" aria-expanded="false" aria-controls="meal-log-panel">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h12v16H6Z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+            <span>Log</span>
+          </button>
+        </nav>
+
         <section class="task-layout">
           <section id="meal-board" class="task-section meal-board">
-            <div class="section-header"><h2>Meals</h2><div class="section-actions"><button id="open-meal-summary" type="button" class="compact-button" aria-expanded="false" aria-controls="meal-summary-panel">Summary</button><button id="toggle-meal-log" type="button" class="compact-button meal-log-toggle" aria-expanded="false" aria-controls="meal-log-panel">Log</button><span id="meal-count" class="muted-count">0 menus</span></div></div>
+            <div class="section-header"><h2>Meals</h2><div class="section-actions"><span id="meal-count" class="muted-count">0 menus</span></div></div>
             <div class="meal-columns">
               <section class="meal-column meal-column-planned">
                 <h3>Planned meals</h3>

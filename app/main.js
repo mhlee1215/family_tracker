@@ -76,6 +76,7 @@ const elements = {
   babySettingsPanel: $('#baby-settings-panel'),
   openBabySummary: $('#open-baby-summary'),
   openBabySettings: $('#open-baby-settings'),
+  openBabyLog: $('#open-baby-log'),
   quickActions: $('#quick-actions'),
   tabletActions: $('#tablet-actions'),
   eventCount: $('#event-count'),
@@ -133,6 +134,7 @@ const elements = {
   assigneeName: $('#assignee-name'),
   taskForm: $('#task-form'),
   openTaskSummary: $('#open-task-summary'),
+  openTaskLog: $('#open-task-log'),
   backToTodayTasks: $('#back-to-today-tasks'),
   taskTodayPanel: $('#task-today-panel'),
   taskSummaryPanel: $('#task-summary-panel'),
@@ -222,15 +224,23 @@ elements.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await createTask();
 });
-elements.openTaskComposer.addEventListener('click', () => setTaskComposerOpen(true));
+elements.openTaskComposer.addEventListener('click', () => {
+  setTaskPanel('today');
+  setTaskComposerOpen(true);
+});
 elements.openWishModal?.addEventListener('click', () => openMealModal({ slot: 'wish' }));
 elements.toggleMealLog?.addEventListener('click', toggleMealLogPanel);
 elements.mealForm?.addEventListener('submit', submitMealForm);
 elements.mealCancel?.addEventListener('click', closeMealModal);
 elements.openTaskSummary?.addEventListener('click', () => setTaskPanel('summary'));
+elements.openTaskLog?.addEventListener('click', () => setTaskPanel('today'));
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
 elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
 elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
+elements.openBabyLog?.addEventListener('click', () => {
+  setBabyPanel(null);
+  elements.logInput?.focus();
+});
 
 elements.babySettingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -587,6 +597,7 @@ function renderBabyPanel() {
   elements.babySettingsPanel?.classList.toggle('hidden', !settingsOpen);
   elements.openBabySummary?.classList.toggle('active', summaryOpen);
   elements.openBabySettings?.classList.toggle('active', settingsOpen);
+  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen);
   elements.openBabySummary?.setAttribute('aria-expanded', String(summaryOpen));
   elements.openBabySettings?.setAttribute('aria-expanded', String(settingsOpen));
   if (settingsOpen) renderBabySettings();
@@ -1045,8 +1056,10 @@ function renderTaskPanel() {
   const summaryOpen = state.taskPanel === 'summary';
   elements.taskSummaryPanel.classList.toggle('hidden', !summaryOpen);
   elements.taskTodayPanel.classList.toggle('hidden', summaryOpen);
-  elements.openTaskSummary.classList.toggle('hidden', summaryOpen);
-  if (elements.openTaskComposer) elements.openTaskComposer.classList.toggle('hidden', summaryOpen);
+  elements.openTaskSummary.classList.toggle('active', summaryOpen);
+  elements.openTaskSummary.setAttribute('aria-expanded', String(summaryOpen));
+  elements.openTaskLog?.classList.toggle('active', !summaryOpen);
+  elements.openTaskLog?.setAttribute('aria-expanded', String(!summaryOpen));
   if (elements.taskForm && summaryOpen) setTaskComposerOpen(false);
 }
 
@@ -1679,7 +1692,7 @@ function setMealLogPanelOpen(open) {
   elements.mealLogPanel.classList.toggle('hidden', !open);
   elements.mealLogPanel.setAttribute('aria-hidden', String(!open));
   elements.toggleMealLog.setAttribute('aria-expanded', String(open));
-  elements.toggleMealLog.textContent = open ? 'Hide log' : 'Log';
+  elements.toggleMealLog.classList.toggle('active', open);
 }
 
 function toggleMealLogPanel() {
@@ -1786,6 +1799,7 @@ function setMealSummaryPanelOpen(open) {
   elements.mealSummaryPanel.classList.toggle('hidden', !open);
   elements.mealSummaryPanel.setAttribute('aria-hidden', String(!open));
   elements.openMealSummary.setAttribute('aria-expanded', String(open));
+  elements.openMealSummary.classList.toggle('active', open);
 }
 
 function toggleMealSummaryPanel() {
