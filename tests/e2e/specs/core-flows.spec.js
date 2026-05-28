@@ -85,7 +85,7 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
     await app.captureStep('Opened baby settings for growth scenario', 'Starting on baby tab before saving birth measurements.');
 
-    await page.locator('#menu-toggle').click();
+    await page.locator('#open-baby-settings').click();
     await page.locator('#baby-name').fill('Growth E2E Baby');
     await page.locator('#birth-date').fill('2026-01-01');
     await page.locator('#birth-time').fill('20:06');
@@ -95,12 +95,13 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#baby-apgar').fill('99');
     await page.locator('#growth-record-mode').selectOption('birth');
     await page.locator('#baby-settings-form').evaluate((form) => form.requestSubmit());
+    await page.locator('#open-baby-summary').click();
 
     await expect(page.locator('#growth-summary')).toContainText('52.1cm');
     await expect(page.locator('#growth-summary')).toContainText('Apgar 99%');
     await app.captureStep('Saved birth growth record', 'Growth summary displays the at-birth height, head, weight, and Apgar values.');
 
-    await page.locator('#menu-toggle').click();
+    await page.locator('#open-baby-settings').click();
     await page.locator('#baby-height').fill('55.2');
     await page.locator('#baby-head').fill('36');
     await page.locator('#baby-weight').fill('4300');
@@ -110,6 +111,7 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#growth-record-date').fill('2099-03-14');
     await page.locator('#growth-record-time').fill('09:30');
     await page.locator('#baby-settings-form').evaluate((form) => form.requestSubmit());
+    await page.locator('#open-baby-summary').click();
 
     await expect(page.locator('#growth-summary')).toContainText('55.2cm');
     await expect(page.locator('#growth-summary')).toContainText('+3.1cm from baseline');

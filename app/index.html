@@ -49,64 +49,6 @@
                 </label>
               </section>
 
-              <form id="baby-settings-form" class="settings-block module-settings" data-settings="baby" autocomplete="off">
-                <div class="menu-section-title">Baby settings</div>
-                <label class="select-control">
-                  <span>Name</span>
-                  <input id="baby-name" name="babyName" type="text" placeholder="Baby name">
-                </label>
-                <label class="select-control">
-                  <span>Birth date</span>
-                  <input id="birth-date" name="birthDate" type="date">
-                </label>
-                <label class="select-control">
-                  <span>Birth time</span>
-                  <input id="birth-time" name="birthTime" type="time">
-                </label>
-                <label class="select-control">
-                  <span>Height, cm</span>
-                  <input id="baby-height" name="heightCm" type="number" min="0" step="0.1" placeholder="52.1">
-                </label>
-                <label class="select-control">
-                  <span>Head, cm</span>
-                  <input id="baby-head" name="headCm" type="number" min="0" step="0.1" placeholder="34">
-                </label>
-                <label class="select-control">
-                  <span>Weight, g</span>
-                  <input id="baby-weight" name="weightG" type="number" min="0" step="1" placeholder="3600">
-                </label>
-                <label class="select-control">
-                  <span>Apgar, %</span>
-                  <input id="baby-apgar" name="apgarPercent" type="number" min="0" max="100" step="1" placeholder="99">
-                </label>
-                <label class="select-control">
-                  <span>Record date</span>
-                  <select id="growth-record-mode" name="growthRecordMode">
-                    <option value="birth">At birth</option>
-                    <option value="now">Now</option>
-                    <option value="custom">Specific date</option>
-                  </select>
-                </label>
-                <label class="select-control hidden" id="growth-record-date-control">
-                  <span>Specific date</span>
-                  <input id="growth-record-date" name="growthRecordDate" type="date">
-                </label>
-                <label class="select-control hidden" id="growth-record-time-control">
-                  <span>Specific time</span>
-                  <input id="growth-record-time" name="growthRecordTime" type="time">
-                </label>
-                <p class="settings-note">Every changed growth value is saved to the growth history for later summaries.</p>
-                <label class="select-control">
-                  <span>Default milk amount, ml</span>
-                  <input id="milk-amount" name="milkAmountMlOverride" type="number" min="0" step="5" placeholder="160">
-                </label>
-                <label class="select-control">
-                  <span>Default nap length, minutes</span>
-                  <input id="nap-duration" name="napDurationMinutesOverride" type="number" min="0" step="5" placeholder="60">
-                </label>
-                <button type="submit" class="menu-action">Save baby settings</button>
-              </form>
-
               <section class="settings-block module-settings hidden" data-settings="task">
                 <div class="menu-section-title">Task settings</div>
                 <p class="settings-note">Task templates, recurring rules, and schedule controls will live here.</p>
@@ -154,9 +96,80 @@
           </div>
         </header>
 
+        <nav class="baby-section-menu" aria-label="Baby tracker sections">
+          <button id="open-baby-settings" type="button" class="baby-section-button icon-button" aria-expanded="false" aria-controls="baby-settings-panel" aria-label="Baby settings">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+              <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2.1 2.1 0 0 1-2.97 2.97l-.04-.04a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.09 1.65V21.4a2.1 2.1 0 0 1-4.2 0v-.06a1.8 1.8 0 0 0-1.09-1.65 1.8 1.8 0 0 0-1.98.36l-.04.04a2.1 2.1 0 0 1-2.97-2.97l.04-.04A1.8 1.8 0 0 0 3.6 15a1.8 1.8 0 0 0-1.65-1.09H1.9a2.1 2.1 0 0 1 0-4.2h.06A1.8 1.8 0 0 0 3.6 8.62a1.8 1.8 0 0 0-.36-1.98l-.04-.04a2.1 2.1 0 0 1 2.97-2.97l.04.04a1.8 1.8 0 0 0 1.98.36 1.8 1.8 0 0 0 1.09-1.65V2.2a2.1 2.1 0 0 1 4.2 0v.06a1.8 1.8 0 0 0 1.09 1.65 1.8 1.8 0 0 0 1.98-.36l.04-.04a2.1 2.1 0 0 1 2.97 2.97l-.04.04a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.09h.06a2.1 2.1 0 0 1 0 4.2h-.06A1.8 1.8 0 0 0 19.4 15Z"></path>
+            </svg>
+            <span>Settings</span>
+          </button>
+          <button id="open-baby-summary" type="button" class="baby-section-button" aria-expanded="false" aria-controls="growth-summary">Summary</button>
+        </nav>
+
+        <section id="baby-settings-panel" class="baby-settings-panel hidden" aria-label="Baby settings">
+          <form id="baby-settings-form" class="settings-block" autocomplete="off">
+            <div class="menu-section-title">Baby settings</div>
+            <label class="select-control">
+              <span>Name</span>
+              <input id="baby-name" name="babyName" type="text" placeholder="Baby name">
+            </label>
+            <label class="select-control">
+              <span>Birth date</span>
+              <input id="birth-date" name="birthDate" type="date">
+            </label>
+            <label class="select-control">
+              <span>Birth time</span>
+              <input id="birth-time" name="birthTime" type="time">
+            </label>
+            <label class="select-control">
+              <span>Height, cm</span>
+              <input id="baby-height" name="heightCm" type="number" min="0" step="0.1" placeholder="52.1">
+            </label>
+            <label class="select-control">
+              <span>Head, cm</span>
+              <input id="baby-head" name="headCm" type="number" min="0" step="0.1" placeholder="34">
+            </label>
+            <label class="select-control">
+              <span>Weight, g</span>
+              <input id="baby-weight" name="weightG" type="number" min="0" step="1" placeholder="3600">
+            </label>
+            <label class="select-control">
+              <span>Apgar, %</span>
+              <input id="baby-apgar" name="apgarPercent" type="number" min="0" max="100" step="1" placeholder="99">
+            </label>
+            <label class="select-control">
+              <span>Record date</span>
+              <select id="growth-record-mode" name="growthRecordMode">
+                <option value="birth">At birth</option>
+                <option value="now">Now</option>
+                <option value="custom">Specific date</option>
+              </select>
+            </label>
+            <label class="select-control hidden" id="growth-record-date-control">
+              <span>Specific date</span>
+              <input id="growth-record-date" name="growthRecordDate" type="date">
+            </label>
+            <label class="select-control hidden" id="growth-record-time-control">
+              <span>Specific time</span>
+              <input id="growth-record-time" name="growthRecordTime" type="time">
+            </label>
+            <p class="settings-note">Every changed growth value is saved to the growth history for later summaries.</p>
+            <label class="select-control">
+              <span>Default milk amount, ml</span>
+              <input id="milk-amount" name="milkAmountMlOverride" type="number" min="0" step="5" placeholder="160">
+            </label>
+            <label class="select-control">
+              <span>Default nap length, minutes</span>
+              <input id="nap-duration" name="napDurationMinutesOverride" type="number" min="0" step="5" placeholder="60">
+            </label>
+            <button type="submit" class="menu-action">Save baby settings</button>
+          </form>
+        </section>
+
         <section id="summary" class="summary-strip" aria-label="Today summary"></section>
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
-        <section id="growth-summary" class="growth-summary" aria-label="Growth summary"></section>
+        <section id="growth-summary" class="growth-summary hidden" aria-label="Growth summary"></section>
 
         <section id="workspace" class="workspace-grid">
           <section class="phone-flow">

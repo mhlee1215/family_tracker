@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 045](https://img.shields.io/badge/build-045-0066cc)
+![Build 046](https://img.shields.io/badge/build-046-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -23,7 +23,7 @@ Designed for very short natural-language input such as `낮잠`, `깸`, `분유 
 - Extracts explicit facts from the message
 - Fills missing fields from context/defaults when possible
 - Stores detailed baby profile fields including birth time, height, head size, weight, and Apgar
-- Saves dated growth records for birth, current, or custom dates and shows growth history summaries
+- Saves dated growth records for birth, current, or custom dates and shows growth history summaries with an in-section trend chart
 - Marks inferred values separately from user-provided values
 - Supports core baby event types:
   - sleep

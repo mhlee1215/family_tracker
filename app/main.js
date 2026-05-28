@@ -56,6 +56,7 @@ const state = {
   mealCalendarMonth: null,
   mealCalendarDots: {},
   taskPanel: 'today',
+  babyPanel: null,
   meals: emptyMealState(),
 };
 
@@ -74,6 +75,9 @@ const elements = {
   summary: $('#summary'),
   sleepStatus: $('#sleep-status'),
   growthSummary: $('#growth-summary'),
+  babySettingsPanel: $('#baby-settings-panel'),
+  openBabySummary: $('#open-baby-summary'),
+  openBabySettings: $('#open-baby-settings'),
   quickActions: $('#quick-actions'),
   tabletActions: $('#tablet-actions'),
   eventCount: $('#event-count'),
@@ -227,6 +231,8 @@ elements.mealForm?.addEventListener('submit', submitMealForm);
 elements.mealCancel?.addEventListener('click', closeMealModal);
 elements.openTaskSummary?.addEventListener('click', () => setTaskPanel('summary'));
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
+elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
+elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
 
 elements.babySettingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -415,7 +421,7 @@ async function saveBabyProfile() {
   state.growthRecords = payload.growthRecords || state.growthRecords;
   renderBabySettings();
   renderGrowthSummary();
-  setMenuOpen(false);
+  setBabyPanel(null);
 }
 
 async function loadTaskData() {
@@ -528,6 +534,7 @@ async function logout() {
   state.tasks = [];
   state.taskOverview = [];
   state.taskPanel = 'today';
+  state.babyPanel = null;
   renderAuthState();
   renderBaby();
   renderTasks();
@@ -584,6 +591,27 @@ function setMenuOpen(open) {
   elements.menuToggle.setAttribute('aria-expanded', String(open));
 }
 
+function toggleBabyPanel(panel) {
+  setBabyPanel(state.babyPanel === panel ? null : panel);
+}
+
+function setBabyPanel(panel) {
+  state.babyPanel = panel === 'summary' || panel === 'settings' ? panel : null;
+  renderBabyPanel();
+}
+
+function renderBabyPanel() {
+  const summaryOpen = state.babyPanel === 'summary';
+  const settingsOpen = state.babyPanel === 'settings';
+  elements.growthSummary?.classList.toggle('hidden', !summaryOpen);
+  elements.babySettingsPanel?.classList.toggle('hidden', !settingsOpen);
+  elements.openBabySummary?.classList.toggle('active', summaryOpen);
+  elements.openBabySettings?.classList.toggle('active', settingsOpen);
+  elements.openBabySummary?.setAttribute('aria-expanded', String(summaryOpen));
+  elements.openBabySettings?.setAttribute('aria-expanded', String(settingsOpen));
+  if (settingsOpen) renderBabySettings();
+}
+
 function setTaskComposerOpen(open) {
   elements.taskForm.classList.toggle('hidden', !open);
   elements.openTaskComposer.setAttribute('aria-expanded', String(open));
@@ -604,6 +632,7 @@ function renderBaby() {
   renderSummary();
   renderSleepStatus();
   renderGrowthSummary();
+  renderBabyPanel();
   renderTimeline();
 }
 
@@ -691,14 +720,69 @@ function renderGrowthSummary() {
   elements.growthSummary.innerHTML = `
     <div class="section-header growth-summary-header">
       <div>
+        <p class="eyebrow">Summary</p>
         <h2>Growth summary</h2>
         <p class="growth-summary-note">Latest saved record: ${escapeHtml(growthRecordDateLabel(latest))}</p>
       </div>
       <span class="muted-count">${records.length} records</span>
     </div>
     <div class="growth-metric-grid">${metricCards.join('')}</div>
+    ${renderGrowthChart(records)}
     <div class="growth-history-list">${history}</div>
   `;
+}
+
+function renderGrowthChart(records) {
+  const chartRecords = [...records].sort(compareGrowthRecordsAsc).slice(-8);
+  const series = [
+    { key: 'heightCm', label: 'Height', unit: 'cm' },
+    { key: 'headCm', label: 'Head', unit: 'cm' },
+    { key: 'weightG', label: 'Weight', unit: 'g' },
+  ].map((metric) => ({ ...metric, points: growthChartPoints(chartRecords, metric.key) }));
+  const visibleSeries = series.filter((metric) => metric.points.length >= 2);
+  if (!visibleSeries.length) {
+    return '<section class="growth-chart-card"><p class="empty">Add at least two dated growth records to draw a trend chart.</p></section>';
+  }
+  const polylines = visibleSeries.map((metric) => `<polyline class="growth-line growth-line-${metric.key}" points="${metric.points.map((point) => `${point.x},${point.y}`).join(' ')}"><title>${escapeHtml(metric.label)}</title></polyline>`).join('');
+  const markers = visibleSeries.flatMap((metric) => metric.points.map((point) => `<circle class="growth-dot growth-dot-${metric.key}" cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml(metric.label)} ${escapeHtml(point.valueText)} on ${escapeHtml(point.label)}</title></circle>`)).join('');
+  const legend = visibleSeries.map((metric) => `<span class="growth-legend-item growth-legend-${metric.key}">${escapeHtml(metric.label)}</span>`).join('');
+  const firstLabel = growthRecordDateLabel(chartRecords[0]);
+  const lastLabel = growthRecordDateLabel(chartRecords[chartRecords.length - 1]);
+  return `
+    <section class="growth-chart-card" aria-label="Growth trend chart">
+      <div class="growth-chart-copy">
+        <strong>Growth trend</strong>
+        <span>${escapeHtml(firstLabel)} → ${escapeHtml(lastLabel)}</span>
+      </div>
+      <svg class="growth-chart" viewBox="0 0 640 220" role="img" aria-label="Growth measurements over time">
+        <line x1="40" y1="20" x2="40" y2="184"></line>
+        <line x1="40" y1="184" x2="612" y2="184"></line>
+        ${polylines}${markers}
+      </svg>
+      <div class="growth-legend">${legend}</div>
+    </section>
+  `;
+}
+
+function growthChartPoints(records, key) {
+  const values = records
+    .map((record, index) => ({ record, index, value: record[key] }))
+    .filter((point) => point.value !== null && point.value !== undefined && Number.isFinite(Number(point.value)));
+  if (values.length < 2) return [];
+  const min = Math.min(...values.map((point) => Number(point.value)));
+  const max = Math.max(...values.map((point) => Number(point.value)));
+  const span = max - min || 1;
+  const xSpan = Math.max(records.length - 1, 1);
+  return values.map((point) => ({
+    x: Math.round(40 + (point.index / xSpan) * 572),
+    y: Math.round(184 - ((Number(point.value) - min) / span) * 150),
+    label: growthRecordDateLabel(point.record),
+    valueText: `${point.value}`,
+  }));
+}
+
+function compareGrowthRecordsAsc(a, b) {
+  return growthRecordSortValue(a).localeCompare(growthRecordSortValue(b));
 }
 
 function growthMetricCard(label, value, unit, detail) {

@@ -1255,3 +1255,160 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+.baby-section-menu {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(245, 245, 247, 0.92);
+  padding: 12px 24px;
+}
+
+.baby-section-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--primary);
+  font-size: 14px;
+  padding: 8px 16px;
+  box-shadow: inset 0 0 0 1px var(--divider-soft);
+}
+
+.baby-section-button:hover,
+.baby-section-button.active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.baby-section-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.baby-settings-panel {
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+  padding: 40px min(640px, 7vw);
+}
+
+.baby-settings-panel .settings-block {
+  max-width: 640px;
+  margin: 0 auto;
+  border-top: 0;
+  border-radius: 18px;
+  background: var(--canvas-parchment);
+  padding: 24px;
+}
+
+.growth-chart-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--surface-dark);
+  color: var(--on-dark);
+  padding: 24px;
+}
+
+.growth-chart-copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.growth-chart-copy strong {
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.growth-chart-copy span,
+.growth-legend {
+  color: var(--body-muted-dark);
+  font-size: 14px;
+}
+
+.growth-chart {
+  width: 100%;
+  min-height: 220px;
+}
+
+.growth-chart line {
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1;
+}
+
+.growth-line {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.growth-line-heightCm,
+.growth-dot-heightCm {
+  stroke: var(--primary-on-dark);
+  fill: var(--primary-on-dark);
+}
+
+.growth-line-headCm,
+.growth-dot-headCm {
+  stroke: #ffffff;
+  fill: #ffffff;
+}
+
+.growth-line-weightG,
+.growth-dot-weightG {
+  stroke: #d2d2d7;
+  fill: #d2d2d7;
+}
+
+.growth-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.growth-legend-item::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.growth-legend-heightCm { color: var(--primary-on-dark); }
+.growth-legend-headCm { color: #ffffff; }
+.growth-legend-weightG { color: #d2d2d7; }
+
+@media (max-width: 680px) {
+  .baby-section-menu {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 12px 16px;
+  }
+
+  .baby-settings-panel,
+  .growth-summary {
+    padding: 32px 16px;
+  }
+
+  .growth-chart-copy {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
