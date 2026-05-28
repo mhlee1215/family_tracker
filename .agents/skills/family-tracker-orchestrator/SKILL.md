@@ -33,6 +33,15 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - 제품 도메인 규칙은 기존 `skills/` 폴더를 source of truth로 유지한다.
 - 재사용 가능한 규칙이 생기면 `skills/`와 `docs/harness/family-tracker/`를 함께 갱신한다.
 
+## Harness Policy Change Rules
+- 코드/실행/테스트 정책이 바뀌면 README보다 이 오케스트레이터와 `docs/harness/family-tracker/team-spec.md`를 우선 갱신한다.
+- README는 사용자 안내용이고, 에이전트 작업 기준의 source of truth가 아니다.
+- 저장소 실행 정책 변경(예: Turso, proxy, start script, CI/test command)은 관련 기능 스킬(`skills/features/*`)에도 재사용 규칙으로 반영한다.
+
+## Runtime Environment Policy
+- 이 저장소의 기본 실행 경로는 현재 환경의 Turso 설정에서도 실패하지 않아야 한다.
+- `npm start`는 `scripts/start-server.js`를 통해 실행되어야 하며, Turso 모드(`DATABASE_PROVIDER=turso` 또는 `TURSO_DATABASE_URL` 존재)에서는 Node를 `--use-env-proxy` 및 `--dns-result-order=ipv4first`로 재실행해야 한다.
+- Turso 연결/실행 정책을 변경하면 `npm run check:turso`와 `npm start`를 함께 검증하고 결과를 최종 보고에 남긴다.
 
 ## Required Post-change Test Routine
 코드 변경 후 에이전트가 반드시 확인할 테스트 순서:

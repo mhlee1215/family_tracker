@@ -1502,3 +1502,48 @@ label {
     top: calc(220px + 61px + 12px);
   }
 }
+
+.today-jump,
+.inline-action {
+  min-height: 32px;
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--divider-soft);
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.today-jump:hover,
+.inline-action:hover {
+  background: var(--canvas);
+}
+
+.timeline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.inline-action.danger {
+  color: #b42318;
+}
+
+.completed-task-section {
+  margin-top: 28px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 20px;
+}
+
+.completed-task-section h3 {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.completed-task-list {
+  display: grid;
+  border-top: 1px solid var(--divider-soft);
+}
