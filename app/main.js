@@ -95,6 +95,7 @@ const elements = {
   metadataVersion: $('#metadata-version'),
   dayLabel: $('#day-label'),
   dayPicker: $('#day-picker'),
+  babyToday: $('#baby-today'),
   babyCalendarToggle: $('#baby-calendar-toggle'),
   babyCalendarPopover: $('#baby-calendar-popover'),
   babyCalendarPrev: $('#baby-calendar-prev'),
@@ -104,6 +105,7 @@ const elements = {
   previousDay: $('#previous-day'),
   nextDay: $('#next-day'),
   taskDayLabel: $('#task-day-label'),
+  taskToday: $('#task-today'),
   taskCalendarToggle: $('#task-calendar-toggle'),
   taskCalendarPopover: $('#task-calendar-popover'),
   taskCalendarPrev: $('#task-calendar-prev'),
@@ -150,6 +152,7 @@ const elements = {
   taskOverviewList: $('#task-overview-list'),
   wishList: $('#wish-list'),
   mealDayLabel: $('#meal-day-label'),
+  mealToday: $('#meal-today'),
   mealCalendarToggle: $('#meal-calendar-toggle'),
   mealCalendarPopover: $('#meal-calendar-popover'),
   mealCalendarPrev: $('#meal-calendar-prev'),
@@ -264,10 +267,13 @@ elements.logout.addEventListener('click', logout);
 elements.menuToggle.addEventListener('click', () => setMenuOpen(elements.menuPanel.classList.contains('hidden')));
 elements.previousDay.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextDay.addEventListener('click', () => shiftSelectedDay(1));
+elements.babyToday?.addEventListener('click', () => jumpToToday());
 elements.previousTaskDay.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextTaskDay.addEventListener('click', () => shiftSelectedDay(1));
+elements.taskToday?.addEventListener('click', () => jumpToToday());
 elements.previousMealDay?.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
+elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 
 elements.dayPicker.addEventListener('change', () => setSelectedDay(elements.dayPicker.value, { pushHistory: true }));
@@ -500,6 +506,39 @@ async function toggleTask(task) {
     body: JSON.stringify({ status: nextStatus }),
   });
   if (response.ok) await loadTaskData();
+}
+
+async function editBabyLog(event) {
+  if (!event.rawLogId) return;
+  const nextText = window.prompt('Edit this baby log', event.rawText || '');
+  if (nextText === null) return;
+  const cleanText = nextText.trim();
+  if (!cleanText) return;
+  const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: cleanText, timezone: localTimezone() }),
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    elements.answer.textContent = payload.error || copy.saveFailed;
+    return;
+  }
+  state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
+  await loadToday();
+}
+
+async function deleteBabyLog(event) {
+  if (!event.rawLogId) return;
+  const ok = window.confirm(`Delete this baby log?\n\n${event.rawText || eventTitle(event)}`);
+  if (!ok) return;
+  const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, { method: 'DELETE' });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    elements.answer.textContent = payload.error || copy.saveFailed;
+    return;
+  }
+  await loadToday();
 }
 
 async function loadCurrentUser() {
@@ -962,9 +1001,22 @@ function renderEvent(event) {
   const badges = document.createElement('div');
   badges.className = 'badges';
   badges.replaceChildren(...inferredBadges(event));
+  const editButton = document.createElement('button');
+  editButton.type = 'button';
+  editButton.className = 'inline-action';
+  editButton.textContent = 'Edit';
+  editButton.addEventListener('click', () => editBabyLog(event));
+  const deleteButton = document.createElement('button');
+  deleteButton.type = 'button';
+  deleteButton.className = 'inline-action danger';
+  deleteButton.textContent = 'Delete';
+  deleteButton.addEventListener('click', () => deleteBabyLog(event));
+  const actions = document.createElement('div');
+  actions.className = 'timeline-actions';
+  actions.replaceChildren(editButton, deleteButton);
   const main = document.createElement('div');
   main.className = 'timeline-main';
-  main.replaceChildren(meta, raw);
+  main.replaceChildren(meta, raw, actions);
   item.replaceChildren(title, main, badges);
   return item;
 }
@@ -1013,26 +1065,30 @@ function renderTasks() {
   renderTaskDayControls();
   renderTaskPanel();
   renderAssignees();
+  const openTasks = state.tasks.filter((task) => task.status !== 'done');
+  const completedTasks = state.tasks.filter((task) => task.status === 'done');
   elements.taskCount.textContent = `${state.tasks.length} tasks`;
-  if (!state.tasks.length) {
-    elements.taskList.innerHTML = `<p class="empty">${copy.emptyTasks}</p>`;
+  const sections = [];
+  if (openTasks.length) {
+    sections.push(renderTaskBoard(openTasks));
   } else {
-    const byAssignee = new Map();
-    for (const task of state.tasks) {
-      const key = task.assigneeId || 'unassigned';
-      if (!byAssignee.has(key)) byAssignee.set(key, {
-        name: task.assigneeName || 'Unassigned',
-        color: task.assigneeColor || '#0066cc',
-        tasks: [],
-      });
-      byAssignee.get(key).tasks.push(task);
-    }
-    const columns = [...byAssignee.values()].map((group) => renderTaskColumn(group));
-    const board = document.createElement('div');
-    board.className = 'task-board';
-    board.replaceChildren(...columns);
-    elements.taskList.replaceChildren(board);
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = copy.emptyTasks;
+    sections.push(empty);
   }
+  if (completedTasks.length) {
+    const completedSection = document.createElement('section');
+    completedSection.className = 'completed-task-section';
+    const heading = document.createElement('h3');
+    heading.textContent = 'Completed';
+    const completedList = document.createElement('div');
+    completedList.className = 'completed-task-list';
+    completedList.replaceChildren(...completedTasks.map(renderTask));
+    completedSection.replaceChildren(heading, completedList);
+    sections.push(completedSection);
+  }
+  elements.taskList.replaceChildren(...sections);
   if (!state.taskOverview.length) {
     elements.taskOverviewList.innerHTML = `<p class="empty">${copy.emptyOverview}</p>`;
   } else {
@@ -1223,6 +1279,24 @@ function renderCalendarGrid({ monthKey, selectedDay, dotsByDay, monthElement, gr
   monthElement.textContent = first.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
   gridElement.replaceChildren(...cells);
 }
+function renderTaskBoard(tasks) {
+  const byAssignee = new Map();
+  for (const task of tasks) {
+    const key = task.assigneeId || 'unassigned';
+    if (!byAssignee.has(key)) byAssignee.set(key, {
+      name: task.assigneeName || 'Unassigned',
+      color: task.assigneeColor || '#0066cc',
+      tasks: [],
+    });
+    byAssignee.get(key).tasks.push(task);
+  }
+  const columns = [...byAssignee.values()].map((group) => renderTaskColumn(group));
+  const board = document.createElement('div');
+  board.className = 'task-board';
+  board.replaceChildren(...columns);
+  return board;
+}
+
 function renderTaskColumn(group) {
   const column = document.createElement('section');
   column.className = 'task-column';
@@ -1303,6 +1377,10 @@ function refreshActiveTab() {
 
 function shiftSelectedDay(days) {
   setSelectedDay(shiftDateKey(state.selectedDay, days), { pushHistory: true });
+}
+
+function jumpToToday() {
+  setSelectedDay(localDateKey(new Date()), { pushHistory: true });
 }
 
 function setSelectedDay(day, { pushHistory = false } = {}) {
