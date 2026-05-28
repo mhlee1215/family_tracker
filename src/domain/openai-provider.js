@@ -28,7 +28,7 @@ export function buildOpenAIRequest(task, input, options = {}) {
 
 function instructionsForTask(task) {
   if (task === 'parse_baby_log') {
-    return 'Return JSON matching the supplied schema. If multiple baby activities are described, return one event per activity. Extract explicit values only; omit unknown fields.';
+    return 'Return JSON matching the supplied schema.';
   }
   return 'Answer family tracker questions using the provided structured data.';
 }
@@ -43,28 +43,10 @@ function responseFormatForTask(task) {
   };
 }
 
-const fieldSchema = fieldSchemaWithValue({
-  anyOf: [
-    { type: 'string' },
-    { type: 'number' },
-    { type: 'integer' },
-    { type: 'boolean' },
-  ],
-});
-
-function fieldSchemaWithValue(valueSchema) {
-  return {
-    type: 'object',
-    additionalProperties: false,
-    required: ['value', 'source', 'basis', 'confidence'],
-    properties: {
-      value: valueSchema,
-      source: { type: 'string', enum: ['explicit', 'system', 'inferred', 'user_corrected'] },
-      basis: { type: 'string' },
-      confidence: { type: 'number', minimum: 0, maximum: 1 },
-    },
-  };
-}
+const isoDateTime = {
+  type: 'string',
+  description: 'ISO 8601 datetime for a time explicitly mentioned by the user.',
+};
 
 const babyLogParseSchema = {
   type: 'object',
@@ -74,22 +56,23 @@ const babyLogParseSchema = {
     events: {
       type: 'array',
       minItems: 1,
+      description: 'One event per baby activity described in the input text.',
       items: {
         type: 'object',
         additionalProperties: false,
         required: ['type'],
         properties: {
           type: { type: 'string', enum: ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'] },
-          rawText: { type: 'string' },
-          occurredAt: fieldSchema,
-          startAt: fieldSchema,
-          endAt: fieldSchema,
-          durationMinutes: fieldSchema,
-          amountMl: fieldSchema,
-          feedingKind: fieldSchemaWithValue({ type: 'string', enum: ['formula', 'breast'] }),
-          food: fieldSchema,
-          diaperKind: fieldSchemaWithValue({ type: 'string', enum: ['dirty', 'wet_or_unspecified'] }),
-          action: fieldSchemaWithValue({ type: 'string', enum: ['start', 'end', 'session'] }),
+          rawText: { type: 'string', description: 'Optional phrase for this event when the input contains multiple activities.' },
+          occurredAt: isoDateTime,
+          startAt: isoDateTime,
+          endAt: isoDateTime,
+          durationMinutes: { type: 'number', description: 'Duration explicitly stated by the user.' },
+          amountMl: { type: 'number', description: 'Milk amount explicitly stated by the user.' },
+          feedingKind: { type: 'string', enum: ['formula', 'breast'] },
+          food: { type: 'string' },
+          diaperKind: { type: 'string', enum: ['dirty', 'wet_or_unspecified'] },
+          action: { type: 'string', enum: ['start', 'end', 'session'] },
           status: { type: 'string', enum: ['completed', 'ongoing_or_predicted'] },
         },
       },

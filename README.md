@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 051](https://img.shields.io/badge/build-051-0066cc)
+![Build 052](https://img.shields.io/badge/build-052-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -87,7 +87,7 @@ Open:
 http://localhost:4174
 ```
 
-The app uses the server-side LLM provider for baby-log parsing when `LLM_PROVIDER` is set to a non-mock provider and the matching key is configured. Otherwise it uses the local heuristic parser; failed provider parses fall back to the heuristic parser and keep parser metadata on each event for debugging.
+The app uses the server-side LLM provider for baby-log parsing when `LLM_PROVIDER` is set to a non-mock provider and the matching key is configured. The provider prompt stays minimal and the JSON schema carries the expected compact `{ "events": [...] }` format, including multiple events from one input when needed. Otherwise it uses the local heuristic parser; failed provider parses fall back to the heuristic parser and keep parser metadata on each event for debugging.
 
 ---
 

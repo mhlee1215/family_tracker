@@ -20,7 +20,7 @@ Each structured field must preserve provenance:
 
 ## Parser Provenance
 
-Each structured event should include parser metadata for debugging:
+The provider response keeps formatting minimal: `{ "events": [...] }`, with one compact event object per baby activity. Provider event fields should be plain explicit values such as `amountMl: 12`, `occurredAt: "2026-05-23T13:10:00.000Z"`, or `diaperKind: "dirty"`; the server wraps those values in provenance fields before storage. Each stored structured event should include parser metadata for debugging:
 
 ```json
 {
@@ -36,7 +36,9 @@ Each structured event should include parser metadata for debugging:
 
 Heuristic fallback events use `kind: "heuristic"` and `model: "rule-based-mvp"`.
 
-## Field Shape
+## Stored Field Shape
+
+Provider output uses plain values, but stored structured events use provenance wrappers:
 
 ```json
 {
@@ -47,9 +49,11 @@ Heuristic fallback events use `kind: "heuristic"` and `model: "rule-based-mvp"`.
 }
 ```
 
+LLM-extracted fields are normalized to `source: "explicit"`; missing times that the server supplies remain `source: "system"`.
+
 ## Parsing Principle
 
-The LLM should extract intent and explicit values, returning one event per activity when one input describes multiple activities. Deterministic domain logic should fill missing quantities, durations, and session links whenever possible. Provider outputs are normalized and validated server-side before storage; invalid or unavailable provider output falls back to the local heuristic parser.
+The LLM should extract intent and explicit values only, returning one event per activity when one input describes multiple activities. Deterministic domain logic should fill missing quantities, durations, and session links whenever possible. Provider outputs are normalized, provenance-wrapped, and validated server-side before storage; invalid or unavailable provider output falls back to the local heuristic parser.
 
 Examples:
 

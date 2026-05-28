@@ -13,9 +13,9 @@ test('uses configured LLM provider and records provider/model metadata', async (
       output_text: JSON.stringify({
         events: [{
           type: 'feeding_milk',
-          occurredAt: { value: now.toISOString(), source: 'explicit', basis: 'typed_time', confidence: 0.9 },
-          amountMl: { value: 12, source: 'explicit', basis: 'typed_number', confidence: 0.95 },
-          feedingKind: { value: 'formula', source: 'explicit', basis: 'keyword', confidence: 0.95 },
+          occurredAt: now.toISOString(),
+          amountMl: 12,
+          feedingKind: 'formula',
         }],
       }),
     }),
@@ -51,13 +51,13 @@ test('keeps multiple LLM events from one sentence linked to the same parser meta
       output_text: JSON.stringify({
         events: [{
           type: 'feeding_milk',
-          occurredAt: { value: '2026-05-28T13:20:00.000Z', source: 'explicit', basis: 'typed_time', confidence: 0.9 },
-          amountMl: { value: 12, source: 'explicit', basis: 'typed_number', confidence: 0.95 },
-          feedingKind: { value: 'formula', source: 'explicit', basis: 'keyword', confidence: 0.95 },
+          occurredAt: '2026-05-28T13:20:00.000Z',
+          amountMl: 12,
+          feedingKind: 'formula',
         }, {
           type: 'diaper',
-          occurredAt: { value: '2026-05-28T13:20:00.000Z', source: 'explicit', basis: 'typed_time', confidence: 0.9 },
-          diaperKind: { value: 'dirty', source: 'explicit', basis: 'keyword', confidence: 0.95 },
+          occurredAt: '2026-05-28T13:20:00.000Z',
+          diaperKind: 'dirty',
         }],
       }),
     }),

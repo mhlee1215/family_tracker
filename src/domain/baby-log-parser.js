@@ -137,24 +137,26 @@ function normalizeEventCandidate(candidate, context, parserInfo) {
     parserInfo,
   };
 
-  if (event.occurredAt) event.occurredAt = normalizeField(event.occurredAt, 'explicit', 'llm_extracted_time', 0.8);
-  if (event.startAt) event.startAt = normalizeField(event.startAt, 'explicit', 'llm_extracted_start_time', 0.8);
-  if (event.endAt) event.endAt = normalizeField(event.endAt, 'explicit', 'llm_extracted_end_time', 0.8);
-  if (event.amountMl) {
-    event.amountMl = normalizeField(event.amountMl, 'explicit', 'llm_extracted_amount', 0.8);
+  if (event.occurredAt) event.occurredAt = normalizeExplicitField(event.occurredAt, 'llm_extracted_time');
+  if (event.startAt) event.startAt = normalizeExplicitField(event.startAt, 'llm_extracted_start_time');
+  if (event.endAt) event.endAt = normalizeExplicitField(event.endAt, 'llm_extracted_end_time');
+  if (event.amountMl !== undefined) {
+    event.amountMl = normalizeExplicitField(event.amountMl, 'llm_extracted_amount');
     event.amountMl.value = Number(event.amountMl.value);
   }
-  if (event.food) event.food = normalizeField(event.food, 'explicit', 'llm_extracted_food', 0.8);
-  if (event.feedingKind) event.feedingKind = normalizeField(event.feedingKind, 'explicit', 'llm_extracted_feeding_kind', 0.8);
-  if (event.diaperKind) event.diaperKind = normalizeField(event.diaperKind, 'explicit', 'llm_extracted_diaper_kind', 0.8);
-  if (event.action) event.action = normalizeField(event.action, 'explicit', 'llm_extracted_action', 0.8);
-  if (event.durationMinutes) {
-    event.durationMinutes = normalizeField(event.durationMinutes, event.durationMinutes.source || 'explicit', event.durationMinutes.basis || 'llm_extracted_duration', event.durationMinutes.confidence || 0.8);
+  if (event.food) event.food = normalizeExplicitField(event.food, 'llm_extracted_food');
+  if (event.feedingKind) event.feedingKind = normalizeExplicitField(event.feedingKind, 'llm_extracted_feeding_kind');
+  if (event.diaperKind) event.diaperKind = normalizeExplicitField(event.diaperKind, 'llm_extracted_diaper_kind');
+  if (event.action) event.action = normalizeExplicitField(event.action, 'llm_extracted_action');
+  if (event.durationMinutes !== undefined) {
+    event.durationMinutes = normalizeExplicitField(event.durationMinutes, 'llm_extracted_duration');
     event.durationMinutes.value = Number(event.durationMinutes.value);
   }
 
-  if (Number.isNaN(Number(event.amountMl?.value))) delete event.amountMl;
-  if (Number.isNaN(Number(event.durationMinutes?.value))) delete event.durationMinutes;
+  validateProviderEvent(event);
+  if (event.type === 'sleep' && event.action?.value && !event.status) {
+    event.status = event.action.value === 'start' ? 'ongoing_or_predicted' : 'completed';
+  }
   fillMissingSystemTimes(event, context);
   return event;
 }
@@ -168,16 +170,25 @@ function fillMissingSystemTimes(event, context) {
   if (event.action?.value !== 'end' && !event.startAt && !event.endAt) event.startAt = systemTime(context);
 }
 
-function normalizeField(field, defaultSource, defaultBasis, defaultConfidence) {
+function normalizeExplicitField(field, basis) {
   if (field && typeof field === 'object' && 'value' in field) {
-    return createField(
-      field.value,
-      validSource(field.source) ? field.source : defaultSource,
-      field.basis || defaultBasis,
-      Number.isFinite(Number(field.confidence)) ? Number(field.confidence) : defaultConfidence,
-    );
+    return createField(field.value, 'explicit', field.basis || basis, Number.isFinite(Number(field.confidence)) ? Number(field.confidence) : 0.8);
   }
-  return createField(field, defaultSource, defaultBasis, defaultConfidence);
+  return createField(field, 'explicit', basis, 0.8);
+}
+
+function validateProviderEvent(event) {
+  if (event.amountMl && !Number.isFinite(Number(event.amountMl.value))) throw new Error('Invalid amountMl from LLM parser.');
+  if (event.durationMinutes && !Number.isFinite(Number(event.durationMinutes.value))) throw new Error('Invalid durationMinutes from LLM parser.');
+  assertEnumField(event.feedingKind, ['formula', 'breast'], 'feedingKind');
+  assertEnumField(event.diaperKind, ['dirty', 'wet_or_unspecified'], 'diaperKind');
+  assertEnumField(event.action, ['start', 'end', 'session'], 'action');
+  if (event.status && !['completed', 'ongoing_or_predicted'].includes(event.status)) throw new Error(`Invalid status from LLM parser: ${event.status}`);
+}
+
+function assertEnumField(field, allowed, name) {
+  if (!field) return;
+  if (!allowed.includes(field.value)) throw new Error(`Invalid ${name} from LLM parser: ${field.value}`);
 }
 
 function extractJsonPayload(value) {
@@ -193,10 +204,6 @@ function extractResponseText(value) {
   if (typeof value?.output_text === 'string') return value.output_text;
   const chunks = value?.output?.flatMap((item) => item.content || []) || [];
   return chunks.map((chunk) => chunk.text || '').filter(Boolean).join('\n');
-}
-
-function validSource(source) {
-  return ['explicit', 'system', 'inferred', 'user_corrected'].includes(source);
 }
 
 function baseEvent(rawText, context) {
