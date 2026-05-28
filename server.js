@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
-import { parseBabyLogText } from './src/domain/baby-log-parser.js';
+import { parseBabyLogWithProvider } from './src/domain/log-parser-orchestrator.js';
 import { applyInferences } from './src/domain/inference-engine.js';
 import { getProviderModelOptions, normalizeLLMProvider } from './src/domain/llm-provider.js';
 import { completedOpenSleepUpdate, createAutoWakeEvents, findOpenSleep, linkSleepSessions } from './src/domain/sleep-session.js';
@@ -300,12 +300,18 @@ async function handleApi(request, response) {
 
       const profile = await store.getProfile(scope.babyId, { familyId: scope.familyId });
       const recentEvents = (await store.listEvents({ ...scope, limit: 100 })).reverse();
-      const parsed = parseBabyLogText(rawText, {
+      const parsed = await parseBabyLogWithProvider(rawText, {
         now,
         profile,
+        recentEvents,
+        timezone: body.timezone || 'UTC',
         familyId: scope.familyId,
         babyId: scope.babyId,
         authorId: session.user.id || defaultAuthorId,
+      }, {
+        provider: getLLMProvider(),
+        model: getLLMModel(getLLMProvider()),
+        apiKey: getProviderKey(getLLMProvider()),
       });
       const autoWakeEvents = createAutoWakeEvents(parsed, recentEvents, {
         now: now.toISOString(),
@@ -682,6 +688,11 @@ function getLLMProvider() {
 
 function getProviderKey(provider) {
   return provider === 'openai' ? process.env.OPENAI_API_KEY || '' : '';
+}
+
+function getLLMModel(provider = getLLMProvider()) {
+  const configured = getProviderModelOptions().find((item) => item.id === provider);
+  return process.env.LLM_MODEL || process.env.OPENAI_MODEL || configured?.defaultModel;
 }
 
 function localDateKeyFromIso(value, timezone) {

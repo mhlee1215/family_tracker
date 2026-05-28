@@ -961,7 +961,7 @@ function renderEvent(event) {
   raw.textContent = event.rawText;
   const badges = document.createElement('div');
   badges.className = 'badges';
-  badges.replaceChildren(...inferredBadges(event));
+  badges.replaceChildren(parserBadge(event), ...inferredBadges(event));
   const main = document.createElement('div');
   main.className = 'timeline-main';
   main.replaceChildren(meta, raw);
@@ -1276,6 +1276,23 @@ function eventMeta(event) {
   if (event.type === 'feeding_milk') return `${timeLabel(event.occurredAt)} · ${event.amountMl?.value || 0}ml`;
   if (event.type === 'feeding_solid') return `${timeLabel(event.occurredAt)} · ${event.amount?.value || ''}`;
   return timeLabel(event.occurredAt);
+}
+
+function parserBadge(event) {
+  const info = event.parserInfo || {};
+  const badge = document.createElement('span');
+  const kind = info.kind === 'llm' ? 'llm' : info.kind === 'system' ? 'system' : 'heuristic';
+  badge.className = `parser-badge parser-badge-${kind}`;
+  badge.textContent = kind === 'llm' ? `LLM · ${info.model || info.provider || 'provider'}` : kind === 'system' ? (info.label || 'System') : 'Heuristic';
+  badge.title = parserBadgeTitle(event);
+  return badge;
+}
+
+function parserBadgeTitle(event) {
+  const info = event.parserInfo || {};
+  const base = info.label || event.parser || 'Unknown parser';
+  if (info.fallbackFrom) return `${base}; fallback from ${info.fallbackFrom.provider} ${info.fallbackFrom.model}: ${info.fallbackFrom.reason}`;
+  return base;
 }
 
 function inferredBadges(event) {
