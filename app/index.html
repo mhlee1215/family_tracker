@@ -114,7 +114,7 @@
           </button>
         </nav>
 
-        <section id="baby-settings-panel" class="baby-settings-panel hidden" aria-label="Baby settings">
+        <section id="baby-settings-panel" class="baby-settings-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby settings">
           <form id="baby-settings-form" class="settings-block" autocomplete="off">
             <div class="menu-section-title">Baby settings</div>
             <label class="select-control">
@@ -176,7 +176,7 @@
 
         <section id="summary" class="summary-strip" aria-label="Today summary"></section>
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
-        <section id="growth-summary" class="growth-summary hidden" aria-label="Growth summary"></section>
+        <section id="growth-summary" class="growth-summary app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth summary"></section>
 
         <section id="workspace" class="workspace-grid">
           <section class="phone-flow">
@@ -262,7 +262,7 @@
                 <span id="task-count" class="muted-count">0 tasks</span>
               </div>
             </div>
-            <form id="task-form" class="task-composer hidden" autocomplete="off">
+            <form id="task-form" class="task-composer app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Add task" autocomplete="off">
               <div class="task-form-grid">
                 <select id="task-assignee" name="assigneeId" aria-label="Assignee"></select>
                 <input id="task-title" name="title" type="text" placeholder="Wash bottles">
@@ -279,7 +279,7 @@
             <div id="task-list" class="task-list"></div>
           </section>
 
-          <section class="task-section task-overview hidden" id="task-summary-panel">
+          <section class="task-section task-overview app-floating-panel hidden" id="task-summary-panel" role="dialog" aria-hidden="true" aria-label="Task summary">
             <div class="section-header">
               <h2>Overview</h2>
               <div class="section-actions">
