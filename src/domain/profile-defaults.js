@@ -22,8 +22,13 @@ export function createDefaultProfile(options = {}) {
     babyId: options.babyId || defaultBabyId,
     babyName: options.babyName || '',
     birthDate: options.birthDate || '',
-    milkAmountMlOverride: options.milkAmountMlOverride ?? null,
-    napDurationMinutesOverride: options.napDurationMinutesOverride ?? null,
+    birthTime: options.birthTime || '',
+    heightCm: optionalNumber(options.heightCm),
+    headCm: optionalNumber(options.headCm),
+    weightG: optionalNumber(options.weightG),
+    apgarPercent: optionalNumber(options.apgarPercent),
+    milkAmountMlOverride: optionalNumber(options.milkAmountMlOverride),
+    napDurationMinutesOverride: optionalNumber(options.napDurationMinutesOverride),
     solidAmountOverride: options.solidAmountOverride || '',
     createdAt: options.createdAt,
     updatedAt: options.updatedAt,
@@ -55,3 +60,9 @@ function defaultsForAgeMonths(months) {
   return ageBandDefaults.find((band) => months <= band.maxMonths) || genericDefaults;
 }
 
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}

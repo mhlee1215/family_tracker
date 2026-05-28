@@ -1174,3 +1174,84 @@ label {
 .meal-summary-bar-track { height:10px; border-radius:999px; background:var(--canvas-parchment); overflow:hidden; }
 .meal-summary-bar-track span { display:block; height:100%; border-radius:inherit; background:var(--accent); min-width:4px; }
 .meal-summary-bar em { font-style: normal; font-size: 12px; color: var(--muted); }
+
+.growth-summary {
+  background: var(--canvas);
+  border-top: 1px solid var(--hairline);
+  padding: 40px min(80px, 7vw);
+}
+
+.growth-summary-header {
+  align-items: flex-start;
+}
+
+.growth-summary-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.43;
+}
+
+.growth-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.growth-metric-card {
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--surface-pearl);
+  padding: 18px;
+}
+
+.growth-metric-card span,
+.growth-metric-card small,
+.growth-history-item span,
+.growth-history-item p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.43;
+}
+
+.growth-metric-card strong {
+  display: block;
+  margin: 8px 0 2px;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.growth-history-list {
+  display: grid;
+  gap: 0;
+  margin-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+
+.growth-history-item {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  padding: 14px 0;
+}
+
+.growth-history-item strong,
+.growth-history-item span {
+  display: block;
+}
+
+.growth-history-item p {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .growth-metric-grid,
+  .growth-history-item {
+    grid-template-columns: 1fr;
+  }
+}

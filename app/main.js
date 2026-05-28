@@ -39,6 +39,7 @@ const state = {
   summary: null,
   user: null,
   profile: null,
+  growthRecords: [],
   tasks: [],
   taskOverview: [],
   eventSummary: null,
@@ -72,6 +73,7 @@ const elements = {
   timeline: $('#timeline'),
   summary: $('#summary'),
   sleepStatus: $('#sleep-status'),
+  growthSummary: $('#growth-summary'),
   quickActions: $('#quick-actions'),
   tabletActions: $('#tablet-actions'),
   eventCount: $('#event-count'),
@@ -113,6 +115,16 @@ const elements = {
   babySettingsForm: $('#baby-settings-form'),
   babyName: $('#baby-name'),
   birthDate: $('#birth-date'),
+  birthTime: $('#birth-time'),
+  babyHeight: $('#baby-height'),
+  babyHead: $('#baby-head'),
+  babyWeight: $('#baby-weight'),
+  babyApgar: $('#baby-apgar'),
+  growthRecordMode: $('#growth-record-mode'),
+  growthRecordDateControl: $('#growth-record-date-control'),
+  growthRecordTimeControl: $('#growth-record-time-control'),
+  growthRecordDate: $('#growth-record-date'),
+  growthRecordTime: $('#growth-record-time'),
   milkAmount: $('#milk-amount'),
   napDuration: $('#nap-duration'),
   assigneeForm: $('#assignee-form'),
@@ -220,6 +232,8 @@ elements.babySettingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await saveBabyProfile();
 });
+
+elements.growthRecordMode?.addEventListener('change', renderGrowthRecordDateControls);
 
 elements.assigneeForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -369,7 +383,9 @@ async function loadBabyProfile() {
   const payload = await response.json();
   if (handleAuthFailure(response)) return;
   state.profile = payload.profile || null;
+  state.growthRecords = payload.growthRecords || [];
   renderBabySettings();
+  renderGrowthSummary();
 }
 
 async function saveBabyProfile() {
@@ -377,18 +393,28 @@ async function saveBabyProfile() {
     ...state.profile,
     babyName: elements.babyName.value.trim(),
     birthDate: elements.birthDate.value,
+    birthTime: elements.birthTime.value,
+    heightCm: numberOrNull(elements.babyHeight.value),
+    headCm: numberOrNull(elements.babyHead.value),
+    weightG: numberOrNull(elements.babyWeight.value),
+    apgarPercent: numberOrNull(elements.babyApgar.value),
     milkAmountMlOverride: numberOrNull(elements.milkAmount.value),
     napDurationMinutesOverride: numberOrNull(elements.napDuration.value),
   };
+  const growthRecord = shouldSaveGrowthRecord(profile, state.profile)
+    ? buildGrowthRecordPayload(profile)
+    : null;
   const response = await fetch('/api/profile', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ profile }),
+    body: JSON.stringify({ profile, growthRecord }),
   });
   const payload = await response.json();
   if (!response.ok) return;
   state.profile = payload.profile;
+  state.growthRecords = payload.growthRecords || state.growthRecords;
   renderBabySettings();
+  renderGrowthSummary();
   setMenuOpen(false);
 }
 
@@ -577,6 +603,7 @@ function renderBaby() {
   renderDayControls();
   renderSummary();
   renderSleepStatus();
+  renderGrowthSummary();
   renderTimeline();
 }
 
@@ -588,6 +615,15 @@ function renderBabySettings() {
   const profile = state.profile || {};
   elements.babyName.value = profile.babyName || '';
   elements.birthDate.value = profile.birthDate || '';
+  elements.birthTime.value = profile.birthTime || '';
+  elements.babyHeight.value = profile.heightCm ?? '';
+  elements.babyHead.value = profile.headCm ?? '';
+  elements.babyWeight.value = profile.weightG ?? '';
+  elements.babyApgar.value = profile.apgarPercent ?? '';
+  elements.growthRecordMode.value = 'birth';
+  elements.growthRecordDate.value = '';
+  elements.growthRecordTime.value = '';
+  renderGrowthRecordDateControls();
   elements.milkAmount.value = profile.milkAmountMlOverride ?? '';
   elements.napDuration.value = profile.napDurationMinutesOverride ?? '';
 }
@@ -627,6 +663,138 @@ function summaryItem(label, value) {
   item.className = 'summary-item';
   item.innerHTML = `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>`;
   return item;
+}
+
+function renderGrowthSummary() {
+  if (!elements.growthSummary) return;
+  const records = [...(state.growthRecords || [])].sort(compareGrowthRecordsDesc);
+  if (!records.length) {
+    elements.growthSummary.innerHTML = '<p class="empty">Add height, head size, weight, or Apgar in Baby settings to start a growth history.</p>';
+    return;
+  }
+
+  const latest = records[0];
+  const baseline = [...records].reverse().find((record) => record.recordedFor === 'birth') || records[records.length - 1];
+  const metricCards = [
+    growthMetricCard('Height', latest.heightCm, 'cm', deltaValue(latest.heightCm, baseline.heightCm, 'cm')),
+    growthMetricCard('Head', latest.headCm, 'cm', deltaValue(latest.headCm, baseline.headCm, 'cm')),
+    growthMetricCard('Weight', latest.weightG, 'g', deltaValue(latest.weightG, baseline.weightG, 'g')),
+    growthMetricCard('Apgar', latest.apgarPercent, '%', latest.apgarPercent == null ? '' : `${latest.apgarPercent}%`),
+  ];
+  const history = records.slice(0, 6).map((record) => `
+    <article class="growth-history-item">
+      <div><strong>${escapeHtml(growthRecordDateLabel(record))}</strong><span>${escapeHtml(growthRecordTag(record))}</span></div>
+      <p>${escapeHtml(growthRecordMetrics(record))}</p>
+    </article>
+  `).join('');
+
+  elements.growthSummary.innerHTML = `
+    <div class="section-header growth-summary-header">
+      <div>
+        <h2>Growth summary</h2>
+        <p class="growth-summary-note">Latest saved record: ${escapeHtml(growthRecordDateLabel(latest))}</p>
+      </div>
+      <span class="muted-count">${records.length} records</span>
+    </div>
+    <div class="growth-metric-grid">${metricCards.join('')}</div>
+    <div class="growth-history-list">${history}</div>
+  `;
+}
+
+function growthMetricCard(label, value, unit, detail) {
+  const valueText = value == null ? '—' : `${value}${unit}`;
+  return `<article class="growth-metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(valueText)}</strong><small>${escapeHtml(detail || 'No baseline yet')}</small></article>`;
+}
+
+function growthRecordMetrics(record) {
+  const parts = [];
+  if (record.heightCm != null) parts.push(`Height ${record.heightCm}cm`);
+  if (record.headCm != null) parts.push(`Head ${record.headCm}cm`);
+  if (record.weightG != null) parts.push(`Weight ${record.weightG}g`);
+  if (record.apgarPercent != null) parts.push(`Apgar ${record.apgarPercent}%`);
+  return parts.join(' · ') || 'No measurements';
+}
+
+function growthRecordDateLabel(record) {
+  const date = dayHeading(record.occurredDate || '');
+  return record.occurredTime ? `${date} ${record.occurredTime}` : date;
+}
+
+function growthRecordTag(record) {
+  return { birth: 'At birth', now: 'Now', custom: 'Specific date' }[record.recordedFor] || 'Growth record';
+}
+
+function deltaValue(latest, baseline, unit) {
+  if (latest == null || baseline == null) return '';
+  const delta = Number((latest - baseline).toFixed(unit === 'cm' ? 1 : 0));
+  if (!delta) return `No change from baseline`;
+  return `${delta > 0 ? '+' : ''}${delta}${unit} from baseline`;
+}
+
+function compareGrowthRecordsDesc(a, b) {
+  return growthRecordSortValue(b).localeCompare(growthRecordSortValue(a));
+}
+
+function growthRecordSortValue(record) {
+  return `${record.occurredDate || ''}T${record.occurredTime || '00:00'}`;
+}
+
+function renderGrowthRecordDateControls() {
+  if (!elements.growthRecordMode) return;
+  const custom = elements.growthRecordMode.value === 'custom';
+  elements.growthRecordDateControl.classList.toggle('hidden', !custom);
+  elements.growthRecordTimeControl.classList.toggle('hidden', !custom);
+  if (custom && !elements.growthRecordDate.value) elements.growthRecordDate.value = state.selectedDay;
+}
+
+function shouldSaveGrowthRecord(next, previous = {}) {
+  if (!hasGrowthValues(next)) return false;
+  const mode = elements.growthRecordMode?.value || 'birth';
+  return growthValuesChanged(next, previous) || mode !== 'birth';
+}
+
+function hasGrowthValues(profile = {}) {
+  return ['heightCm', 'headCm', 'weightG', 'apgarPercent'].some((key) => profile[key] !== null && profile[key] !== undefined);
+}
+
+function growthValuesChanged(next, previous = {}) {
+  return ['birthTime', 'heightCm', 'headCm', 'weightG', 'apgarPercent'].some((key) => normalizeComparable(next?.[key]) !== normalizeComparable(previous?.[key]));
+}
+
+function normalizeComparable(value) {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+function buildGrowthRecordPayload(profile) {
+  const mode = elements.growthRecordMode?.value || 'birth';
+  const now = new Date();
+  const localDate = toLocalDateInputValue(now);
+  const localTime = toLocalTimeInputValue(now);
+  return {
+    recordedFor: mode,
+    occurredDate: mode === 'birth' ? (profile.birthDate || localDate)
+      : mode === 'now' ? localDate
+        : (elements.growthRecordDate.value || state.selectedDay || localDate),
+    occurredTime: mode === 'birth' ? (profile.birthTime || '')
+      : mode === 'now' ? localTime
+        : (elements.growthRecordTime.value || ''),
+    heightCm: profile.heightCm,
+    headCm: profile.headCm,
+    weightG: profile.weightG,
+    apgarPercent: profile.apgarPercent,
+  };
+}
+
+function toLocalDateInputValue(date) {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function toLocalTimeInputValue(date) {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(11, 16);
 }
 
 function renderSleepStatus() {

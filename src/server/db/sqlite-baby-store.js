@@ -50,11 +50,31 @@ export class SQLiteBabyStore {
         family_id TEXT NOT NULL,
         baby_name TEXT NOT NULL DEFAULT '',
         birth_date TEXT NOT NULL DEFAULT '',
+        birth_time TEXT NOT NULL DEFAULT '',
+        height_cm REAL,
+        head_cm REAL,
+        weight_g INTEGER,
+        apgar_percent INTEGER,
         milk_amount_ml_override INTEGER,
         nap_duration_minutes_override INTEGER,
         solid_amount_override TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS growth_records (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        baby_id TEXT NOT NULL,
+        author_id TEXT NOT NULL,
+        recorded_for TEXT NOT NULL DEFAULT 'custom',
+        occurred_date TEXT NOT NULL,
+        occurred_time TEXT NOT NULL DEFAULT '',
+        height_cm REAL,
+        head_cm REAL,
+        weight_g INTEGER,
+        apgar_percent INTEGER,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS raw_logs (
@@ -104,6 +124,7 @@ export class SQLiteBabyStore {
         FOREIGN KEY (assignee_id) REFERENCES task_assignees(id)
       );
 
+      CREATE INDEX IF NOT EXISTS idx_growth_records_family_baby ON growth_records(family_id, baby_id, occurred_date);
       CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at);
       CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at);
       CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
@@ -111,6 +132,11 @@ export class SQLiteBabyStore {
       CREATE INDEX IF NOT EXISTS idx_task_items_family_day ON task_items(family_id, due_date, status);
     `);
     try { this.db.exec(`ALTER TABLE task_items ADD COLUMN due_mode TEXT NOT NULL DEFAULT 'on_date';`); } catch {}
+    try { this.db.exec(`ALTER TABLE profiles ADD COLUMN birth_time TEXT NOT NULL DEFAULT '';`); } catch {}
+    try { this.db.exec(`ALTER TABLE profiles ADD COLUMN height_cm REAL;`); } catch {}
+    try { this.db.exec(`ALTER TABLE profiles ADD COLUMN head_cm REAL;`); } catch {}
+    try { this.db.exec(`ALTER TABLE profiles ADD COLUMN weight_g INTEGER;`); } catch {}
+    try { this.db.exec(`ALTER TABLE profiles ADD COLUMN apgar_percent INTEGER;`); } catch {}
   }
 
   upsertUser(user) {
@@ -185,6 +211,11 @@ export class SQLiteBabyStore {
       babyId: row.baby_id,
       babyName: row.baby_name,
       birthDate: row.birth_date,
+      birthTime: row.birth_time,
+      heightCm: row.height_cm,
+      headCm: row.head_cm,
+      weightG: row.weight_g,
+      apgarPercent: row.apgar_percent,
       milkAmountMlOverride: row.milk_amount_ml_override,
       napDurationMinutesOverride: row.nap_duration_minutes_override,
       solidAmountOverride: row.solid_amount_override,
@@ -198,14 +229,19 @@ export class SQLiteBabyStore {
     const now = new Date().toISOString();
     this.db.prepare(`
       INSERT INTO profiles (
-        baby_id, family_id, baby_name, birth_date, milk_amount_ml_override,
-        nap_duration_minutes_override, solid_amount_override, created_at, updated_at
+        baby_id, family_id, baby_name, birth_date, birth_time, height_cm, head_cm, weight_g, apgar_percent,
+        milk_amount_ml_override, nap_duration_minutes_override, solid_amount_override, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(baby_id) DO UPDATE SET
         family_id = excluded.family_id,
         baby_name = excluded.baby_name,
         birth_date = excluded.birth_date,
+        birth_time = excluded.birth_time,
+        height_cm = excluded.height_cm,
+        head_cm = excluded.head_cm,
+        weight_g = excluded.weight_g,
+        apgar_percent = excluded.apgar_percent,
         milk_amount_ml_override = excluded.milk_amount_ml_override,
         nap_duration_minutes_override = excluded.nap_duration_minutes_override,
         solid_amount_override = excluded.solid_amount_override,
@@ -215,6 +251,11 @@ export class SQLiteBabyStore {
       next.familyId,
       next.babyName,
       next.birthDate,
+      next.birthTime,
+      next.heightCm,
+      next.headCm,
+      next.weightG,
+      next.apgarPercent,
       next.milkAmountMlOverride,
       next.napDurationMinutesOverride,
       next.solidAmountOverride,
@@ -222,6 +263,49 @@ export class SQLiteBabyStore {
       now,
     );
     return this.getProfile(next.babyId, { familyId: next.familyId });
+  }
+
+  saveGrowthRecord(record) {
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO growth_records (
+        id, family_id, baby_id, author_id, recorded_for, occurred_date, occurred_time,
+        height_cm, head_cm, weight_g, apgar_percent, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      record.id,
+      record.familyId || defaultFamilyId,
+      record.babyId || defaultBabyId,
+      record.authorId || '',
+      record.recordedFor || 'custom',
+      record.occurredDate,
+      record.occurredTime || '',
+      optionalNumber(record.heightCm),
+      optionalNumber(record.headCm),
+      optionalNumber(record.weightG),
+      optionalNumber(record.apgarPercent),
+      now,
+    );
+    return this.getGrowthRecord(record.id, { familyId: record.familyId || defaultFamilyId });
+  }
+
+  getGrowthRecord(id, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const row = this.db.prepare('SELECT * FROM growth_records WHERE id = ? AND family_id = ?').get(id, familyId);
+    return row ? rowToGrowthRecord(row) : null;
+  }
+
+  listGrowthRecords(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const babyId = options.babyId || defaultBabyId;
+    const limit = Number.isInteger(options.limit) ? options.limit : 100;
+    return this.db.prepare(`
+      SELECT * FROM growth_records
+      WHERE family_id = ? AND baby_id = ?
+      ORDER BY occurred_date DESC, occurred_time DESC, created_at DESC
+      LIMIT ?
+    `).all(familyId, babyId, limit).map(rowToGrowthRecord);
   }
 
   saveLogWithEvents(rawLog, events) {
@@ -493,6 +577,29 @@ export class SQLiteBabyStore {
       LIMIT ?
     `).all(familyId, today, limit).map(rowToTask);
   }
+}
+
+function rowToGrowthRecord(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    babyId: row.baby_id,
+    authorId: row.author_id,
+    recordedFor: row.recorded_for,
+    occurredDate: row.occurred_date,
+    occurredTime: row.occurred_time,
+    heightCm: row.height_cm,
+    headCm: row.head_cm,
+    weightG: row.weight_g,
+    apgarPercent: row.apgar_percent,
+    createdAt: row.created_at,
+  };
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function rowToEvent(row) {

@@ -198,7 +198,10 @@ async function handleApi(request, response) {
     const scope = scopeForUser(session.user);
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/profile') {
-      sendJson(response, 200, { profile: await store.getProfile(scope.babyId, { familyId: scope.familyId }) });
+      sendJson(response, 200, {
+        profile: await store.getProfile(scope.babyId, { familyId: scope.familyId }),
+        growthRecords: await store.listGrowthRecords({ ...scope, limit: 100 }),
+      });
       return;
     }
 
@@ -232,13 +235,29 @@ async function handleApi(request, response) {
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/profile') {
       const body = await readJson(request);
-      sendJson(response, 200, {
-        profile: await store.saveProfile({
-          ...(body.profile || body),
-          familyId: scope.familyId,
-          babyId: scope.babyId,
-        }),
+      const profile = await store.saveProfile({
+        ...(body.profile || body),
+        familyId: scope.familyId,
+        babyId: scope.babyId,
       });
+      if (body.growthRecord && hasGrowthMeasurement(body.growthRecord)) {
+        const growthRecord = normalizeGrowthRecord(body.growthRecord, {
+          ...scope,
+          authorId: session.user.id || defaultAuthorId,
+          birthDate: profile.birthDate,
+          birthTime: profile.birthTime,
+        });
+        await store.saveGrowthRecord(growthRecord);
+      }
+      sendJson(response, 200, {
+        profile,
+        growthRecords: await store.listGrowthRecords({ ...scope, limit: 100 }),
+      });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/growth') {
+      sendJson(response, 200, { growthRecords: await store.listGrowthRecords({ ...scope, limit: 100 }) });
       return;
     }
 
@@ -558,6 +577,39 @@ async function createSessionForUser(userId) {
   const sessionId = createId('session');
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
   return store.createSession({ sessionId, userId, expiresAt });
+}
+
+function normalizeGrowthRecord(record, context) {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const recordedFor = ['birth', 'now', 'custom'].includes(record.recordedFor) ? record.recordedFor : 'custom';
+  const occurredDate = recordedFor === 'birth' ? (context.birthDate || record.occurredDate || today)
+    : String(record.occurredDate || today).slice(0, 10);
+  const occurredTime = recordedFor === 'birth' ? (context.birthTime || record.occurredTime || '')
+    : String(record.occurredTime || (recordedFor === 'now' ? now.toISOString().slice(11, 16) : '')).slice(0, 5);
+  return {
+    id: createId('growth'),
+    familyId: context.familyId,
+    babyId: context.babyId,
+    authorId: context.authorId,
+    recordedFor,
+    occurredDate,
+    occurredTime,
+    heightCm: optionalNumber(record.heightCm),
+    headCm: optionalNumber(record.headCm),
+    weightG: optionalNumber(record.weightG),
+    apgarPercent: optionalNumber(record.apgarPercent),
+  };
+}
+
+function hasGrowthMeasurement(record = {}) {
+  return ['heightCm', 'headCm', 'weightG', 'apgarPercent'].some((key) => optionalNumber(record[key]) !== null);
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function scopeForUser(user) {
