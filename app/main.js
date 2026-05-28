@@ -226,14 +226,17 @@ elements.taskForm.addEventListener('submit', async (event) => {
 });
 elements.openTaskComposer.addEventListener('click', () => {
   setTaskPanel('today');
-  setTaskComposerOpen(true);
+  setTaskComposerOpen(elements.taskForm.classList.contains('hidden'));
 });
 elements.openWishModal?.addEventListener('click', () => openMealModal({ slot: 'wish' }));
 elements.toggleMealLog?.addEventListener('click', toggleMealLogPanel);
 elements.mealForm?.addEventListener('submit', submitMealForm);
 elements.mealCancel?.addEventListener('click', closeMealModal);
-elements.openTaskSummary?.addEventListener('click', () => setTaskPanel('summary'));
-elements.openTaskLog?.addEventListener('click', () => setTaskPanel('today'));
+elements.openTaskSummary?.addEventListener('click', () => setTaskPanel(state.taskPanel === 'summary' ? 'today' : 'summary'));
+elements.openTaskLog?.addEventListener('click', () => {
+  setTaskPanel('today');
+  setTaskComposerOpen(false);
+});
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
 elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
 elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
@@ -313,6 +316,7 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('pointerdown', (event) => {
   const target = event.target;
+  closeFloatingSectionPanels(target);
   if (elements.mealLogPanel && !elements.mealLogPanel.classList.contains('hidden')) {
     const insideLog = elements.mealLogPanel.contains(target) || elements.toggleMealLog?.contains(target);
     if (!insideLog) setMealLogPanelOpen(false);
@@ -324,7 +328,13 @@ document.addEventListener('pointerdown', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') setMenuOpen(false);
+  if (event.key !== 'Escape') return;
+  setMenuOpen(false);
+  setBabyPanel(null);
+  setTaskPanel('today');
+  setTaskComposerOpen(false);
+  setMealLogPanelOpen(false);
+  setMealSummaryPanelOpen(false);
 });
 
 window.addEventListener('popstate', () => {
@@ -563,10 +573,12 @@ function renderBuildBadge(metadata) {
 
 function setActiveTab(tab, options = {}) {
   const { pushHistory = false } = options;
+  const previousTab = state.activeTab;
   state.activeTab = normalizeTab(tab);
   localStorage.setItem(storageKeys.activeTab, state.activeTab);
   syncUrlForTab(state.activeTab, { pushHistory });
   renderTabs();
+  if (previousTab !== state.activeTab) closeModuleFloatingPanels();
   refreshActiveTab();
 }
 
@@ -574,6 +586,28 @@ function renderTabs() {
   elements.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === state.activeTab));
   elements.views.forEach((view) => view.classList.toggle('active', view.id === `${state.activeTab}-view`));
   elements.settings.forEach((panel) => panel.classList.toggle('hidden', panel.dataset.settings !== state.activeTab));
+}
+
+function isPanelOpen(panel) {
+  return panel && !panel.classList.contains('hidden');
+}
+
+function closeModuleFloatingPanels() {
+  setBabyPanel(null);
+  setTaskPanel('today');
+  setTaskComposerOpen(false);
+  setMealLogPanelOpen(false);
+  setMealSummaryPanelOpen(false);
+}
+
+function closeFloatingSectionPanels(target) {
+  const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel : state.babyPanel === 'summary' ? elements.growthSummary : null;
+  const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings : state.babyPanel === 'summary' ? elements.openBabySummary : null;
+  if (isPanelOpen(babyPanel) && !(babyPanel.contains(target) || babyToggle?.contains(target))) setBabyPanel(null);
+
+  if (isPanelOpen(elements.taskSummaryPanel) && !(elements.taskSummaryPanel.contains(target) || elements.openTaskSummary?.contains(target))) setTaskPanel('today');
+
+  if (isPanelOpen(elements.taskForm) && !(elements.taskForm.contains(target) || elements.openTaskComposer?.contains(target))) setTaskComposerOpen(false);
 }
 
 function setMenuOpen(open) {
@@ -594,7 +628,9 @@ function renderBabyPanel() {
   const summaryOpen = state.babyPanel === 'summary';
   const settingsOpen = state.babyPanel === 'settings';
   elements.growthSummary?.classList.toggle('hidden', !summaryOpen);
+  elements.growthSummary?.setAttribute('aria-hidden', String(!summaryOpen));
   elements.babySettingsPanel?.classList.toggle('hidden', !settingsOpen);
+  elements.babySettingsPanel?.setAttribute('aria-hidden', String(!settingsOpen));
   elements.openBabySummary?.classList.toggle('active', summaryOpen);
   elements.openBabySettings?.classList.toggle('active', settingsOpen);
   elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen);
@@ -605,7 +641,10 @@ function renderBabyPanel() {
 
 function setTaskComposerOpen(open) {
   elements.taskForm.classList.toggle('hidden', !open);
+  elements.taskForm.setAttribute('aria-hidden', String(!open));
   elements.openTaskComposer.setAttribute('aria-expanded', String(open));
+  elements.openTaskComposer.classList.toggle('active', open);
+  renderTaskPanel();
   if (open) elements.taskTitle.focus();
 }
 
@@ -1055,12 +1094,13 @@ function renderTaskPanel() {
   if (!elements.taskSummaryPanel || !elements.openTaskSummary || !elements.taskTodayPanel) return;
   const summaryOpen = state.taskPanel === 'summary';
   elements.taskSummaryPanel.classList.toggle('hidden', !summaryOpen);
-  elements.taskTodayPanel.classList.toggle('hidden', summaryOpen);
+  elements.taskSummaryPanel.setAttribute('aria-hidden', String(!summaryOpen));
   elements.openTaskSummary.classList.toggle('active', summaryOpen);
   elements.openTaskSummary.setAttribute('aria-expanded', String(summaryOpen));
-  elements.openTaskLog?.classList.toggle('active', !summaryOpen);
-  elements.openTaskLog?.setAttribute('aria-expanded', String(!summaryOpen));
-  if (elements.taskForm && summaryOpen) setTaskComposerOpen(false);
+  const composerOpen = elements.taskForm && !elements.taskForm.classList.contains('hidden');
+  elements.openTaskLog?.classList.toggle('active', !summaryOpen && !composerOpen);
+  elements.openTaskLog?.setAttribute('aria-expanded', String(!summaryOpen && !composerOpen));
+  if (elements.taskForm && summaryOpen && composerOpen) setTaskComposerOpen(false);
 }
 
 function setTaskCalendarOpen(open) {

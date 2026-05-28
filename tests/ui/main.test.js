@@ -139,8 +139,47 @@ describe('app/main', () => {
 
     fireEvent.click(document.querySelector('#open-baby-summary'));
     expect(settingsPanel.classList.contains('hidden')).toBe(true);
+    expect(settingsPanel.getAttribute('aria-hidden')).toBe('true');
     expect(summaryPanel.classList.contains('hidden')).toBe(false);
+    expect(summaryPanel.getAttribute('aria-hidden')).toBe('false');
     expect(summaryPanel.querySelector('.growth-chart')).toBeTruthy();
+
+    fireEvent.pointerDown(document.body);
+    expect(summaryPanel.classList.contains('hidden')).toBe(true);
+    expect(summaryPanel.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('opens task actions as floating panels that dismiss outside', async () => {
+    await import('../../app/main.js?case=task-floating-actions');
+
+    fireEvent.click(document.querySelector('#task-tab'));
+
+    const todayPanel = document.querySelector('#task-today-panel');
+    const summaryButton = document.querySelector('#open-task-summary');
+    const summaryPanel = document.querySelector('#task-summary-panel');
+    const composerButton = document.querySelector('#open-task-composer');
+    const composerPanel = document.querySelector('#task-form');
+
+    fireEvent.click(summaryButton);
+    expect(todayPanel.classList.contains('hidden')).toBe(false);
+    expect(summaryPanel.classList.contains('hidden')).toBe(false);
+    expect(summaryPanel.getAttribute('aria-hidden')).toBe('false');
+    expect(summaryButton.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.pointerDown(document.body);
+    expect(summaryPanel.classList.contains('hidden')).toBe(true);
+    expect(summaryPanel.getAttribute('aria-hidden')).toBe('true');
+    expect(summaryButton.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(composerButton);
+    expect(composerPanel.classList.contains('hidden')).toBe(false);
+    expect(composerPanel.getAttribute('aria-hidden')).toBe('false');
+    expect(composerButton.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.pointerDown(document.body);
+    expect(composerPanel.classList.contains('hidden')).toBe(true);
+    expect(composerPanel.getAttribute('aria-hidden')).toBe('true');
+    expect(composerButton.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('submits question form and renders response', async () => {

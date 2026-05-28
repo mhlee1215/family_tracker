@@ -1413,3 +1413,92 @@ label {
     flex-direction: column;
   }
 }
+
+/* Floating section panels keep module menus lightweight without replacing the main workspace. */
+.module-view {
+  position: relative;
+}
+
+.app-floating-panel {
+  position: absolute;
+  right: min(80px, 7vw);
+  z-index: 18;
+  width: min(560px, calc(100% - 32px));
+  max-height: min(72vh, 720px);
+  overflow: auto;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: rgba(250, 250, 252, 0.96);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+#baby-view > .app-floating-panel {
+  top: calc(260px + 61px + 12px);
+}
+
+.task-layout {
+  position: relative;
+}
+
+.task-layout > .app-floating-panel,
+.task-composer.app-floating-panel {
+  top: 16px;
+  right: min(80px, 7vw);
+}
+
+.baby-settings-panel.app-floating-panel,
+.growth-summary.app-floating-panel,
+.task-overview.app-floating-panel,
+.task-composer.app-floating-panel {
+  padding: 20px;
+}
+
+.baby-settings-panel.app-floating-panel {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.baby-settings-panel.app-floating-panel .settings-block {
+  max-width: none;
+  margin: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.growth-summary.app-floating-panel {
+  border-top: 1px solid var(--hairline);
+}
+
+.task-overview.app-floating-panel {
+  background: rgba(250, 250, 252, 0.96);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.task-composer.app-floating-panel {
+  display: block;
+  margin: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(250, 250, 252, 0.96);
+  padding-bottom: 20px;
+}
+
+.task-composer.app-floating-panel .task-form-grid {
+  grid-template-columns: 1fr;
+}
+
+.task-composer.app-floating-panel.hidden {
+  display: none;
+}
+
+@media (max-width: 680px) {
+  .app-floating-panel,
+  .task-layout > .app-floating-panel,
+  .task-composer.app-floating-panel {
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+
+  #baby-view > .app-floating-panel {
+    top: calc(220px + 61px + 12px);
+  }
+}
