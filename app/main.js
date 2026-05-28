@@ -46,9 +46,7 @@ const state = {
   assignees: [],
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
   activeTab: normalizeTab(getInitialTab()),
-  selectedDay: getInitialDayParam('day'),
-  selectedTaskDay: getInitialDayParam('taskDay'),
-  selectedMealDay: getInitialDayParam('mealDay'),
+  selectedDay: getInitialSharedDay(),
   taskCalendarMonth: null,
   taskCalendarDots: {},
   babyCalendarMonth: null,
@@ -253,37 +251,22 @@ elements.logout.addEventListener('click', logout);
 elements.menuToggle.addEventListener('click', () => setMenuOpen(elements.menuPanel.classList.contains('hidden')));
 elements.previousDay.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextDay.addEventListener('click', () => shiftSelectedDay(1));
-elements.previousTaskDay.addEventListener('click', () => shiftSelectedTaskDay(-1));
-elements.nextTaskDay.addEventListener('click', () => shiftSelectedTaskDay(1));
-elements.previousMealDay?.addEventListener('click', () => shiftSelectedMealDay(-1));
-elements.nextMealDay?.addEventListener('click', () => shiftSelectedMealDay(1));
+elements.previousTaskDay.addEventListener('click', () => shiftSelectedDay(-1));
+elements.nextTaskDay.addEventListener('click', () => shiftSelectedDay(1));
+elements.previousMealDay?.addEventListener('click', () => shiftSelectedDay(-1));
+elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 
-elements.dayPicker.addEventListener('change', () => {
-  if (!elements.dayPicker.value) return;
-  state.selectedDay = elements.dayPicker.value;
-  syncUrlForTab(state.activeTab, { pushHistory: true });
-  loadToday();
-});
+elements.dayPicker.addEventListener('change', () => setSelectedDay(elements.dayPicker.value, { pushHistory: true }));
 
 elements.summaryPeriod?.addEventListener('change', () => {
   syncUrlForTab(state.activeTab, { pushHistory: true });
   loadTaskData();
 });
-elements.mealDayPicker?.addEventListener('change', () => {
-  if (!elements.mealDayPicker.value) return;
-  state.selectedMealDay = elements.mealDayPicker.value;
-  syncUrlForTab(state.activeTab, { pushHistory: true });
-  renderMeals();
-});
+elements.mealDayPicker?.addEventListener('change', () => setSelectedDay(elements.mealDayPicker.value, { pushHistory: true }));
 elements.taskDueMode?.addEventListener('change', renderTaskComposerDueState);
 
-elements.taskDayPicker.addEventListener('change', () => {
-  if (!elements.taskDayPicker.value) return;
-  state.selectedTaskDay = elements.taskDayPicker.value;
-  syncUrlForTab(state.activeTab, { pushHistory: true });
-  loadTaskData();
-});
+elements.taskDayPicker.addEventListener('change', () => setSelectedDay(elements.taskDayPicker.value, { pushHistory: true }));
 elements.taskCalendarToggle?.addEventListener('click', () => toggleTaskCalendar());
 elements.taskCalendarPrev?.addEventListener('click', () => shiftTaskCalendarMonth(-1));
 elements.taskCalendarNext?.addEventListener('click', () => shiftTaskCalendarMonth(1));
@@ -338,20 +321,17 @@ window.addEventListener('popstate', () => {
   const tab = tabFromLocation();
   const nextTab = normalizeTab(tab || state.activeTab);
   const nextDay = getDayParamFromLocation('day', state.selectedDay);
-  const nextTaskDay = getDayParamFromLocation('taskDay', state.selectedTaskDay);
   const nextPeriod = getSummaryPeriodFromLocation();
   const tabChanged = nextTab !== state.activeTab;
-  const babyDayChanged = nextDay !== state.selectedDay;
-  const taskDayChanged = nextTaskDay !== state.selectedTaskDay;
+  const dayChanged = nextDay !== state.selectedDay;
   const periodChanged = nextPeriod !== (elements.summaryPeriod?.value || 'week');
 
   state.selectedDay = nextDay;
-  state.selectedTaskDay = nextTaskDay;
   if (elements.summaryPeriod) elements.summaryPeriod.value = nextPeriod;
+  renderSharedDayControls();
 
   if (tabChanged) setActiveTab(nextTab, { pushHistory: false });
-  else if (state.activeTab === 'baby' && babyDayChanged) loadToday();
-  else if (state.activeTab === 'task' && (taskDayChanged || periodChanged)) loadTaskData();
+  else if (dayChanged || (state.activeTab === 'task' && periodChanged)) refreshActiveTab();
 });
 
 async function saveLog(text) {
@@ -426,12 +406,12 @@ async function saveBabyProfile() {
 
 async function loadTaskData() {
   await loadAssignees();
-  const params = new URLSearchParams({ day: state.selectedTaskDay });
+  const params = new URLSearchParams({ day: state.selectedDay });
   const period = elements.summaryPeriod?.value || 'week';
   const [todayResponse, overviewResponse, summaryResponse] = await Promise.all([
     fetch(`/api/tasks/today?${params.toString()}`),
     fetch('/api/tasks/overview'),
-    fetch(`/api/events/summary?period=${encodeURIComponent(period)}&day=${encodeURIComponent(state.selectedTaskDay)}`),
+    fetch(`/api/events/summary?period=${encodeURIComponent(period)}&day=${encodeURIComponent(state.selectedDay)}`),
   ]);
   const todayPayload = await todayResponse.json();
   const overviewPayload = await overviewResponse.json();
@@ -440,7 +420,7 @@ async function loadTaskData() {
   state.tasks = todayPayload.tasks || [];
   state.taskOverview = overviewPayload.tasks || [];
   state.eventSummary = summaryPayload.summary || null;
-  if (!state.taskCalendarMonth) state.taskCalendarMonth = state.selectedTaskDay.slice(0, 7);
+  if (!state.taskCalendarMonth) state.taskCalendarMonth = state.selectedDay.slice(0, 7);
   await loadTaskCalendarDots(state.taskCalendarMonth);
   renderTasks();
 }
@@ -480,7 +460,7 @@ async function createTask() {
   const assigneeId = elements.taskAssignee.value;
   if (!title || !assigneeId) return;
   const dueMode = elements.taskDueMode.value;
-  const chosenDate = elements.taskDueDate.value || state.selectedTaskDay;
+  const chosenDate = elements.taskDueDate.value || state.selectedDay;
   const response = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -637,7 +617,13 @@ function renderBaby() {
 }
 
 function renderDayControls() {
+  renderSharedDayControls();
+}
+
+function renderSharedDayControls() {
   renderBabyDayControls();
+  renderTaskDayControls();
+  renderMealDayControls();
 }
 
 function renderBabySettings() {
@@ -964,7 +950,7 @@ function renderTaskComposerDueState() {
   if (!elements.taskDueMode || !elements.taskDueDate) return;
   const mode = elements.taskDueMode.value;
   elements.taskDueDate.disabled = !(mode === 'on_date' || mode === 'before_date');
-  if (!elements.taskDueDate.value) elements.taskDueDate.value = state.selectedTaskDay;
+  if (!elements.taskDueDate.value) elements.taskDueDate.value = state.selectedDay;
 }
 
 function taskDueText(task) {
@@ -1041,9 +1027,9 @@ function startBuildWatcher() {
 }
 
 function renderTaskDayControls() {
-  elements.taskDayPicker.value = state.selectedTaskDay;
+  elements.taskDayPicker.value = state.selectedDay;
   renderTaskComposerDueState();
-  elements.taskDayLabel.textContent = dayHeading(state.selectedTaskDay);
+  elements.taskDayLabel.textContent = dayHeading(state.selectedDay);
   if (elements.taskCalendarToggle) elements.taskCalendarToggle.textContent = 'Open task calendar';
   renderTaskCalendar();
 }
@@ -1073,14 +1059,14 @@ function toggleTaskCalendar() {
   if (!elements.taskCalendarPopover) return;
   const open = elements.taskCalendarPopover.classList.contains('hidden');
   if (open) {
-    state.taskCalendarMonth = state.selectedTaskDay.slice(0, 7);
+    state.taskCalendarMonth = state.selectedDay.slice(0, 7);
     loadTaskCalendarDots(state.taskCalendarMonth);
   }
   setTaskCalendarOpen(open);
 }
 
 function shiftTaskCalendarMonth(delta) {
-  const monthKey = state.taskCalendarMonth || state.selectedTaskDay.slice(0, 7);
+  const monthKey = state.taskCalendarMonth || state.selectedDay.slice(0, 7);
   const base = new Date(`${monthKey}-01T00:00:00`);
   base.setMonth(base.getMonth() + delta);
   state.taskCalendarMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
@@ -1089,7 +1075,7 @@ function shiftTaskCalendarMonth(delta) {
 
 function renderTaskCalendar() {
   if (!elements.taskCalendarGrid || !state.taskCalendarMonth) return;
-  renderCalendarGrid({ monthKey: state.taskCalendarMonth, selectedDay: state.selectedTaskDay, dotsByDay: state.taskCalendarDots, monthElement: elements.taskCalendarMonth, gridElement: elements.taskCalendarGrid, onSelect: (iso) => { state.selectedTaskDay = iso; syncUrlForTab(state.activeTab, { pushHistory: true }); setTaskCalendarOpen(false); loadTaskData(); } });
+  renderCalendarGrid({ monthKey: state.taskCalendarMonth, selectedDay: state.selectedDay, dotsByDay: state.taskCalendarDots, monthElement: elements.taskCalendarMonth, gridElement: elements.taskCalendarGrid, onSelect: (iso) => { setTaskCalendarOpen(false); setSelectedDay(iso, { pushHistory: true }); } });
 }
 
 
@@ -1124,12 +1110,12 @@ function shiftBabyCalendarMonth(delta) {
 }
 function renderBabyCalendar() {
   if (!elements.babyCalendarGrid || !state.babyCalendarMonth) return;
-  renderCalendarGrid({monthKey: state.babyCalendarMonth, selectedDay: state.selectedDay, dotsByDay: state.babyCalendarDots, monthElement: elements.babyCalendarMonth, gridElement: elements.babyCalendarGrid, onSelect: (iso) => {state.selectedDay = iso; syncUrlForTab(state.activeTab, { pushHistory: true }); setBabyCalendarOpen(false); loadToday();}});
+  renderCalendarGrid({monthKey: state.babyCalendarMonth, selectedDay: state.selectedDay, dotsByDay: state.babyCalendarDots, monthElement: elements.babyCalendarMonth, gridElement: elements.babyCalendarGrid, onSelect: (iso) => { setBabyCalendarOpen(false); setSelectedDay(iso, { pushHistory: true }); }});
 }
 
 function renderMealDayControls() {
-  if (elements.mealDayLabel) elements.mealDayLabel.textContent = dayHeading(state.selectedMealDay);
-  if (elements.mealDayPicker) elements.mealDayPicker.value = state.selectedMealDay;
+  if (elements.mealDayLabel) elements.mealDayLabel.textContent = dayHeading(state.selectedDay);
+  if (elements.mealDayPicker) elements.mealDayPicker.value = state.selectedDay;
   if (elements.mealCalendarToggle) elements.mealCalendarToggle.textContent = 'Open meal calendar';
   renderMealCalendar();
 }
@@ -1151,17 +1137,17 @@ function setMealCalendarOpen(open) { elements.mealCalendarPopover?.classList.tog
 function toggleMealCalendar() {
   if (!elements.mealCalendarPopover) return;
   const open = elements.mealCalendarPopover.classList.contains('hidden');
-  if (open) { state.mealCalendarMonth = state.selectedMealDay.slice(0, 7); loadMealCalendarDots(state.mealCalendarMonth); }
+  if (open) { state.mealCalendarMonth = state.selectedDay.slice(0, 7); loadMealCalendarDots(state.mealCalendarMonth); }
   setMealCalendarOpen(open);
 }
 function shiftMealCalendarMonth(delta) {
-  const monthKey = state.mealCalendarMonth || state.selectedMealDay.slice(0, 7);
+  const monthKey = state.mealCalendarMonth || state.selectedDay.slice(0, 7);
   const base = new Date(`${monthKey}-01T00:00:00`); base.setMonth(base.getMonth() + delta);
   state.mealCalendarMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`; loadMealCalendarDots(state.mealCalendarMonth);
 }
 function renderMealCalendar() {
   if (!elements.mealCalendarGrid || !state.mealCalendarMonth) return;
-  renderCalendarGrid({monthKey: state.mealCalendarMonth, selectedDay: state.selectedMealDay, dotsByDay: state.mealCalendarDots, monthElement: elements.mealCalendarMonth, gridElement: elements.mealCalendarGrid, onSelect: (iso) => {state.selectedMealDay = iso; syncUrlForTab(state.activeTab, { pushHistory: true }); setMealCalendarOpen(false); renderMeals();}});
+  renderCalendarGrid({monthKey: state.mealCalendarMonth, selectedDay: state.selectedDay, dotsByDay: state.mealCalendarDots, monthElement: elements.mealCalendarMonth, gridElement: elements.mealCalendarGrid, onSelect: (iso) => { setMealCalendarOpen(false); setSelectedDay(iso, { pushHistory: true }); }});
 }
 
 function renderCalendarGrid({ monthKey, selectedDay, dotsByDay, monthElement, gridElement, onSelect }) {
@@ -1263,16 +1249,17 @@ function refreshActiveTab() {
 }
 
 function shiftSelectedDay(days) {
-  state.selectedDay = shiftDateKey(state.selectedDay, days);
-  syncUrlForTab(state.activeTab, { pushHistory: true });
-  loadToday();
+  setSelectedDay(shiftDateKey(state.selectedDay, days), { pushHistory: true });
 }
 
-function shiftSelectedTaskDay(days) {
-  state.selectedTaskDay = shiftDateKey(state.selectedTaskDay, days);
-  syncUrlForTab(state.activeTab, { pushHistory: true });
-  loadTaskData();
+function setSelectedDay(day, { pushHistory = false } = {}) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return;
+  state.selectedDay = day;
+  syncUrlForTab(state.activeTab, { pushHistory });
+  renderSharedDayControls();
+  refreshActiveTab();
 }
+
 
 function shiftDateKey(day, days) {
   const date = dateFromKey(day);
@@ -1361,8 +1348,8 @@ function syncUrlForTab(tab, { pushHistory = false } = {}) {
   const targetPath = tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : '/';
   const params = new URLSearchParams(window.location.search);
   params.set('day', state.selectedDay);
-  params.set('taskDay', state.selectedTaskDay);
-  params.set('mealDay', state.selectedMealDay);
+  params.delete('taskDay');
+  params.delete('mealDay');
   const period = elements.summaryPeriod?.value || 'week';
   params.set('period', period);
   const targetUrl = `${targetPath}?${params.toString()}`;
@@ -1376,8 +1363,11 @@ function getDayParamFromLocation(key, fallback) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : fallback;
 }
 
-function getInitialDayParam(key) {
-  return getDayParamFromLocation(key, localDateKey(new Date()));
+function getInitialSharedDay() {
+  const today = localDateKey(new Date());
+  const activeTab = getInitialTab();
+  const legacyKey = activeTab === 'task' ? 'taskDay' : activeTab === 'meal' ? 'mealDay' : 'day';
+  return getDayParamFromLocation('day', getDayParamFromLocation(legacyKey, today));
 }
 
 function getSummaryPeriodFromLocation() {
@@ -1453,7 +1443,7 @@ function saveMeals() {
   localStorage.setItem(mealStorageKey(state.user), JSON.stringify(state.meals));
 }
 
-function planForDay(day = state.selectedMealDay) {
+function planForDay(day = state.selectedDay) {
   if (!state.meals.plannedByDay[day]) state.meals.plannedByDay[day] = { breakfast: [], lunch: [], dinner: [] };
   return state.meals.plannedByDay[day];
 }
@@ -1517,7 +1507,7 @@ function upsertPlannedMeal(slot, data) {
   if (!name) return;
   const item = { id: `meal-${Date.now()}`, name, category: data.category || 'korean', url: data.url.trim(), ingredients: data.ingredients.trim(), likes: 0 };
   planForDay()[slot].unshift(item);
-  logMealAction(`added ${slot} menu "${name}" on ${state.selectedMealDay}`);
+  logMealAction(`added ${slot} menu "${name}" on ${state.selectedDay}`);
   saveMeals();
   renderMeals();
 }
@@ -1746,18 +1736,12 @@ function findMeal(id) {
 function moveMeal(id, to) {
   const found = findMeal(id);
   if (!found || found.slot === to) return;
-  const sourceList = found.slot === 'wish' ? state.meals.wish : state.meals.plannedByDay[found.day || state.selectedMealDay][found.slot];
+  const sourceList = found.slot === 'wish' ? state.meals.wish : state.meals.plannedByDay[found.day || state.selectedDay][found.slot];
   const [item] = sourceList.splice(found.idx, 1);
   const targetList = to === 'wish' ? state.meals.wish : planForDay()[to];
   targetList.unshift(item);
-  logMealAction(`moved "${item.name}" from ${found.slot} to ${to} (${state.selectedMealDay})`);
+  logMealAction(`moved "${item.name}" from ${found.slot} to ${to} (${state.selectedDay})`);
   saveMeals();
-  renderMeals();
-}
-
-function shiftSelectedMealDay(days) {
-  state.selectedMealDay = shiftDateKey(state.selectedMealDay, days);
-  syncUrlForTab(state.activeTab, { pushHistory: true });
   renderMeals();
 }
 
@@ -1820,7 +1804,7 @@ function editMeal(id) {
 function deleteMeal(id) {
   const found = findMeal(id);
   if (!found) return;
-  const source = found.slot === 'wish' ? state.meals.wish : state.meals.plannedByDay[found.day || state.selectedMealDay][found.slot];
+  const source = found.slot === 'wish' ? state.meals.wish : state.meals.plannedByDay[found.day || state.selectedDay][found.slot];
   const [item] = source.splice(found.idx, 1);
   logMealAction(`deleted "${item.name}" from ${found.slot}`);
   saveMeals();
