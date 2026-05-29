@@ -298,28 +298,6 @@ async function handleApi(request, response) {
         return;
       }
 
-      const profile = await store.getProfile(scope.babyId, { familyId: scope.familyId });
-      const recentEvents = (await store.listEvents({ ...scope, limit: 100 })).reverse();
-      const parsed = await parseBabyLogWithProvider(rawText, {
-        now,
-        profile,
-        recentEvents,
-        timezone: body.timezone || 'UTC',
-        familyId: scope.familyId,
-        babyId: scope.babyId,
-        authorId: session.user.id || defaultAuthorId,
-      }, {
-        provider: getLLMProvider(),
-        model: getLLMModel(getLLMProvider()),
-        apiKey: getProviderKey(getLLMProvider()),
-      });
-      const autoWakeEvents = createAutoWakeEvents(parsed, recentEvents, {
-        now: now.toISOString(),
-        authorId: session.user.id || defaultAuthorId,
-      });
-      const linked = linkSleepSessions([...autoWakeEvents, ...parsed], recentEvents);
-      const inferred = applyInferences(linked, { now, profile, recentEvents });
-      const openSleep = findOpenSleep(recentEvents);
       const inputAt = now.toISOString();
       const rawLog = {
         id: createId('rawlog'),
@@ -330,15 +308,51 @@ async function handleApi(request, response) {
         inputAt,
         timezone: body.timezone || 'UTC',
       };
-      const events = inferred.map((event) => ({
-        ...event,
-        familyId: scope.familyId,
-        babyId: scope.babyId,
-        id: createId('event'),
-        rawLogId: rawLog.id,
-        createdAt: inputAt,
-      }));
+      const { events, openSleep } = await buildEventsForRawLog(rawLog, {
+        now,
+        scope,
+        authorId: session.user.id || defaultAuthorId,
+      });
       const saved = await store.saveLogWithEvents(rawLog, events);
+      await markLinkedSleepStartsCompleted(events, openSleep);
+      sendJson(response, 200, { rawLog: saved, events: saved.events });
+      return;
+    }
+
+
+    if ((request.method === 'PATCH' || request.method === 'DELETE') && requestUrl.pathname.startsWith('/api/logs/')) {
+      const rawLogId = decodeURIComponent(requestUrl.pathname.split('/').pop() || '');
+      const existing = await store.getRawLog(rawLogId);
+      if (!existing || existing.familyId !== scope.familyId || existing.babyId !== scope.babyId) {
+        sendJson(response, 404, { error: 'Log not found.' });
+        return;
+      }
+
+      if (request.method === 'DELETE') {
+        await store.deleteRawLog(rawLogId, scope);
+        sendJson(response, 200, { ok: true });
+        return;
+      }
+
+      const body = await readJson(request);
+      const rawText = String(body.text || '').trim();
+      if (!rawText) {
+        sendJson(response, 400, { error: 'Log text is required.' });
+        return;
+      }
+      const rawLog = {
+        ...existing,
+        rawText,
+        timezone: body.timezone || existing.timezone || 'UTC',
+      };
+      const now = new Date(existing.inputAt);
+      const { events, openSleep } = await buildEventsForRawLog(rawLog, {
+        now,
+        scope,
+        authorId: session.user.id || defaultAuthorId,
+        excludeRawLogId: rawLogId,
+      });
+      const saved = await store.replaceRawLogWithEvents(rawLogId, { rawText, timezone: rawLog.timezone }, events, scope);
       await markLinkedSleepStartsCompleted(events, openSleep);
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
@@ -525,6 +539,44 @@ async function handleApi(request, response) {
   } catch (error) {
     sendJson(response, error.status || 500, { error: error.message || 'Unexpected server error.' });
   }
+}
+
+
+async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLogId = '' }) {
+  const profile = await store.getProfile(scope.babyId, { familyId: scope.familyId });
+  const recentEvents = (await store.listEvents({ ...scope, limit: 100 }))
+    .filter((event) => event.rawLogId !== excludeRawLogId)
+    .reverse();
+  const parsed = await parseBabyLogWithProvider(rawLog.rawText, {
+    now,
+    profile,
+    recentEvents,
+    timezone: rawLog.timezone || 'UTC',
+    familyId: scope.familyId,
+    babyId: scope.babyId,
+    authorId,
+  }, {
+    provider: getLLMProvider(),
+    model: getLLMModel(getLLMProvider()),
+    apiKey: getProviderKey(getLLMProvider()),
+  });
+  const autoWakeEvents = createAutoWakeEvents(parsed, recentEvents, {
+    now: now.toISOString(),
+    authorId,
+  });
+  const linked = linkSleepSessions([...autoWakeEvents, ...parsed], recentEvents);
+  const inferred = applyInferences(linked, { now, profile, recentEvents });
+  const openSleep = findOpenSleep(recentEvents);
+  const events = inferred.map((event) => ({
+    ...event,
+    familyId: scope.familyId,
+    babyId: scope.babyId,
+    id: createId('event'),
+    rawLogId: rawLog.id,
+    rawText: rawLog.rawText,
+    createdAt: rawLog.inputAt,
+  }));
+  return { events, openSleep };
 }
 
 async function resolveMealThumbnail(url) {
