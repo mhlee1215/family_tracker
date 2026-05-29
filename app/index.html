@@ -49,6 +49,24 @@
                 </label>
               </section>
 
+              <section class="settings-block llm-settings" aria-labelledby="llm-settings-title">
+                <div id="llm-settings-title" class="menu-section-title">LLM provider</div>
+                <p class="settings-note">Only providers with a saved server-side API key can be activated. Browser code never calls an LLM provider directly.</p>
+                <form id="llm-provider-form" class="inline-settings-form" autocomplete="off">
+                  <label class="select-control">
+                    <span>Active provider</span>
+                    <select id="llm-provider-select" name="provider"></select>
+                  </label>
+                  <label class="select-control">
+                    <span>Model</span>
+                    <select id="llm-model-select" name="model"></select>
+                  </label>
+                  <button type="submit" class="menu-action">Use provider</button>
+                </form>
+                <div id="llm-provider-list" class="llm-provider-list" aria-live="polite"></div>
+                <p id="llm-provider-status" class="settings-note" role="status"></p>
+              </section>
+
               <section class="settings-block module-settings hidden" data-settings="task">
                 <div class="menu-section-title">Task settings</div>
                 <p class="settings-note">Task templates, recurring rules, and schedule controls will live here.</p>

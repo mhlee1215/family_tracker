@@ -121,6 +121,58 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+  test('account settings activate LLM provider only after an API key is saved', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const config = {
+      provider: 'mock',
+      model: 'mock-local',
+      configured: true,
+      providers: [
+        { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'], requiresApiKey: false, configured: true, active: true },
+        { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-5.4-mini', models: ['gpt-5.4-mini', 'gpt-5.4'], requiresApiKey: true, configured: false, active: false },
+      ],
+    };
+    await page.route('**/api/config', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(config) });
+    });
+    await page.route('**/api/llm-config', async (route) => {
+      const body = route.request().postDataJSON();
+      const provider = body.provider || 'mock';
+      config.provider = provider;
+      config.model = body.model || (provider === 'openai' ? 'gpt-5.4-mini' : 'mock-local');
+      config.providers = config.providers.map((item) => ({
+        ...item,
+        configured: item.id === 'openai' ? Boolean(body.apiKey) || item.configured : item.configured,
+        active: item.id === provider,
+      }));
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(config) });
+    });
+    await app.loginAsDevAdmin();
+
+    await page.locator('#menu-toggle').click();
+    await expect(page.locator('#llm-provider-list')).toContainText('OpenAI');
+    const openAiOption = page.locator('#llm-provider-select option[value="openai"]');
+    await expect(openAiOption).toHaveAttribute('disabled', '');
+    await app.captureStep('Opened LLM provider settings', 'Account menu shows implemented providers and marks OpenAI as unavailable before an API key is saved.');
+
+    const openAiCard = page.locator('.llm-provider-card', { hasText: 'OpenAI' });
+    await openAiCard.locator('[data-llm-key]').fill('sk-e2e-placeholder');
+    await openAiCard.locator('[data-llm-provider="openai"]').click();
+
+    await expect(page.locator('#llm-provider-status')).toContainText('OpenAI is ready');
+    await expect(page.locator('#llm-provider-select')).toHaveValue('openai');
+    await expect(openAiOption).not.toHaveAttribute('disabled', '');
+    await app.captureStep('Activated OpenAI provider', 'Saving an API key enables OpenAI and makes it the active server-side parser provider.');
+
+    await page.locator('#llm-provider-select').selectOption('mock');
+    await page.locator('#llm-provider-form').evaluate((form) => form.requestSubmit());
+    await expect(page.locator('#llm-provider-select')).toHaveValue('mock');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('baby growth records save birth and custom-date history with summary', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();

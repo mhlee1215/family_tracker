@@ -2,8 +2,8 @@ import { callMockLLM } from './mock-provider.js';
 import { callOpenAIForTask, defaultOpenAIModel } from './openai-provider.js';
 
 export const llmProviders = {
-  mock: { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'] },
-  openai: { id: 'openai', label: 'OpenAI', defaultModel: defaultOpenAIModel, models: ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5'] },
+  mock: { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'], requiresApiKey: false },
+  openai: { id: 'openai', label: 'OpenAI', defaultModel: defaultOpenAIModel, models: ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5'], requiresApiKey: true },
 };
 
 export function normalizeLLMProvider(provider) {

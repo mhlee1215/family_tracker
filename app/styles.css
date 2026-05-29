@@ -175,7 +175,9 @@ select:focus-visible {
   right: 0;
   z-index: 40;
   display: grid;
-  width: min(280px, calc(100vw - 24px));
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100vh - 68px);
+  overflow-y: auto;
   gap: 12px;
   border: 1px solid var(--hairline);
   border-radius: 18px;
@@ -1703,4 +1705,69 @@ label {
 
 .meal-swipe .swipe-hint {
   margin-top: 0;
+}
+
+.llm-settings {
+  gap: 12px;
+}
+
+.llm-provider-list {
+  display: grid;
+  gap: 10px;
+}
+
+.llm-provider-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--hairline, #e0e0e0);
+  border-radius: 14px;
+  background: var(--surface-pearl, #fafafc);
+}
+
+.llm-provider-card.active {
+  border-color: var(--primary, #0066cc);
+  background: #fff;
+}
+
+.llm-provider-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.llm-provider-card-header div {
+  display: grid;
+  gap: 3px;
+}
+
+.llm-provider-card-header strong {
+  color: var(--ink, #1d1d1f);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.llm-provider-card-header span {
+  color: var(--ink-muted-48, #7a7a7a);
+  font-size: 12px;
+}
+
+.llm-provider-pill {
+  border-radius: 9999px;
+  background: var(--canvas, #fff);
+  color: var(--primary, #0066cc) !important;
+  border: 1px solid var(--hairline, #e0e0e0);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.llm-provider-card.active .llm-provider-pill {
+  background: var(--primary, #0066cc);
+  border-color: var(--primary, #0066cc);
+  color: var(--on-primary, #fff) !important;
+}
+
+.llm-provider-model {
+  margin: 0;
 }
