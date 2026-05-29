@@ -2217,11 +2217,29 @@ function renderMealItem(item, slot) {
   const card = document.createElement('div');
   card.className = 'meal-card';
 
+  const header = document.createElement('div');
+  header.className = 'meal-card-header';
+
   const title = document.createElement('strong');
   title.className = 'meal-item-handle';
   title.textContent = `☰ ${item.name}`;
   title.setAttribute('aria-label', `Drag ${item.name}`);
-  card.appendChild(title);
+  header.appendChild(title);
+
+  if (slot !== 'wish') {
+    const likeButton = document.createElement('button');
+    likeButton.type = 'button';
+    likeButton.className = 'meal-like-button';
+    likeButton.setAttribute('aria-label', `Thumbs up ${item.name}`);
+    likeButton.innerHTML = `${actionIcon('like')}<span>${item.likes || 0}</span>`;
+    likeButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      likeMeal(item.id);
+    });
+    header.appendChild(likeButton);
+  }
+
+  card.appendChild(header);
 
   const armDrag = () => {
     dragArmed = true;

@@ -1186,6 +1186,43 @@ label {
   letter-spacing: 0.2px;
 }
 .meal-item-handle:active { cursor: grabbing; }
+
+.meal-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.meal-card-header .meal-item-handle {
+  min-width: 0;
+}
+
+.meal-like-button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meal-like-button svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.meal-like-button:active {
+  transform: scale(0.95);
+}
 .meal-item-chosen {
   border-color: var(--primary);
 }
@@ -1223,7 +1260,7 @@ label {
 
 @media (min-width: 1069px) {
   .meal-columns {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
 
