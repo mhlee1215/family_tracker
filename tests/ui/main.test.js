@@ -198,12 +198,27 @@ describe('app/main', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/ask', expect.objectContaining({ method: 'POST' }));
   });
 
-  it('jumps every date control back to today', async () => {
+  it('jumps every date control back to today with compact icon controls', async () => {
     await import('../../app/main.js?case=today-jump');
 
     const babyPicker = document.querySelector('#day-picker');
     const taskPicker = document.querySelector('#task-day-picker');
     const mealPicker = document.querySelector('#meal-day-picker');
+    const todayButtons = Array.from(document.querySelectorAll('.today-jump'));
+    const calendarButtons = Array.from(document.querySelectorAll('.calendar-toggle'));
+
+    expect(todayButtons).toHaveLength(3);
+    expect(calendarButtons).toHaveLength(3);
+    todayButtons.forEach((button) => {
+      expect(button.textContent.trim()).toBe('');
+      expect(button.querySelector('svg')).toBeTruthy();
+      expect(button.getAttribute('aria-label')).toBe('Jump to today');
+    });
+    calendarButtons.forEach((button) => {
+      expect(button.textContent.trim()).toBe('');
+      expect(button.querySelector('svg')).toBeTruthy();
+      expect(button.getAttribute('aria-label')).toMatch(/^Open .+ calendar$/);
+    });
 
     fireEvent.change(babyPicker, { target: { value: '2026-05-01' } });
     expect(taskPicker.value).toBe('2026-05-01');
