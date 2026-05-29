@@ -26,6 +26,13 @@ const root = resolve('.');
 loadEnv();
 const storageConfig = getStorageConfig();
 const store = await createBabyStore();
+const runtimeLLMConfig = {
+  provider: normalizeLLMProvider(process.env.LLM_PROVIDER || 'mock'),
+  model: process.env.LLM_MODEL || process.env.OPENAI_MODEL || '',
+  apiKeys: {
+    openai: process.env.OPENAI_API_KEY || '',
+  },
+};
 const processedAlexaRequestIds = new Set();
 
 const mimeTypes = {
@@ -73,13 +80,11 @@ async function handleApi(request, response) {
     if (request.method === 'GET' && requestUrl.pathname === '/api/config') {
       const session = await currentSession(request);
       sendJson(response, 200, {
-        provider: getLLMProvider(),
-        configured: Boolean(getProviderKey(getLLMProvider())),
+        ...buildLLMConfigPayload(),
         storageProvider: storageConfig.provider,
         storageConfigured: storageConfig.configured,
         storageMissing: storageConfig.missing,
         googleConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-        providers: getProviderModelOptions(),
         user: session?.user || null,
       });
       return;
@@ -196,6 +201,33 @@ async function handleApi(request, response) {
     const session = await requireSession(request, response);
     if (!session) return;
     const scope = scopeForUser(session.user);
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/llm-config') {
+      const body = await readJson(request);
+      const provider = normalizeLLMProvider(body.provider || runtimeLLMConfig.provider);
+      const providerConfig = getProviderModelOptions().find((item) => item.id === provider);
+      const apiKey = String(body.apiKey || '').trim();
+      const model = String(body.model || providerConfig?.defaultModel || '').trim();
+
+      if (!providerConfig) {
+        sendJson(response, 400, { error: 'Unknown LLM provider.' });
+        return;
+      }
+      if (apiKey && apiKey.length > 500) {
+        sendJson(response, 400, { error: 'API key is too long.' });
+        return;
+      }
+      if (apiKey && providerConfig.requiresApiKey) runtimeLLMConfig.apiKeys[provider] = apiKey;
+      if (providerConfig.requiresApiKey && !getProviderKey(provider)) {
+        sendJson(response, 400, { error: `${providerConfig.label} needs an API key before it can be activated.` });
+        return;
+      }
+
+      runtimeLLMConfig.provider = provider;
+      runtimeLLMConfig.model = providerConfig.models.includes(model) ? model : providerConfig.defaultModel;
+      sendJson(response, 200, buildLLMConfigPayload());
+      return;
+    }
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/profile') {
       sendJson(response, 200, {
@@ -735,16 +767,38 @@ function loadEnv() {
 }
 
 function getLLMProvider() {
-  return normalizeLLMProvider(process.env.LLM_PROVIDER || 'mock');
+  const provider = normalizeLLMProvider(runtimeLLMConfig.provider || 'mock');
+  return isLLMProviderConfigured(provider) ? provider : 'mock';
 }
 
 function getProviderKey(provider) {
-  return provider === 'openai' ? process.env.OPENAI_API_KEY || '' : '';
+  return provider === 'openai' ? runtimeLLMConfig.apiKeys.openai || process.env.OPENAI_API_KEY || '' : '';
 }
 
 function getLLMModel(provider = getLLMProvider()) {
   const configured = getProviderModelOptions().find((item) => item.id === provider);
-  return process.env.LLM_MODEL || process.env.OPENAI_MODEL || configured?.defaultModel;
+  const model = runtimeLLMConfig.model || process.env.LLM_MODEL || process.env.OPENAI_MODEL || configured?.defaultModel;
+  return configured?.models.includes(model) ? model : configured?.defaultModel;
+}
+
+function isLLMProviderConfigured(provider) {
+  const configured = getProviderModelOptions().find((item) => item.id === provider);
+  if (!configured) return false;
+  return !configured.requiresApiKey || Boolean(getProviderKey(provider));
+}
+
+function buildLLMConfigPayload() {
+  const provider = getLLMProvider();
+  return {
+    provider,
+    model: getLLMModel(provider),
+    configured: isLLMProviderConfigured(provider),
+    providers: getProviderModelOptions().map((item) => ({
+      ...item,
+      configured: isLLMProviderConfigured(item.id),
+      active: item.id === provider,
+    })),
+  };
 }
 
 function localDateKeyFromIso(value, timezone) {

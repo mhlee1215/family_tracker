@@ -49,7 +49,7 @@ Provider calls stay server-side:
 browser -> /api/logs -> server -> llm-provider -> parser/inference -> store
 ```
 
-The log route uses the server-side provider abstraction when a non-mock provider is configured with a valid key. If no provider key is available, or if provider parsing fails validation, it falls back to deterministic local parsing. Each structured event stores parser metadata (`parserInfo`) so the UI can show whether the event came from an LLM model, the local heuristic parser, or a system-generated event.
+The log route uses the server-side provider abstraction when a non-mock provider is configured with a valid key. Account settings can activate any implemented provider only after a key is saved to the server runtime; the browser submits keys to the app server but never calls an LLM provider directly or receives saved key values back. If no provider key is available, or if provider parsing fails validation, it falls back to deterministic local parsing. Each structured event stores parser metadata (`parserInfo`) so the UI can show whether the event came from an LLM model, the local heuristic parser, or a system-generated event.
 
 ## Platform Path
 

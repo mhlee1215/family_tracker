@@ -108,6 +108,61 @@ describe('app/main', () => {
     expect(window.location.search).not.toContain('mealDay=');
   });
 
+  it('shows implemented LLM providers and activates one after saving an API key', async () => {
+    const requests = [];
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      requests.push({ url, init });
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) {
+        return new Response(JSON.stringify({
+          provider: 'mock',
+          model: 'mock-local',
+          configured: true,
+          providers: [
+            { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'], requiresApiKey: false, configured: true, active: true },
+            { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-5.4-mini', models: ['gpt-5.4-mini', 'gpt-5.4'], requiresApiKey: true, configured: false, active: false },
+          ],
+        }), { status: 200 });
+      }
+      if (url.endsWith('/api/llm-config') && init.method === 'POST') {
+        return new Response(JSON.stringify({
+          provider: 'openai',
+          model: 'gpt-5.4-mini',
+          configured: true,
+          providers: [
+            { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'], requiresApiKey: false, configured: true, active: false },
+            { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-5.4-mini', models: ['gpt-5.4-mini', 'gpt-5.4'], requiresApiKey: true, configured: true, active: true },
+          ],
+        }), { status: 200 });
+      }
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      return new Response(JSON.stringify({ events: [], summary: null, tasks: [], overview: [], assignees: [] }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=llm-provider-settings');
+
+    fireEvent.click(document.querySelector('#menu-toggle'));
+
+    const providerSelect = document.querySelector('#llm-provider-select');
+    const openAiOption = [...providerSelect.options].find((option) => option.value === 'openai');
+    expect(openAiOption.disabled).toBe(true);
+    expect(screen.getByText('OpenAI')).toBeTruthy();
+    expect(screen.getAllByText('Needs API key').length).toBeGreaterThan(0);
+
+    const openAiCard = [...document.querySelectorAll('.llm-provider-card')]
+      .find((card) => card.textContent.includes('OpenAI'));
+    openAiCard.querySelector('[data-llm-key]').value = 'sk-test';
+    fireEvent.click(openAiCard.querySelector('[data-llm-provider="openai"]'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const configRequest = requests.find((request) => request.url.endsWith('/api/llm-config'));
+    expect(JSON.parse(configRequest.init.body)).toMatchObject({ provider: 'openai', apiKey: 'sk-test' });
+    expect(document.querySelector('#llm-provider-status').textContent).toContain('OpenAI is ready');
+    expect(document.querySelector('#llm-provider-select').value).toBe('openai');
+  });
+
   it('keeps baby settings inside Baby Tracker and toggles growth summary chart', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;

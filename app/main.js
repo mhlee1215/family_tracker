@@ -57,6 +57,7 @@ const state = {
   taskPanel: 'today',
   babyPanel: null,
   meals: emptyMealState(),
+  llmConfig: { provider: 'mock', model: 'mock-local', providers: [] },
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -83,6 +84,11 @@ const elements = {
   eventCount: $('#event-count'),
   refresh: $('#refresh'),
   themeSelect: $('#theme-select'),
+  llmProviderForm: $('#llm-provider-form'),
+  llmProviderSelect: $('#llm-provider-select'),
+  llmModelSelect: $('#llm-model-select'),
+  llmProviderList: $('#llm-provider-list'),
+  llmProviderStatus: $('#llm-provider-status'),
   authPanel: $('#auth-panel'),
   accountPanel: $('#account-panel'),
   accountLabel: $('#account-label'),
@@ -191,7 +197,7 @@ renderTabs();
 renderQuickActions();
 renderTabletActions();
 if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
-await loadCurrentUser();
+await Promise.all([loadCurrentUser(), loadAppConfig()]);
 state.meals = loadMealsForUser(state.user);
 if (state.user) await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
 renderAuthState();
@@ -252,6 +258,28 @@ elements.openBabyLog?.addEventListener('click', () => {
 elements.babySettingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await saveBabyProfile();
+});
+
+elements.llmProviderForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  await saveLLMProvider({
+    provider: elements.llmProviderSelect.value,
+    model: elements.llmModelSelect.value,
+  });
+});
+
+elements.llmProviderSelect?.addEventListener('change', renderLLMModelOptions);
+
+elements.llmProviderList?.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-llm-provider]');
+  if (!button) return;
+  const provider = button.dataset.llmProvider;
+  const card = button.closest('.llm-provider-card');
+  await saveLLMProvider({
+    provider,
+    model: card?.querySelector('[data-llm-model]')?.value || '',
+    apiKey: card?.querySelector('[data-llm-key]')?.value || '',
+  });
 });
 
 elements.growthRecordMode?.addEventListener('change', renderGrowthRecordDateControls);
@@ -541,6 +569,105 @@ async function deleteBabyLog(event) {
     return;
   }
   await loadToday();
+}
+
+
+async function loadAppConfig() {
+  const response = await fetch('/api/config');
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return;
+  state.llmConfig = normalizeLLMConfig(payload);
+  renderLLMSettings();
+}
+
+async function saveLLMProvider({ provider, model, apiKey = '' }) {
+  if (!provider) return;
+  elements.llmProviderStatus.textContent = 'Saving LLM provider...';
+  const body = { provider, model };
+  if (apiKey.trim()) body.apiKey = apiKey.trim();
+  const response = await fetch('/api/llm-config', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    elements.llmProviderStatus.textContent = payload.error || 'Could not save LLM provider.';
+    return;
+  }
+  state.llmConfig = normalizeLLMConfig(payload);
+  renderLLMSettings();
+  elements.llmProviderStatus.textContent = `${providerLabel(provider)} is ready for server-side parsing.`;
+}
+
+function normalizeLLMConfig(payload) {
+  const providers = Array.isArray(payload.providers) ? payload.providers : [];
+  return {
+    provider: payload.provider || 'mock',
+    model: payload.model || providers.find((item) => item.id === payload.provider)?.defaultModel || 'mock-local',
+    providers,
+  };
+}
+
+function renderLLMSettings() {
+  if (!elements.llmProviderSelect || !elements.llmProviderList) return;
+  const providers = state.llmConfig.providers || [];
+  elements.llmProviderSelect.replaceChildren(...providers.map((provider) => {
+    const option = document.createElement('option');
+    option.value = provider.id;
+    option.textContent = `${provider.label}${provider.configured ? '' : ' · add key'}`;
+    option.disabled = provider.requiresApiKey && !provider.configured;
+    option.selected = provider.id === state.llmConfig.provider;
+    return option;
+  }));
+  renderLLMModelOptions();
+  elements.llmProviderList.replaceChildren(...providers.map(providerCard));
+}
+
+function renderLLMModelOptions() {
+  if (!elements.llmModelSelect) return;
+  const provider = (state.llmConfig.providers || []).find((item) => item.id === elements.llmProviderSelect.value)
+    || (state.llmConfig.providers || []).find((item) => item.id === state.llmConfig.provider);
+  const models = provider?.models?.length ? provider.models : [provider?.defaultModel || state.llmConfig.model || 'mock-local'];
+  elements.llmModelSelect.replaceChildren(...models.map((model) => {
+    const option = document.createElement('option');
+    option.value = model;
+    option.textContent = model;
+    option.selected = model === state.llmConfig.model;
+    return option;
+  }));
+}
+
+function providerCard(provider) {
+  const card = document.createElement('article');
+  card.className = `llm-provider-card${provider.active ? ' active' : ''}${provider.configured ? ' configured' : ''}`;
+  const status = provider.active ? 'Active' : provider.configured ? 'Ready' : provider.requiresApiKey ? 'Needs API key' : 'Available';
+  const models = provider.models?.length ? provider.models : [provider.defaultModel];
+  card.innerHTML = `
+    <div class="llm-provider-card-header">
+      <div>
+        <strong>${escapeHtml(provider.label)}</strong>
+        <span>${escapeHtml(status)}</span>
+      </div>
+      <span class="llm-provider-pill">${escapeHtml(status)}</span>
+    </div>
+    <label class="select-control llm-provider-model">
+      <span>Model</span>
+      <select data-llm-model>${models.map((model) => `<option value="${escapeHtml(model)}"${model === (state.llmConfig.model || provider.defaultModel) ? ' selected' : ''}>${escapeHtml(model)}</option>`).join('')}</select>
+    </label>
+    ${provider.requiresApiKey ? `
+      <label class="select-control">
+        <span>API key</span>
+        <input data-llm-key type="password" placeholder="${provider.configured ? 'Key saved — paste to replace' : 'Paste API key'}" autocomplete="off">
+      </label>
+    ` : '<p class="settings-note">Local fallback is available without an API key.</p>'}
+    <button type="button" class="menu-action" data-llm-provider="${escapeHtml(provider.id)}">${provider.configured || !provider.requiresApiKey ? 'Use provider' : 'Save key & use'}</button>
+  `;
+  return card;
+}
+
+function providerLabel(providerId) {
+  return (state.llmConfig.providers || []).find((item) => item.id === providerId)?.label || providerId;
 }
 
 async function loadCurrentUser() {
