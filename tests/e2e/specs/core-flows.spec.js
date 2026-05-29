@@ -52,6 +52,64 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+
+  test('baby timeline item reveals and runs actions after a left swipe', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+    await app.captureStep('Opened app for swipe action scenario', 'Starting on baby tab before creating a swipable timeline log.');
+
+    const rawText = `swipe action formula ${Date.now()}`;
+    await page.locator('#log-input').fill(rawText);
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    const row = page.locator('#timeline .timeline-swipe', { hasText: rawText }).first();
+    await expect(row).toBeVisible();
+    await expect(row.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'true');
+    await app.captureStep('Created swipable timeline item', 'The new log is present and its action rail starts hidden.');
+
+    await row.locator('.swipe-card').evaluate((node) => {
+      const makeTouchEvent = (type, x, y, touchListName) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        const touch = {
+          identifier: 1,
+          target: node,
+          pageX: x,
+          pageY: y,
+          clientX: x,
+          clientY: y,
+          screenX: x,
+          screenY: y,
+        };
+        Object.defineProperties(event, {
+          changedTouches: { value: [touch] },
+          touches: { value: touchListName === 'touches' ? [touch] : [] },
+          targetTouches: { value: touchListName === 'targetTouches' ? [touch] : [] },
+        });
+        node.dispatchEvent(event);
+      };
+
+      makeTouchEvent('touchstart', 320, 120, 'touches');
+      makeTouchEvent('touchmove', 170, 122, 'targetTouches');
+      makeTouchEvent('touchend', 170, 122, 'changedTouches');
+    });
+
+    await expect(row.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'false');
+    await expect.poll(async () => row.locator('.swipe-card').evaluate((node) => node.style.transform)).toMatch(/^translate3d\(-/);
+    await app.captureStep('Revealed swipe action rail', 'A synthetic left swipe opened the Swiped-backed action rail.');
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('confirm');
+      await dialog.accept();
+    });
+    await row.getByRole('button', { name: /Delete/ }).click();
+    await expect(page.locator('#timeline')).not.toContainText(rawText);
+    await app.captureStep('Deleted from revealed swipe action', 'The Delete action from the revealed rail removed the log.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('empty and api-error states render without crash', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();

@@ -3,6 +3,7 @@ const BUILD_CHECK_INTERVAL_MS = 60_000;
 
 const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
+const swipeState = { openItem: null, nextId: 0 };
 
 const storageKeys = {
   theme: 'familyTracker.theme',
@@ -978,8 +979,6 @@ function renderSleepStatus() {
 }
 
 
-const swipeState = { openItem: null };
-
 function actionIcon(name) {
   const paths = {
     edit: '<path d="M4 15.5V20h4.5L18.9 9.6l-4.5-4.5L4 15.5Z"/><path d="m13.2 6.3 4.5 4.5"/>',
@@ -1008,6 +1007,7 @@ function makeSwipeAction({ label, icon, tone = '', onClick }) {
 
 function makeSwipeItem(content, actions, className = '') {
   const shell = document.createElement('div');
+  const swipeId = `swipe-${swipeState.nextId += 1}`;
   shell.className = `swipe-item ${className}`.trim();
   shell.tabIndex = 0;
   shell.setAttribute('aria-label', 'Swipe left to reveal actions');
@@ -1018,23 +1018,13 @@ function makeSwipeItem(content, actions, className = '') {
   rail.replaceChildren(...actions);
 
   content.classList.add('swipe-card');
-  content.style.setProperty('--swipe-offset', '0px');
+  content.dataset.swipeId = swipeId;
 
-  let startX = 0;
-  let startY = 0;
-  let currentOffset = 0;
-  let swiping = false;
-  let pointerId = null;
-
-  const actionWidth = () => Math.max(88, rail.getBoundingClientRect().width || actions.length * 76);
-  const setOffset = (value, animate = true) => {
-    const next = Math.max(-actionWidth(), Math.min(0, value));
-    currentOffset = next;
-    content.style.setProperty('--swipe-offset', `${next}px`);
-    content.classList.toggle('is-dragging', !animate);
-    shell.classList.toggle('is-open', Math.abs(next) > 1);
-    rail.setAttribute('aria-hidden', Math.abs(next) > 1 ? 'false' : 'true');
-    if (Math.abs(next) > 1) {
+  const actionWidth = () => Math.max(88, actions.length * 76, rail.getBoundingClientRect().width || 0);
+  const markOpen = (isOpen) => {
+    shell.classList.toggle('is-open', isOpen);
+    rail.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    if (isOpen) {
       if (swipeState.openItem && swipeState.openItem !== shell) closeSwipeItem(swipeState.openItem);
       swipeState.openItem = shell;
     } else if (swipeState.openItem === shell) {
@@ -1042,53 +1032,64 @@ function makeSwipeItem(content, actions, className = '') {
     }
   };
 
-  shell.__closeSwipe = () => setOffset(0);
+  shell.replaceChildren(rail, content);
 
-  content.addEventListener('pointerdown', (event) => {
-    if (event.button !== undefined && event.button !== 0) return;
-    if (event.target.closest('button, a, input, select, textarea, .meal-item-handle')) return;
-    startX = event.clientX;
-    startY = event.clientY;
-    pointerId = event.pointerId;
-    swiping = false;
-    content.setPointerCapture?.(pointerId);
-  });
-
-  content.addEventListener('pointermove', (event) => {
-    if (pointerId !== event.pointerId) return;
-    const dx = event.clientX - startX;
-    const dy = event.clientY - startY;
-    if (!swiping && Math.abs(dx) < 8) return;
-    if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
-    swiping = true;
-    event.preventDefault();
-    const base = shell.classList.contains('is-open') ? -actionWidth() : 0;
-    setOffset(base + dx, false);
-  });
-
-  const finishSwipe = (event) => {
-    if (pointerId !== event.pointerId) return;
-    content.releasePointerCapture?.(pointerId);
-    pointerId = null;
-    if (!swiping) return;
-    swiping = false;
-    const shouldOpen = Math.abs(currentOffset) > actionWidth() * 0.38;
-    setOffset(shouldOpen ? -actionWidth() : 0);
+  const initSwipe = () => {
+    if (typeof window.Swiped?.init !== 'function' || !document.documentElement.contains(content)) return null;
+    const width = actionWidth();
+    return window.Swiped.init({
+      query: `[data-swipe-id="${swipeId}"]`,
+      right: width,
+      tolerance: Math.max(32, Math.round(width * 0.38)),
+      duration: 180,
+      onOpen() {
+        markOpen(true);
+      },
+      onClose() {
+        markOpen(false);
+      },
+    });
   };
-  content.addEventListener('pointerup', finishSwipe);
-  content.addEventListener('pointercancel', finishSwipe);
+
+  let swipeInstance = null;
+  const ensureSwipe = () => {
+    if (!swipeInstance) swipeInstance = initSwipe();
+    return swipeInstance;
+  };
+  queueMicrotask(ensureSwipe);
+
+  const openWithLibrary = () => {
+    const swipe = ensureSwipe();
+    if (!swipe) return;
+    swipe.dir = -1;
+    swipe.width = actionWidth();
+    swipe.right = swipe.width;
+    swipe.open(true);
+    markOpen(true);
+  };
+  const closeWithLibrary = () => {
+    const swipe = ensureSwipe();
+    if (!swipe) return;
+    swipe.close(true);
+    markOpen(false);
+  };
+
+  content.addEventListener('touchstart', (event) => {
+    if (event.target.closest('button, a, input, select, textarea, .meal-item-handle')) event.stopPropagation();
+  });
+
+  shell.__closeSwipe = closeWithLibrary;
 
   shell.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      setOffset(-actionWidth());
+      openWithLibrary();
     } else if (event.key === 'ArrowRight' || event.key === 'Escape') {
       event.preventDefault();
-      setOffset(0);
+      closeSwipeItem(shell);
     }
   });
 
-  shell.replaceChildren(rail, content);
   return shell;
 }
 
