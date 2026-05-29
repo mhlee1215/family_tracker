@@ -128,6 +128,7 @@ test.describe('Family Tracker core flows', () => {
       providers: [
         { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'], requiresApiKey: false, configured: true, active: true },
         { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-5.4-mini', models: ['gpt-5.4-mini', 'gpt-5.4'], requiresApiKey: true, configured: false, active: false },
+        { id: 'mistral', label: 'Mistral', defaultModel: 'mistral-small-latest', models: ['mistral-small-latest', 'mistral-medium-latest'], requiresApiKey: true, configured: false, active: false },
       ],
     };
     await page.route('**/api/config', async (route) => {
@@ -137,10 +138,10 @@ test.describe('Family Tracker core flows', () => {
       const body = route.request().postDataJSON();
       const provider = body.provider || 'mock';
       config.provider = provider;
-      config.model = body.model || (provider === 'openai' ? 'gpt-5.4-mini' : 'mock-local');
+      config.model = body.model || (provider === 'openai' ? 'gpt-5.4-mini' : provider === 'mistral' ? 'mistral-small-latest' : 'mock-local');
       config.providers = config.providers.map((item) => ({
         ...item,
-        configured: item.id === 'openai' ? Boolean(body.apiKey) || item.configured : item.configured,
+        configured: ['openai', 'mistral'].includes(item.id) ? Boolean(body.apiKey) || item.configured : item.configured,
         active: item.id === provider,
       }));
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(config) });
@@ -149,6 +150,7 @@ test.describe('Family Tracker core flows', () => {
 
     await page.locator('#menu-toggle').click();
     await expect(page.locator('#llm-provider-list')).toContainText('OpenAI');
+    await expect(page.locator('#llm-provider-list')).toContainText('Mistral');
     const openAiOption = page.locator('#llm-provider-select option[value="openai"]');
     await expect(openAiOption).toHaveAttribute('disabled', '');
     await app.captureStep('Opened LLM provider settings', 'Account menu shows implemented providers and marks OpenAI as unavailable before an API key is saved.');
