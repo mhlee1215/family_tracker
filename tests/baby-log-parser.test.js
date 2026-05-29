@@ -54,7 +54,7 @@ test('parses English and Vietnamese shortcut logs for localized UI buttons', () 
 
 
 test('does not treat today as Vietnamese wake shortcut in English formula logs', () => {
-  const [event] = parseBabyLogText('ate formula 12 ml at 1:20 pm today', { now });
+  const [event] = parseBabyLogText('ate formula 12 ml at 1:20 pm today', { now, timezone: 'UTC' });
 
   assert.equal(event.type, 'feeding_milk');
   assert.equal(event.amountMl.value, 12);
@@ -63,4 +63,32 @@ test('does not treat today as Vietnamese wake shortcut in English formula logs',
   assert.equal(event.feedingKind.source, 'explicit');
   assert.equal(event.occurredAt.value, '2026-05-23T13:20:00.000Z');
   assert.equal(event.occurredAt.source, 'explicit');
+});
+
+
+test('parses explicit English times on the local day for the user timezone', () => {
+  const [event] = parseBabyLogText('ate formula 30 ml at 7:30 pm', {
+    now: new Date('2026-05-29T04:30:00.000Z'),
+    timezone: 'America/Los_Angeles',
+  });
+
+  assert.equal(event.type, 'feeding_milk');
+  assert.equal(event.amountMl.value, 30);
+  assert.equal(event.occurredAt.value, '2026-05-29T02:30:00.000Z');
+  assert.equal(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(event.occurredAt.value)), '2026-05-28');
+});
+
+test('parses explicit Korean times on the local day for the user timezone', () => {
+  const [event] = parseBabyLogText('분유 30ml 저녁 7시 30분', {
+    now: new Date('2026-05-29T04:30:00.000Z'),
+    timezone: 'America/Los_Angeles',
+  });
+
+  assert.equal(event.type, 'feeding_milk');
+  assert.equal(event.occurredAt.value, '2026-05-29T02:30:00.000Z');
 });

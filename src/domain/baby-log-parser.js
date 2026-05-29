@@ -7,7 +7,7 @@ export function parseBabyLogText(text, context = {}) {
   const normalized = rawText.replace(/\s+/g, ' ');
   const lower = normalized.toLowerCase();
   const event = baseEvent(normalized, context);
-  const explicitTime = extractExplicitTime(normalized, context.now);
+  const explicitTime = extractExplicitTime(normalized, context);
   const candidates = [];
 
   if (looksLikeDiaper(lower)) {
@@ -36,7 +36,7 @@ export function parseBabyLogText(text, context = {}) {
   }
 
   if (looksLikeSleep(lower)) {
-    const explicitRange = extractTimeRange(normalized, context.now);
+    const explicitRange = extractTimeRange(normalized, context);
     candidates.push({
       score: explicitRange ? 95 : 72,
       event: explicitRange ? {
@@ -293,38 +293,96 @@ function extractFood(text) {
   return cleaned || '이유식';
 }
 
-function extractExplicitTime(text, now = new Date()) {
+function extractExplicitTime(text, context = {}) {
+  const { now, timezone } = explicitTimeContext(context);
   const korean = text.match(/(오전|오후|아침|점심|저녁|밤)?\s*(\d{1,2})\s*시(?:\s*(반|[0-5]?\d)\s*분?)?/);
   if (korean) {
-    const date = new Date(now);
     let hour = Number(korean[2]);
     const minute = korean[3] === '반' ? 30 : Number(korean[3] || 0);
     const marker = korean[1] || '';
     if ((marker === '오후' || marker === '점심' || marker === '저녁' || marker === '밤') && hour < 12) hour += 12;
     if ((marker === '아침' || marker === '오전') && hour === 12) hour = 0;
-    date.setHours(hour, minute, 0, 0);
-    return createField(date.toISOString(), 'explicit', 'typed_time', 0.95);
+    return createField(explicitLocalTimeIso({ now, timezone, text, hour, minute }), 'explicit', 'typed_time', 0.95);
   }
 
   const english = text.match(/(?:\bat\s*)?(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b/i);
   if (!english) return null;
-  const date = new Date(now);
   let hour = Number(english[1]);
   const minute = Number(english[2] || 0);
   const marker = english[3].toLowerCase();
   if (marker === 'pm' && hour < 12) hour += 12;
   if (marker === 'am' && hour === 12) hour = 0;
-  if (/\byesterday\b/i.test(text)) date.setDate(date.getDate() - 1);
-  if (/\btomorrow\b/i.test(text)) date.setDate(date.getDate() + 1);
-  date.setHours(hour, minute, 0, 0);
-  return createField(date.toISOString(), 'explicit', 'typed_time', 0.95);
+  return createField(explicitLocalTimeIso({ now, timezone, text, hour, minute }), 'explicit', 'typed_time', 0.95);
 }
 
-function extractTimeRange(text, now = new Date()) {
+function explicitTimeContext(context) {
+  if (context instanceof Date || typeof context === 'string' || typeof context === 'number') {
+    return { now: new Date(context), timezone: 'UTC' };
+  }
+  return {
+    now: context.now instanceof Date ? context.now : new Date(context.now || Date.now()),
+    timezone: context.timezone || 'UTC',
+  };
+}
+
+function explicitLocalTimeIso({ now, timezone, text, hour, minute }) {
+  const parts = localDateParts(now, timezone);
+  if (/\byesterday\b/i.test(text)) shiftLocalDate(parts, -1);
+  if (/\btomorrow\b/i.test(text)) shiftLocalDate(parts, 1);
+  return localDateTimeToIso({ ...parts, hour, minute, second: 0, millisecond: 0 }, timezone);
+}
+
+function shiftLocalDate(parts, days) {
+  const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
+  parts.year = shifted.getUTCFullYear();
+  parts.month = shifted.getUTCMonth() + 1;
+  parts.day = shifted.getUTCDate();
+}
+
+function localDateParts(value, timezone) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(value).map((part) => [part.type, part.value]));
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+    second: Number(parts.second),
+    millisecond: value.getUTCMilliseconds(),
+  };
+}
+
+function localDateTimeToIso(parts, timezone) {
+  const target = localPartsEpoch(parts);
+  let guess = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second, parts.millisecond));
+  for (let i = 0; i < 4; i += 1) {
+    const actual = localDateParts(guess, timezone);
+    const diff = localPartsEpoch(actual) - target;
+    if (diff === 0) break;
+    guess = new Date(guess.getTime() - diff);
+  }
+  return guess.toISOString();
+}
+
+function localPartsEpoch(parts) {
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour || 0, parts.minute || 0, parts.second || 0, parts.millisecond || 0);
+}
+
+function extractTimeRange(text, context = {}) {
   const range = text.match(/(.+?)부터\s*(.+?)까지/);
   if (!range) return null;
-  const startAt = extractExplicitTime(range[1], now);
-  const endAt = extractExplicitTime(range[2], now);
+  const startAt = extractExplicitTime(range[1], context);
+  const endAt = extractExplicitTime(range[2], context);
   return startAt && endAt ? { startAt, endAt } : null;
 }
 
