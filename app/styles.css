@@ -728,6 +728,15 @@ label {
   padding: 5px 10px;
 }
 
+.badges .parser-badge {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--hairline));
+  color: var(--primary);
+}
+
+.badges .parser-badge-llm {
+  background: color-mix(in srgb, var(--primary) 8%, var(--canvas));
+}
+
 .empty {
   margin: 0;
   padding: 24px 0;
