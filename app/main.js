@@ -1055,9 +1055,23 @@ function makeSwipeItem(content, actions, className = '') {
   };
   queueMicrotask(ensureSwipe);
 
+  const moveCard = (offset, duration = 180) => {
+    content.style.transition = `transform ${duration}ms ease`;
+    content.style.transform = `translate3d(${offset}px, 0px, 0px)`;
+  };
+
+  const openWithFallback = () => {
+    const width = actionWidth();
+    moveCard(-width);
+    markOpen(true);
+  };
+
   const openWithSwiped = () => {
     const swipe = ensureSwipe();
-    if (!swipe) return;
+    if (!swipe) {
+      openWithFallback();
+      return;
+    }
     swipe.dir = -1;
     swipe.width = actionWidth();
     swipe.right = swipe.width;
@@ -1065,11 +1079,85 @@ function makeSwipeItem(content, actions, className = '') {
     markOpen(true);
   };
 
-  shell.__closeSwipe = () => {
-    const swipe = ensureSwipe();
-    swipe?.close(true);
+  const closeWithFallback = () => {
+    moveCard(0);
     markOpen(false);
   };
+
+  shell.__closeSwipe = () => {
+    const swipe = ensureSwipe();
+    if (swipe) swipe.close(true);
+    else closeWithFallback();
+    markOpen(false);
+  };
+
+  let pointerDrag = null;
+  let suppressClickAfterDrag = false;
+  const pointerThreshold = 10;
+  const isDesktopPointer = (event) => !event.pointerType || event.pointerType === 'mouse' || event.pointerType === 'pen';
+
+  content.addEventListener('pointerdown', (event) => {
+    if (!isDesktopPointer(event) || event.button !== 0) return;
+    pointerDrag = {
+      id: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      active: false,
+      wasOpen: shell.classList.contains('is-open'),
+      width: actionWidth(),
+    };
+    content.setPointerCapture?.(event.pointerId);
+  });
+
+  content.addEventListener('pointermove', (event) => {
+    if (!pointerDrag || event.pointerId !== pointerDrag.id) return;
+    const deltaX = event.clientX - pointerDrag.startX;
+    const deltaY = event.clientY - pointerDrag.startY;
+    pointerDrag.lastX = event.clientX;
+    if (!pointerDrag.active) {
+      if (Math.abs(deltaX) < pointerThreshold || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+      pointerDrag.active = true;
+      content.style.transition = 'none';
+    }
+    event.preventDefault();
+    const baseOffset = pointerDrag.wasOpen ? -pointerDrag.width : 0;
+    const nextOffset = Math.max(-pointerDrag.width, Math.min(0, baseOffset + deltaX));
+    moveCard(nextOffset, 0);
+  });
+
+  const finishPointerDrag = (event) => {
+    if (!pointerDrag || event.pointerId !== pointerDrag.id) return;
+    const deltaX = event.clientX - pointerDrag.startX;
+    const shouldSettleOpen = pointerDrag.wasOpen
+      ? deltaX > pointerDrag.width * 0.35
+        ? false
+        : true
+      : deltaX < -Math.max(36, pointerDrag.width * 0.28);
+    const didDrag = pointerDrag.active;
+    pointerDrag = null;
+    content.releasePointerCapture?.(event.pointerId);
+    if (!didDrag) return;
+    suppressClickAfterDrag = true;
+    window.setTimeout(() => { suppressClickAfterDrag = false; }, 0);
+    if (shouldSettleOpen) openWithFallback();
+    else closeWithFallback();
+  };
+
+  content.addEventListener('pointerup', finishPointerDrag);
+  content.addEventListener('pointercancel', finishPointerDrag);
+  content.addEventListener('click', (event) => {
+    if (!suppressClickAfterDrag) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  content.addEventListener('wheel', (event) => {
+    if (Math.abs(event.deltaX) <= Math.max(24, Math.abs(event.deltaY) * 1.2)) return;
+    event.preventDefault();
+    if (event.deltaX > 0) openWithSwiped();
+    else closeSwipeItem(shell);
+  }, { passive: false });
 
   shell.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') {
