@@ -25,16 +25,22 @@ const copy = {
   emptyFilteredTimeline: 'No logs match this filter.',
   emptyTasks: 'No tasks for this day.',
   emptyOverview: 'No completed tasks yet.',
-  quickActions: ['formula', 'nap', 'woke up', 'dirty', 'wet', 'solids'],
+  quickActions: [
+    { label: 'Formula', value: 'formula', icon: 'formula' },
+    { label: 'Breast', value: 'breast milk', icon: 'breast' },
+    { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
+    { label: 'Dirty', value: 'dirty diaper', icon: 'dirty' },
+    { label: 'Wet', value: 'wet diaper', icon: 'wet' },
+    { label: 'Solids', value: 'solids eaten', icon: 'solids' },
+  ],
   tabletActions: [
-    { label: 'Formula', value: 'formula' },
-    { label: 'Breast', value: 'breast milk' },
-    { label: 'Solids', value: 'solids eaten' },
-    { label: 'Nap start', value: 'nap' },
-    { label: 'Wake', value: 'woke up' },
-    { label: 'Dirty', value: 'dirty diaper' },
-    { label: 'Wet', value: 'wet diaper' },
-    { label: 'Note', value: '' },
+    { label: 'Formula', value: 'formula', icon: 'formula' },
+    { label: 'Breast', value: 'breast milk', icon: 'breast' },
+    { label: 'Solids', value: 'solids eaten', icon: 'solids' },
+    { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
+    { label: 'Dirty', value: 'dirty diaper', icon: 'dirty' },
+    { label: 'Wet', value: 'wet diaper', icon: 'wet' },
+    { label: 'Note', value: '', icon: 'note' },
   ],
 };
 
@@ -428,7 +434,7 @@ window.addEventListener('popstate', () => {
   else if (dayChanged || (state.activeTab === 'task' && periodChanged)) refreshActiveTab();
 });
 
-async function saveLog(text) {
+async function saveLog(text, options = {}) {
   const cleanText = text.trim();
   if (!cleanText) return;
   elements.logInput.value = '';
@@ -436,7 +442,12 @@ async function saveLog(text) {
   const response = await fetch('/api/logs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text: cleanText, timezone: localTimezone() }),
+    body: JSON.stringify({
+      text: cleanText,
+      timezone: localTimezone(),
+      parserMode: options.parserMode || 'auto',
+      inputSource: options.inputSource || 'text',
+    }),
   });
   const payload = await response.json();
   elements.logInput.placeholder = copy.logPlaceholder;
@@ -941,6 +952,8 @@ function renderBaby() {
   renderDayControls();
   renderSummary();
   renderSleepStatus();
+  renderQuickActions();
+  renderTabletActions();
   renderGrowthSummary();
   renderBabyPanel();
   renderTimeline();
@@ -974,23 +987,38 @@ function renderBabySettings() {
 }
 
 function renderQuickActions() {
-  elements.quickActions.replaceChildren(...copy.quickActions.map((label) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = label;
-    button.addEventListener('click', () => saveLog(label));
-    return button;
-  }));
+  const openSleep = currentOpenSleep();
+  elements.quickActions.replaceChildren(...copy.quickActions.map((action) => (
+    makeBabyActionButton(resolveSleepAction(action, openSleep), 'quick-action-button')
+  )));
 }
 
 function renderTabletActions() {
-  elements.tabletActions.replaceChildren(...copy.tabletActions.map((action) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = action.label;
-    button.addEventListener('click', () => (action.value ? saveLog(action.value) : elements.logInput.focus()));
-    return button;
-  }));
+  const openSleep = currentOpenSleep();
+  elements.tabletActions.replaceChildren(...copy.tabletActions.map((action) => (
+    makeBabyActionButton(resolveSleepAction(action, openSleep), 'tablet-action-button')
+  )));
+}
+
+function resolveSleepAction(action, openSleep) {
+  if (!action.wakeValue) return action;
+  return openSleep
+    ? { ...action, label: action.wakeLabel, value: action.wakeValue, icon: action.wakeIcon, activeSleep: true }
+    : action;
+}
+
+function makeBabyActionButton(action, className) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = className;
+  if (action.activeSleep) button.classList.add('sleep-active');
+  button.innerHTML = `${actionIcon(action.icon)}<span>${escapeHtml(action.label)}</span>`;
+  if (action.value) {
+    button.addEventListener('click', () => saveLog(action.value, { parserMode: 'heuristic', inputSource: 'button' }));
+  } else {
+    button.addEventListener('click', () => elements.logInput.focus());
+  }
+  return button;
 }
 
 function renderSummary() {
@@ -1197,10 +1225,14 @@ function toLocalTimeInputValue(date) {
   return local.toISOString().slice(11, 16);
 }
 
-function renderSleepStatus() {
-  const openSleep = [...state.events].reverse().find((event) => (
+function currentOpenSleep() {
+  return [...state.events].reverse().find((event) => (
     event.type === 'sleep' && event.action?.value === 'start' && event.status !== 'completed' && !event.endAt?.value
   ));
+}
+
+function renderSleepStatus() {
+  const openSleep = currentOpenSleep();
   if (!openSleep) {
     elements.sleepStatus.classList.add('hidden');
     elements.sleepStatus.replaceChildren();
@@ -1212,8 +1244,9 @@ function renderSleepStatus() {
   copyEl.innerHTML = `<span>Napping now</span><strong>${elapsed} min</strong><small>Started ${escapeHtml(timeLabel(openSleep.startAt))}</small>`;
   const wakeButton = document.createElement('button');
   wakeButton.type = 'button';
-  wakeButton.textContent = 'Wake';
-  wakeButton.addEventListener('click', () => saveLog('woke up'));
+  wakeButton.className = 'sleep-status-action';
+  wakeButton.innerHTML = `${actionIcon('wake')}<span>Wake</span>`;
+  wakeButton.addEventListener('click', () => saveLog('woke up', { parserMode: 'heuristic', inputSource: 'button' }));
   elements.sleepStatus.replaceChildren(copyEl, wakeButton);
 }
 
@@ -1227,6 +1260,14 @@ function actionIcon(name) {
     breakfast: '<path d="M4 11h16"/><path d="M6 11a6 6 0 0 1 12 0"/><path d="M8 15h8"/><path d="M10 19h4"/><path d="M12 3v2"/>',
     lunch: '<path d="M5 4v8"/><path d="M9 4v8"/><path d="M7 4v17"/><path d="M15 4v17"/><path d="M15 4c3 2 4 6 1 9"/>',
     dinner: '<path d="M4 12a8 8 0 0 1 16 0"/><path d="M3 12h18"/><path d="M5 16h14"/><path d="M8 20h8"/>',
+    formula: '<path d="M10 3h4"/><path d="M11 3v3l-3 3v10a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V9l-3-3V3"/><path d="M9 13h6"/><path d="M9 17h6"/>',
+    breast: '<path d="M12 4c3.2 2 5 4.7 5 8a5 5 0 0 1-10 0c0-3.3 1.8-6 5-8Z"/><path d="M9.8 13.2a2.2 2.2 0 0 0 4.4 0"/>',
+    sleep: '<path d="M20 14.5A7.5 7.5 0 0 1 9.5 4 7.5 7.5 0 1 0 20 14.5Z"/><path d="M15 4h5l-5 5h5"/>',
+    wake: '<path d="M12 5V3"/><path d="M12 21v-2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.9 19.1 1.4-1.4"/><path d="m17.7 6.3 1.4-1.4"/><path d="M8 12a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z"/>',
+    dirty: '<path d="M7 10c0-3 2-5 5-5s5 2 5 5v7a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-7Z"/><path d="M9.5 13h.01"/><path d="M14.5 13h.01"/><path d="M10 16h4"/>',
+    wet: '<path d="M12 3s5 5.2 5 9a5 5 0 0 1-10 0c0-3.8 5-9 5-9Z"/><path d="M10 14a2 2 0 0 0 4 0"/>',
+    solids: '<path d="M5 4v8"/><path d="M9 4v8"/><path d="M7 4v17"/><path d="M15 4v17"/><path d="M15 4c3 2 4 6 1 9"/>',
+    note: '<path d="M6 4h9l3 3v13H6Z"/><path d="M14 4v4h4"/><path d="M9 13h6"/><path d="M9 17h4"/>',
   };
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.edit}</svg>`;
 }

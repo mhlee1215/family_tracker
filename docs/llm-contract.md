@@ -1,6 +1,6 @@
 # LLM Contract
 
-The parser accepts short, incomplete baby activity text and returns event candidates. LLM provider parsing may return multiple events from one input when the text contains multiple baby activities; the local heuristic parser may still return one event per input.
+The parser accepts short, incomplete baby activity text and returns event candidates. Controlled UI shortcut buttons bypass LLM provider calls and use the local heuristic parser; the LLM contract applies to free-form natural-language input. LLM provider parsing may return multiple events from one input when the text contains multiple baby activities; the local heuristic parser may still return one event per input.
 
 ## MVP Event Types
 

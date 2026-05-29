@@ -340,6 +340,8 @@ async function handleApi(request, response) {
         rawText,
         inputAt,
         timezone: body.timezone || 'UTC',
+        inputSource: body.inputSource || 'text',
+        parserMode: body.parserMode || 'auto',
       };
       const { events, openSleep } = await buildEventsForRawLog(rawLog, {
         now,
@@ -592,6 +594,7 @@ async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLo
     provider: getLLMProvider(),
     model: getLLMModel(getLLMProvider()),
     apiKey: getProviderKey(getLLMProvider()),
+    parserMode: rawLog.inputSource === 'button' || rawLog.parserMode === 'heuristic' ? 'heuristic' : 'auto',
   });
   const autoWakeEvents = createAutoWakeEvents(parsed, recentEvents, {
     now: now.toISOString(),

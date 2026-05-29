@@ -68,3 +68,22 @@ test('keeps multiple LLM events from one sentence linked to the same parser meta
   assert.ok(events.every((event) => event.parser === 'llm:openai'));
   assert.ok(events.every((event) => event.parserInfo.model === 'gpt-test'));
 });
+
+
+test('uses heuristic parser when shortcut buttons request it even with configured LLM', async () => {
+  let callCount = 0;
+  const events = await parseBabyLogWithProvider('formula', { now }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    parserMode: 'heuristic',
+    callTask: async () => {
+      callCount += 1;
+      throw new Error('LLM should not be called for shortcut buttons');
+    },
+  });
+
+  assert.equal(callCount, 0);
+  assert.equal(events[0].type, 'feeding_milk');
+  assert.equal(events[0].parserInfo.kind, 'heuristic');
+});
