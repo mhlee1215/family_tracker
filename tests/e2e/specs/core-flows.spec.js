@@ -80,11 +80,9 @@ test.describe('Family Tracker core flows', () => {
     await expect.poll(async () => row.locator('.swipe-card').evaluate((node) => node.style.transform)).toMatch(/^translate3d\(-/);
     await app.captureStep('Revealed swipe action rail', 'A real desktop mouse drag opened the action rail.');
 
-    page.once('dialog', async (dialog) => {
-      expect(dialog.type()).toBe('confirm');
-      await dialog.accept();
-    });
     await row.getByRole('button', { name: /Delete/ }).click();
+    await expect(page.getByRole('heading', { name: 'Delete baby log?' })).toBeVisible();
+    await page.locator('#action-dialog-confirm').click();
     await expect(page.locator('#timeline')).not.toContainText(rawText);
     await app.captureStep('Deleted from revealed swipe action', 'The Delete action from the revealed rail removed the log.');
 

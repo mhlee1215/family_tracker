@@ -231,9 +231,7 @@ describe('app/main', () => {
     expect(mealPicker.value).toBe(today);
   });
 
-  it('sends edit and delete requests for baby timeline logs', async () => {
-    global.prompt = vi.fn(() => 'updated formula');
-    global.confirm = vi.fn(() => true);
+  it('sends edit and delete requests for baby timeline logs through the floating action window', async () => {
     const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
     window.Swiped = { init: swipedInit };
     global.fetch = vi.fn(async (input, init = {}) => {
@@ -277,9 +275,15 @@ describe('app/main', () => {
     }));
 
     fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Edit baby log' })).toBeTruthy());
+    const editInput = document.querySelector('#action-dialog-input');
+    fireEvent.input(editInput, { target: { value: 'updated formula' } });
+    fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'PATCH' })));
 
     fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Delete baby log?' })).toBeTruthy());
+    fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'DELETE' })));
   });
 
