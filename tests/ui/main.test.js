@@ -23,6 +23,7 @@ describe('app/main', () => {
   beforeEach(() => {
     vi.resetModules();
     global.fetch = mockFetch();
+    delete window.Swiped;
   });
 
   it('renders login panel for unauthenticated user', async () => {
@@ -218,6 +219,8 @@ describe('app/main', () => {
   it('sends edit and delete requests for baby timeline logs', async () => {
     global.prompt = vi.fn(() => 'updated formula');
     global.confirm = vi.fn(() => true);
+    const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
+    window.Swiped = { init: swipedInit };
     global.fetch = vi.fn(async (input, init = {}) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
@@ -251,6 +254,12 @@ describe('app/main', () => {
     const timeline = document.querySelector('#timeline');
     expect(timeline.querySelector('.timeline-swipe .swipe-hint')?.textContent).toBe('Swipe left for actions');
     expect(timeline.querySelectorAll('.swipe-action svg').length).toBeGreaterThanOrEqual(2);
+    expect(swipedInit).toHaveBeenCalledWith(expect.objectContaining({
+      query: expect.stringContaining('data-swipe-id'),
+      right: expect.any(Number),
+      onOpen: expect.any(Function),
+      onClose: expect.any(Function),
+    }));
 
     fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'PATCH' })));
@@ -260,6 +269,9 @@ describe('app/main', () => {
   });
 
   it('keeps completed tasks in a separate bottom section', async () => {
+    const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
+    window.Swiped = { init: swipedInit };
+
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });

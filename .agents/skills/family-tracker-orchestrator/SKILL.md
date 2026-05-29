@@ -28,6 +28,13 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
    - `skills/quality/test-writer/SKILL.md`
    - `skills/quality/privacy-review/SKILL.md`
 
+
+## Third-party Discovery Policy
+- 복잡도가 있는 UI/gesture/drag-drop/date-picker/editor 등 일반화된 상호작용을 직접 구현하기 전, 먼저 기존 의존성·브라우저 표준·검증된 서드파티 패키지를 조사한다.
+- 조사 순서: 현재 `package.json`/vendored assets 확인 → 공식 문서 또는 npm/GitHub 등 1차 출처 확인 → 번들 크기, 유지보수 상태, 접근성, 라이선스, 프레임워크 적합성, 테스트 가능성을 비교한다.
+- 적합한 패키지가 있으면 작은 어댑터로 감싸 제품 코드에 붙이고, 직접 구현은 패키지가 제품 제약(보안/프라이버시/프레임워크/오프라인/접근성)을 만족하지 못할 때만 선택한다.
+- 선택/기각 이유와 사용한 출처 또는 명령(`npm view`, 공식 docs URL 등)을 최종 보고와 관련 PR 설명에 남긴다.
+
 ## Integration Rules
 - 새로운 공용 하네스 규칙은 `.agents/skills/harness/` 기준으로 작성한다.
 - 제품 도메인 규칙은 기존 `skills/` 폴더를 source of truth로 유지한다.
@@ -42,6 +49,13 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - 이 저장소의 기본 실행 경로는 현재 환경의 Turso 설정에서도 실패하지 않아야 한다.
 - `npm start`는 `scripts/start-server.js`를 통해 실행되어야 하며, Turso 모드(`DATABASE_PROVIDER=turso` 또는 `TURSO_DATABASE_URL` 존재)에서는 Node를 `--use-env-proxy` 및 `--dns-result-order=ipv4first`로 재실행해야 한다.
 - Turso 연결/실행 정책을 변경하면 `npm run check:turso`와 `npm start`를 함께 검증하고 결과를 최종 보고에 남긴다.
+
+
+## Scenario Test Policy
+- 모든 기능 추가(New feature) 뒤에는 사용자 관점의 시나리오 테스트를 추가하거나 갱신한다. 기본 대상은 `tests/e2e/specs/`의 Playwright E2E 시나리오다.
+- 시나리오 테스트는 단순 렌더링이 아니라 사용자가 기능을 발견/입력/실행/검증하는 핵심 흐름과 성공 결과를 검증해야 한다.
+- 기능이 서버/API/도메인 전용이라 UI E2E가 부적합하면, 가장 가까운 통합/도메인 시나리오 테스트를 추가하고 PR/최종 보고에 왜 E2E가 아닌지 명시한다.
+- 기존 시나리오로 충분히 커버되는 경우에도 새 기능과 연결되는 assertion 또는 step을 추가하고, 어떤 시나리오가 커버하는지 최종 보고에 남긴다.
 
 ## Required Post-change Test Routine
 코드 변경 후 에이전트가 반드시 확인할 테스트 순서:
