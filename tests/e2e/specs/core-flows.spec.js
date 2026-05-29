@@ -52,6 +52,42 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+  test('baby timeline sort and filter controls reorder visible logs', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+
+    await page.route('**/api/logs/today**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          events: [
+            { id: 'timeline-diaper', type: 'diaper', rawText: 'wet diaper', occurredAt: { value: '2026-05-28T10:00:00.000Z' }, createdAt: '2026-05-28T10:01:00.000Z' },
+            { id: 'timeline-formula', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+            { id: 'timeline-nap', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T09:00:00.000Z' }, endAt: { value: '2026-05-28T09:45:00.000Z' }, durationMinutes: { value: 45 }, createdAt: '2026-05-28T09:01:00.000Z' },
+          ],
+          summary: {},
+        }),
+      });
+    });
+    await app.loginAsDevAdmin();
+
+    await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
+    await app.captureStep('Timeline sorted oldest first', 'The default timeline order follows event time from earliest to latest.');
+
+    await page.locator('#timeline-sort').selectOption('desc');
+    await expect(page.locator('#timeline .raw-text')).toHaveText(['wet diaper', 'nap', 'formula']);
+    await app.captureStep('Timeline sorted newest first', 'The sort control reverses visible logs by event time.');
+
+    await page.locator('#timeline-filter').selectOption('sleep');
+    await expect(page.locator('#timeline .raw-text')).toHaveText(['nap']);
+    await expect(page.locator('#event-count')).toHaveText('1 of 3 items');
+    await app.captureStep('Timeline filtered to sleep', 'The filter control limits visible timeline items to sleep logs.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
 
   test('baby timeline item reveals and runs actions after a left swipe', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);

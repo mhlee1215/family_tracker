@@ -286,6 +286,45 @@ describe('app/main', () => {
     expect(mealPicker.value).toBe(today);
   });
 
+  it('sorts the baby timeline by event time and filters by log type', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [
+            { id: 'event-2', type: 'diaper', rawText: 'wet diaper', occurredAt: { value: '2026-05-28T10:00:00.000Z' }, createdAt: '2026-05-28T10:01:00.000Z' },
+            { id: 'event-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+            { id: 'event-3', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T09:00:00.000Z' }, endAt: { value: '2026-05-28T09:45:00.000Z' }, durationMinutes: { value: 45 }, createdAt: '2026-05-28T09:01:00.000Z' },
+          ],
+          summary: {},
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=timeline-sort-filter');
+
+    await vi.waitFor(() => expect(document.querySelectorAll('#timeline .timeline-item')).toHaveLength(3));
+    const timelineTexts = () => [...document.querySelectorAll('#timeline .raw-text')].map((node) => node.textContent);
+
+    expect(timelineTexts()).toEqual(['formula', 'nap', 'wet diaper']);
+    expect(document.querySelector('#event-count').textContent).toBe('3 of 3 items');
+
+    fireEvent.change(document.querySelector('#timeline-sort'), { target: { value: 'desc' } });
+    expect(timelineTexts()).toEqual(['wet diaper', 'nap', 'formula']);
+
+    fireEvent.change(document.querySelector('#timeline-filter'), { target: { value: 'sleep' } });
+    expect(timelineTexts()).toEqual(['nap']);
+    expect(document.querySelector('#event-count').textContent).toBe('1 of 3 items');
+
+    fireEvent.change(document.querySelector('#timeline-filter'), { target: { value: 'feeding_solid' } });
+    expect(document.querySelector('#timeline').textContent).toContain('No logs match this filter.');
+    expect(document.querySelector('#event-count').textContent).toBe('0 of 3 items');
+  });
+
   it('sends edit and delete requests for baby timeline logs', async () => {
     global.prompt = vi.fn(() => 'updated formula');
     global.confirm = vi.fn(() => true);

@@ -9,6 +9,8 @@ const storageKeys = {
   theme: 'familyTracker.theme',
   activeTab: 'familyTracker.activeTab',
   mealsLegacy: 'familyTracker.meals',
+  timelineSort: 'familyTracker.timelineSort',
+  timelineFilter: 'familyTracker.timelineFilter',
 };
 
 const copy = {
@@ -20,6 +22,7 @@ const copy = {
   logPlaceholder: 'formula, nap, woke up, sweet potato',
   askPlaceholder: 'How much sleep today?',
   emptyTimeline: 'No logs for this date yet.',
+  emptyFilteredTimeline: 'No logs match this filter.',
   emptyTasks: 'No tasks for this day.',
   emptyOverview: 'No completed tasks yet.',
   quickActions: ['formula', 'nap', 'woke up', 'dirty', 'wet', 'solids'],
@@ -58,6 +61,8 @@ const state = {
   babyPanel: null,
   meals: emptyMealState(),
   llmConfig: { provider: 'mock', model: 'mock-local', providers: [] },
+  timelineSort: normalizeTimelineSort(localStorage.getItem(storageKeys.timelineSort)),
+  timelineFilter: normalizeTimelineFilter(localStorage.getItem(storageKeys.timelineFilter)),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -82,6 +87,8 @@ const elements = {
   quickActions: $('#quick-actions'),
   tabletActions: $('#tablet-actions'),
   eventCount: $('#event-count'),
+  timelineSort: $('#timeline-sort'),
+  timelineFilter: $('#timeline-filter'),
   refresh: $('#refresh'),
   themeSelect: $('#theme-select'),
   llmProviderForm: $('#llm-provider-form'),
@@ -194,6 +201,7 @@ const elements = {
 applyPreferences();
 await syncBuildMetadata();
 renderTabs();
+renderTimelineControls();
 renderQuickActions();
 renderTabletActions();
 if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
@@ -290,6 +298,16 @@ elements.assigneeForm.addEventListener('submit', async (event) => {
 });
 
 elements.refresh.addEventListener('click', refreshActiveTab);
+elements.timelineSort?.addEventListener('change', () => {
+  state.timelineSort = normalizeTimelineSort(elements.timelineSort.value);
+  localStorage.setItem(storageKeys.timelineSort, state.timelineSort);
+  renderTimeline();
+});
+elements.timelineFilter?.addEventListener('change', () => {
+  state.timelineFilter = normalizeTimelineFilter(elements.timelineFilter.value);
+  localStorage.setItem(storageKeys.timelineFilter, state.timelineFilter);
+  renderTimeline();
+});
 elements.buildRefresh?.addEventListener('click', () => window.location.reload());
 elements.devLogin.addEventListener('click', devLogin);
 elements.logout.addEventListener('click', logout);
@@ -1304,13 +1322,56 @@ function closeSwipeItem(item) {
 }
 
 function renderTimeline() {
-  elements.eventCount.textContent = `${state.events.length} items`;
   const visible = state.events.filter((event) => !event.hiddenFromTimeline);
+  const filtered = sortedTimelineEvents(visible).filter((event) => (
+    state.timelineFilter === 'all' || event.type === state.timelineFilter
+  ));
+  elements.eventCount.textContent = `${filtered.length} of ${visible.length} items`;
   if (!visible.length) {
     elements.timeline.innerHTML = `<p class="empty">${copy.emptyTimeline}</p>`;
     return;
   }
-  elements.timeline.replaceChildren(...visible.map(renderEvent));
+  if (!filtered.length) {
+    elements.timeline.innerHTML = `<p class="empty">${copy.emptyFilteredTimeline}</p>`;
+    return;
+  }
+  elements.timeline.replaceChildren(...filtered.map(renderEvent));
+}
+
+function renderTimelineControls() {
+  if (elements.timelineSort) elements.timelineSort.value = state.timelineSort;
+  if (elements.timelineFilter) elements.timelineFilter.value = state.timelineFilter;
+}
+
+function sortedTimelineEvents(events) {
+  return [...events].sort((left, right) => {
+    const direction = state.timelineSort === 'desc' ? -1 : 1;
+    return direction * compareTimelineEvents(left, right);
+  });
+}
+
+function compareTimelineEvents(left, right) {
+  const timeDiff = timelineEventTimestamp(left) - timelineEventTimestamp(right);
+  if (timeDiff) return timeDiff;
+  const createdDiff = timestamp(left.createdAt) - timestamp(right.createdAt);
+  if (createdDiff) return createdDiff;
+  return String(left.id || '').localeCompare(String(right.id || ''));
+}
+
+function timelineEventTimestamp(event) {
+  return timestamp(eventTimeValue(event)) || timestamp(event.createdAt);
+}
+
+function eventTimeValue(event) {
+  if (event.type === 'sleep') return event.startAt?.value || event.occurredAt?.value || event.endAt?.value;
+  return event.occurredAt?.value || event.startAt?.value || event.endAt?.value;
+}
+
+function timestamp(value) {
+  if (!value) return 0;
+  const date = new Date(value);
+  const numeric = date.getTime();
+  return Number.isNaN(numeric) ? 0 : numeric;
 }
 
 function renderEvent(event) {
@@ -1795,6 +1856,14 @@ function numberOrNull(value) {
 
 function normalizeTheme(value) {
   return ['warm', 'sage', 'contrast'].includes(value) ? value : 'warm';
+}
+
+function normalizeTimelineSort(value) {
+  return value === 'desc' ? 'desc' : 'asc';
+}
+
+function normalizeTimelineFilter(value) {
+  return ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'].includes(value) ? value : 'all';
 }
 
 function normalizeTab(value) {
