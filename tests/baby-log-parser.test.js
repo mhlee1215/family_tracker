@@ -51,3 +51,16 @@ test('parses English and Vietnamese shortcut logs for localized UI buttons', () 
   assert.equal(diaper.type, 'diaper');
   assert.equal(diaper.diaperKind.value, 'dirty');
 });
+
+
+test('does not treat today as Vietnamese wake shortcut in English formula logs', () => {
+  const [event] = parseBabyLogText('ate formula 12 ml at 1:20 pm today', { now });
+
+  assert.equal(event.type, 'feeding_milk');
+  assert.equal(event.amountMl.value, 12);
+  assert.equal(event.amountMl.source, 'explicit');
+  assert.equal(event.feedingKind.value, 'formula');
+  assert.equal(event.feedingKind.source, 'explicit');
+  assert.equal(event.occurredAt.value, '2026-05-23T13:20:00.000Z');
+  assert.equal(event.occurredAt.source, 'explicit');
+});

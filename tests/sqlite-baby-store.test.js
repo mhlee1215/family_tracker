@@ -289,3 +289,71 @@ test('SQLiteBabyStore supports due modes and visibility rules', () => {
   assert.equal(futureTasksForDay.some((task) => task.id === 'task-due-before'), false);
   assert.equal(allTasks.length, 3);
 });
+
+test('SQLiteBabyStore replaces and deletes raw logs with structured events', () => {
+  const store = new SQLiteBabyStore(':memory:');
+  const rawLog = {
+    id: 'raw-edit',
+    familyId: 'family-1',
+    babyId: 'baby-1',
+    authorId: 'author-1',
+    rawText: 'formula',
+    inputAt: '2026-05-28T10:00:00.000Z',
+    timezone: 'UTC',
+  };
+  const originalEvent = {
+    id: 'event-original',
+    rawLogId: rawLog.id,
+    familyId: rawLog.familyId,
+    babyId: rawLog.babyId,
+    type: 'feeding_milk',
+    rawText: rawLog.rawText,
+    occurredAt: createField(rawLog.inputAt, 'system', 'current_time'),
+    amountMl: createField(120, 'inferred', 'default'),
+  };
+  store.saveLogWithEvents(rawLog, [originalEvent]);
+
+  const replacementEvent = {
+    ...originalEvent,
+    id: 'event-replacement',
+    rawText: 'updated formula',
+    amountMl: createField(150, 'explicit', 'user_text'),
+  };
+  const updated = store.replaceRawLogWithEvents(rawLog.id, { rawText: 'updated formula' }, [replacementEvent], {
+    familyId: rawLog.familyId,
+    babyId: rawLog.babyId,
+  });
+
+  assert.equal(updated.rawText, 'updated formula');
+  assert.equal(updated.events.length, 1);
+  assert.equal(updated.events[0].id, 'event-replacement');
+  assert.equal(store.getEvent('event-original'), null);
+
+  assert.equal(store.deleteRawLog(rawLog.id, { familyId: rawLog.familyId, babyId: rawLog.babyId }), true);
+  assert.equal(store.getRawLog(rawLog.id), null);
+  assert.equal(store.getEvent('event-replacement'), null);
+  store.close();
+});
+
+test('SQLiteBabyStore keeps due completed tasks on their selected day', () => {
+  const store = new SQLiteBabyStore(':memory:');
+  const [assignee] = store.ensureDefaultTaskAssignees('family-1');
+  const task = store.createTask({
+    id: 'task-done-selected-day',
+    familyId: 'family-1',
+    title: 'Wash bottles',
+    assigneeId: assignee.id,
+    dueMode: 'on_date',
+    dueDate: '2026-05-27',
+  });
+  store.updateTask(task.id, {
+    status: 'done',
+    completedAt: '2026-05-28T10:00:00.000Z',
+    completedBy: 'author-1',
+  }, { familyId: 'family-1' });
+
+  const selectedDayTasks = store.listTasksForDay('2026-05-27', { familyId: 'family-1' });
+  assert.equal(selectedDayTasks.length, 1);
+  assert.equal(selectedDayTasks[0].status, 'done');
+  store.close();
+});
