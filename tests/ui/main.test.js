@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen } from '@testing-library/dom';
+import { readFileSync } from 'node:fs';
 
 function mockFetch() {
   return vi.fn(async (input, init = {}) => {
@@ -55,6 +56,35 @@ describe('app/main', () => {
     expect(panel.classList.contains('hidden')).toBe(true);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+
+
+  it('keeps meal columns equal and renders planned-meal thumbs up as an SVG button', async () => {
+    const baseFetch = mockFetch();
+    global.fetch = vi.fn((input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/api/auth/me')) {
+        return Promise.resolve(new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 }));
+      }
+      return baseFetch(input, init);
+    });
+
+    await import('../../app/main.js?case=meal-like-button');
+
+    fireEvent.click(document.querySelector('#meal-tab'));
+
+    const styles = readFileSync(`${process.cwd()}/app/styles.css`, 'utf8');
+    expect(styles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
+
+    const likeButton = document.querySelector('#meal-breakfast .meal-like-button');
+    expect(likeButton).toBeTruthy();
+    expect(likeButton.getAttribute('aria-label')).toBe('Thumbs up Egg toast');
+    expect(likeButton.querySelector('svg')).toBeTruthy();
+    expect(likeButton.querySelector('span').textContent).toBe('0');
+
+    fireEvent.click(likeButton);
+
+    expect(document.querySelector('#meal-breakfast .meal-like-button span').textContent).toBe('1');
   });
 
 
