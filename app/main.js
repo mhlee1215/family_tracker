@@ -3,6 +3,7 @@ const BUILD_CHECK_INTERVAL_MS = 60_000;
 
 const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
+const swipeState = { openItem: null, nextId: 0 };
 
 const storageKeys = {
   theme: 'familyTracker.theme',
@@ -95,6 +96,7 @@ const elements = {
   metadataVersion: $('#metadata-version'),
   dayLabel: $('#day-label'),
   dayPicker: $('#day-picker'),
+  babyToday: $('#baby-today'),
   babyCalendarToggle: $('#baby-calendar-toggle'),
   babyCalendarPopover: $('#baby-calendar-popover'),
   babyCalendarPrev: $('#baby-calendar-prev'),
@@ -104,6 +106,7 @@ const elements = {
   previousDay: $('#previous-day'),
   nextDay: $('#next-day'),
   taskDayLabel: $('#task-day-label'),
+  taskToday: $('#task-today'),
   taskCalendarToggle: $('#task-calendar-toggle'),
   taskCalendarPopover: $('#task-calendar-popover'),
   taskCalendarPrev: $('#task-calendar-prev'),
@@ -150,6 +153,7 @@ const elements = {
   taskOverviewList: $('#task-overview-list'),
   wishList: $('#wish-list'),
   mealDayLabel: $('#meal-day-label'),
+  mealToday: $('#meal-today'),
   mealCalendarToggle: $('#meal-calendar-toggle'),
   mealCalendarPopover: $('#meal-calendar-popover'),
   mealCalendarPrev: $('#meal-calendar-prev'),
@@ -264,10 +268,13 @@ elements.logout.addEventListener('click', logout);
 elements.menuToggle.addEventListener('click', () => setMenuOpen(elements.menuPanel.classList.contains('hidden')));
 elements.previousDay.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextDay.addEventListener('click', () => shiftSelectedDay(1));
+elements.babyToday?.addEventListener('click', () => jumpToToday());
 elements.previousTaskDay.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextTaskDay.addEventListener('click', () => shiftSelectedDay(1));
+elements.taskToday?.addEventListener('click', () => jumpToToday());
 elements.previousMealDay?.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
+elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 
 elements.dayPicker.addEventListener('change', () => setSelectedDay(elements.dayPicker.value, { pushHistory: true }));
@@ -316,6 +323,7 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('pointerdown', (event) => {
   const target = event.target;
+  if (swipeState.openItem && !swipeState.openItem.contains(target)) closeSwipeItem(swipeState.openItem);
   closeFloatingSectionPanels(target);
   if (elements.mealLogPanel && !elements.mealLogPanel.classList.contains('hidden')) {
     const insideLog = elements.mealLogPanel.contains(target) || elements.toggleMealLog?.contains(target);
@@ -500,6 +508,39 @@ async function toggleTask(task) {
     body: JSON.stringify({ status: nextStatus }),
   });
   if (response.ok) await loadTaskData();
+}
+
+async function editBabyLog(event) {
+  if (!event.rawLogId) return;
+  const nextText = window.prompt('Edit this baby log', event.rawText || '');
+  if (nextText === null) return;
+  const cleanText = nextText.trim();
+  if (!cleanText) return;
+  const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: cleanText, timezone: localTimezone() }),
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    elements.answer.textContent = payload.error || copy.saveFailed;
+    return;
+  }
+  state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
+  await loadToday();
+}
+
+async function deleteBabyLog(event) {
+  if (!event.rawLogId) return;
+  const ok = window.confirm(`Delete this baby log?\n\n${event.rawText || eventTitle(event)}`);
+  if (!ok) return;
+  const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, { method: 'DELETE' });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    elements.answer.textContent = payload.error || copy.saveFailed;
+    return;
+  }
+  await loadToday();
 }
 
 async function loadCurrentUser() {
@@ -937,6 +978,138 @@ function renderSleepStatus() {
   elements.sleepStatus.replaceChildren(copyEl, wakeButton);
 }
 
+
+function actionIcon(name) {
+  const paths = {
+    edit: '<path d="M4 15.5V20h4.5L18.9 9.6l-4.5-4.5L4 15.5Z"/><path d="m13.2 6.3 4.5 4.5"/>',
+    delete: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+    like: '<path d="M7 11v9"/><path d="M3 11h4v9H3z"/><path d="M7 11l4-7a2 2 0 0 1 3 2v3h5a2 2 0 0 1 2 2l-2 7a2 2 0 0 1-2 2H7"/>',
+    save: '<path d="M5 5a2 2 0 0 1 2-2h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5Z"/><path d="M8 21v-7h8v7"/><path d="M8 3v5h7"/>',
+    breakfast: '<path d="M4 11h16"/><path d="M6 11a6 6 0 0 1 12 0"/><path d="M8 15h8"/><path d="M10 19h4"/><path d="M12 3v2"/>',
+    lunch: '<path d="M5 4v8"/><path d="M9 4v8"/><path d="M7 4v17"/><path d="M15 4v17"/><path d="M15 4c3 2 4 6 1 9"/>',
+    dinner: '<path d="M4 12a8 8 0 0 1 16 0"/><path d="M3 12h18"/><path d="M5 16h14"/><path d="M8 20h8"/>',
+  };
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.edit}</svg>`;
+}
+
+function makeSwipeAction({ label, icon, tone = '', onClick }) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `swipe-action ${tone}`.trim();
+  button.innerHTML = `${actionIcon(icon)}<span>${escapeHtml(label)}</span>`;
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    closeSwipeItem(button.closest('.swipe-item'));
+    onClick?.();
+  });
+  return button;
+}
+
+function makeSwipeItem(content, actions, className = '') {
+  const shell = document.createElement('div');
+  const swipeId = `swipe-${swipeState.nextId += 1}`;
+  shell.className = `swipe-item ${className}`.trim();
+  shell.tabIndex = 0;
+  shell.setAttribute('aria-label', 'Swipe left to reveal actions');
+
+  const rail = document.createElement('div');
+  rail.className = 'swipe-actions';
+  rail.setAttribute('aria-hidden', 'true');
+  rail.replaceChildren(...actions);
+
+  content.classList.add('swipe-card');
+  content.dataset.swipeId = swipeId;
+
+  const actionWidth = () => Math.max(88, actions.length * 76, rail.getBoundingClientRect().width || 0);
+  const markOpen = (isOpen) => {
+    shell.classList.toggle('is-open', isOpen);
+    rail.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    if (isOpen) {
+      if (swipeState.openItem && swipeState.openItem !== shell) closeSwipeItem(swipeState.openItem);
+      swipeState.openItem = shell;
+    } else if (swipeState.openItem === shell) {
+      swipeState.openItem = null;
+    }
+  };
+
+  shell.replaceChildren(rail, content);
+
+  const initSwipe = () => {
+    if (typeof window.Swiped?.init !== 'function' || !document.documentElement.contains(content)) return null;
+    const width = actionWidth();
+    return window.Swiped.init({
+      query: `[data-swipe-id="${swipeId}"]`,
+      right: width,
+      tolerance: Math.max(32, Math.round(width * 0.38)),
+      duration: 180,
+      onOpen() {
+        markOpen(true);
+      },
+      onClose() {
+        markOpen(false);
+      },
+    });
+  };
+
+  let swipeInstance = null;
+  const ensureSwipe = () => {
+    if (!swipeInstance) swipeInstance = initSwipe();
+    return swipeInstance;
+  };
+  queueMicrotask(ensureSwipe);
+
+  const openWithLibrary = () => {
+    const swipe = ensureSwipe();
+    if (!swipe) return false;
+    swipe.dir = -1;
+    swipe.width = actionWidth();
+    swipe.right = swipe.width;
+    swipe.open(true);
+    markOpen(true);
+    return true;
+  };
+  const closeWithLibrary = () => {
+    const swipe = ensureSwipe();
+    if (!swipe) return false;
+    swipe.close(true);
+    markOpen(false);
+    return true;
+  };
+
+  const setFallbackOffset = (value) => {
+    content.style.transform = `translate3d(${value}px, 0, 0)`;
+  };
+
+  content.addEventListener('touchstart', (event) => {
+    if (event.target.closest('button, a, input, select, textarea, .meal-item-handle')) event.stopPropagation();
+  });
+
+  shell.__closeSwipe = () => {
+    if (closeWithLibrary()) return;
+    setFallbackOffset(0);
+    markOpen(false);
+  };
+
+  shell.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      if (!openWithLibrary()) {
+        setFallbackOffset(-actionWidth());
+        markOpen(true);
+      }
+    } else if (event.key === 'ArrowRight' || event.key === 'Escape') {
+      event.preventDefault();
+      closeSwipeItem(shell);
+    }
+  });
+
+  return shell;
+}
+
+function closeSwipeItem(item) {
+  item?.__closeSwipe?.();
+}
+
 function renderTimeline() {
   elements.eventCount.textContent = `${state.events.length} items`;
   const visible = state.events.filter((event) => !event.hiddenFromTimeline);
@@ -961,12 +1134,18 @@ function renderEvent(event) {
   raw.textContent = event.rawText;
   const badges = document.createElement('div');
   badges.className = 'badges';
-  badges.replaceChildren(...inferredBadges(event));
+  badges.replaceChildren(parserBadge(event), ...inferredBadges(event));
+  const hint = document.createElement('small');
+  hint.className = 'swipe-hint';
+  hint.textContent = 'Swipe left for actions';
   const main = document.createElement('div');
   main.className = 'timeline-main';
-  main.replaceChildren(meta, raw);
+  main.replaceChildren(meta, raw, hint);
   item.replaceChildren(title, main, badges);
-  return item;
+  return makeSwipeItem(item, [
+    makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editBabyLog(event) }),
+    makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteBabyLog(event) }),
+  ], 'timeline-swipe');
 }
 
 function renderAssignees() {
@@ -1013,26 +1192,30 @@ function renderTasks() {
   renderTaskDayControls();
   renderTaskPanel();
   renderAssignees();
+  const openTasks = state.tasks.filter((task) => task.status !== 'done');
+  const completedTasks = state.tasks.filter((task) => task.status === 'done');
   elements.taskCount.textContent = `${state.tasks.length} tasks`;
-  if (!state.tasks.length) {
-    elements.taskList.innerHTML = `<p class="empty">${copy.emptyTasks}</p>`;
+  const sections = [];
+  if (openTasks.length) {
+    sections.push(renderTaskBoard(openTasks));
   } else {
-    const byAssignee = new Map();
-    for (const task of state.tasks) {
-      const key = task.assigneeId || 'unassigned';
-      if (!byAssignee.has(key)) byAssignee.set(key, {
-        name: task.assigneeName || 'Unassigned',
-        color: task.assigneeColor || '#0066cc',
-        tasks: [],
-      });
-      byAssignee.get(key).tasks.push(task);
-    }
-    const columns = [...byAssignee.values()].map((group) => renderTaskColumn(group));
-    const board = document.createElement('div');
-    board.className = 'task-board';
-    board.replaceChildren(...columns);
-    elements.taskList.replaceChildren(board);
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = copy.emptyTasks;
+    sections.push(empty);
   }
+  if (completedTasks.length) {
+    const completedSection = document.createElement('section');
+    completedSection.className = 'completed-task-section';
+    const heading = document.createElement('h3');
+    heading.textContent = 'Completed';
+    const completedList = document.createElement('div');
+    completedList.className = 'completed-task-list';
+    completedList.replaceChildren(...completedTasks.map(renderTask));
+    completedSection.replaceChildren(heading, completedList);
+    sections.push(completedSection);
+  }
+  elements.taskList.replaceChildren(...sections);
   if (!state.taskOverview.length) {
     elements.taskOverviewList.innerHTML = `<p class="empty">${copy.emptyOverview}</p>`;
   } else {
@@ -1223,6 +1406,24 @@ function renderCalendarGrid({ monthKey, selectedDay, dotsByDay, monthElement, gr
   monthElement.textContent = first.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
   gridElement.replaceChildren(...cells);
 }
+function renderTaskBoard(tasks) {
+  const byAssignee = new Map();
+  for (const task of tasks) {
+    const key = task.assigneeId || 'unassigned';
+    if (!byAssignee.has(key)) byAssignee.set(key, {
+      name: task.assigneeName || 'Unassigned',
+      color: task.assigneeColor || '#0066cc',
+      tasks: [],
+    });
+    byAssignee.get(key).tasks.push(task);
+  }
+  const columns = [...byAssignee.values()].map((group) => renderTaskColumn(group));
+  const board = document.createElement('div');
+  board.className = 'task-board';
+  board.replaceChildren(...columns);
+  return board;
+}
+
 function renderTaskColumn(group) {
   const column = document.createElement('section');
   column.className = 'task-column';
@@ -1278,6 +1479,23 @@ function eventMeta(event) {
   return timeLabel(event.occurredAt);
 }
 
+function parserBadge(event) {
+  const info = event.parserInfo || {};
+  const badge = document.createElement('span');
+  const kind = info.kind === 'llm' ? 'llm' : info.kind === 'system' ? 'system' : 'heuristic';
+  badge.className = `parser-badge parser-badge-${kind}`;
+  badge.textContent = kind === 'llm' ? `LLM · ${info.model || info.provider || 'provider'}` : kind === 'system' ? (info.label || 'System') : 'Heuristic';
+  badge.title = parserBadgeTitle(event);
+  return badge;
+}
+
+function parserBadgeTitle(event) {
+  const info = event.parserInfo || {};
+  const base = info.label || event.parser || 'Unknown parser';
+  if (info.fallbackFrom) return `${base}; fallback from ${info.fallbackFrom.provider} ${info.fallbackFrom.model}: ${info.fallbackFrom.reason}`;
+  return base;
+}
+
 function inferredBadges(event) {
   return Object.entries(event)
     .filter(([, value]) => value?.source === 'inferred')
@@ -1303,6 +1521,10 @@ function refreshActiveTab() {
 
 function shiftSelectedDay(days) {
   setSelectedDay(shiftDateKey(state.selectedDay, days), { pushHistory: true });
+}
+
+function jumpToToday() {
+  setSelectedDay(localDateKey(new Date()), { pushHistory: true });
 }
 
 function setSelectedDay(day, { pushHistory = false } = {}) {
@@ -1632,46 +1854,37 @@ function renderMeals() {
 }
 
 function renderMealItem(item, slot) {
-  const row = document.createElement('article');
-  row.className = `meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`;
-  row.dataset.mealId = item.id;
-  row.draggable = false;
   let dragArmed = false;
+  let swipe = null;
+
+  const card = document.createElement('div');
+  card.className = 'meal-card';
 
   const title = document.createElement('strong');
   title.className = 'meal-item-handle';
   title.textContent = `☰ ${item.name}`;
-  row.appendChild(title);
+  title.setAttribute('aria-label', `Drag ${item.name}`);
+  card.appendChild(title);
+
   const armDrag = () => {
     dragArmed = true;
-    row.draggable = true;
+    if (swipe) swipe.draggable = true;
   };
   const disarmDrag = () => {
     dragArmed = false;
-    row.draggable = false;
+    if (swipe) swipe.draggable = false;
   };
   title.addEventListener('pointerdown', armDrag);
   title.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') armDrag();
   });
 
-  row.addEventListener('dragstart', (event) => {
-    if (!dragArmed) {
-      event.preventDefault();
-      return;
-    }
-    event.dataTransfer?.setData('text/plain', item.id);
-    event.dataTransfer?.setData('application/x-family-meal-id', item.id);
-    event.dataTransfer?.setData('text/id', item.id);
-  });
-  row.addEventListener('dragend', () => disarmDrag());
-
   const thumb = document.createElement('img');
   thumb.className = 'meal-thumb';
   thumb.alt = `${item.name} thumbnail`;
   thumb.src = mealThumbnailUrl(item.url);
   hydrateMealThumbnail(thumb, item.url);
-  row.appendChild(thumb);
+  card.appendChild(thumb);
   if (item.url) {
     const link = document.createElement('a');
     link.href = item.url;
@@ -1680,50 +1893,45 @@ function renderMealItem(item, slot) {
     link.textContent = 'recipe';
     const linkWrap = document.createElement('small');
     linkWrap.appendChild(link);
-    row.appendChild(linkWrap);
+    card.appendChild(linkWrap);
   }
   const ingredients = document.createElement('small');
   ingredients.textContent = item.ingredients || '';
-  row.appendChild(ingredients);
+  card.appendChild(ingredients);
 
-  const controls = document.createElement('div');
-  controls.className = 'row';
+  const hint = document.createElement('small');
+  hint.className = 'swipe-hint';
+  hint.textContent = 'Swipe left for actions';
+  card.appendChild(hint);
+
+  const actions = [];
   if (slot !== 'wish') {
-    const like = document.createElement('button');
-    like.type = 'button';
-    like.className = 'meal-action-button';
-    like.textContent = `👍 ${item.likes || 0}`;
-    like.onclick = () => likeMeal(item.id);
-    controls.appendChild(like);
-    const saveForLater = document.createElement('button');
-    saveForLater.type = 'button';
-    saveForLater.className = 'meal-action-button';
-    saveForLater.textContent = '🗂️ Save';
-    saveForLater.onclick = () => moveMeal(item.id, 'wish');
-    controls.appendChild(saveForLater);
+    actions.push(makeSwipeAction({ label: `${item.likes || 0}`, icon: 'like', onClick: () => likeMeal(item.id) }));
+    actions.push(makeSwipeAction({ label: 'Save', icon: 'save', onClick: () => moveMeal(item.id, 'wish') }));
   } else {
     for (const mealSlot of ['breakfast', 'lunch', 'dinner']) {
-      const assign = document.createElement('button');
-      assign.type = 'button';
-      assign.className = 'meal-action-button';
-      assign.textContent = `Assign ${mealSlot}`;
-      assign.onclick = () => moveMeal(item.id, mealSlot);
-      controls.appendChild(assign);
+      actions.push(makeSwipeAction({ label: mealSlot, icon: mealSlot, onClick: () => moveMeal(item.id, mealSlot) }));
     }
   }
-  const edit = document.createElement('button');
-  edit.type = 'button';
-  edit.className = 'meal-action-button';
-  edit.textContent = '✏️ Edit';
-  edit.onclick = () => editMeal(item.id);
-  const del = document.createElement('button');
-  del.type = 'button';
-  del.className = 'meal-action-button';
-  del.textContent = '🗑️ Delete';
-  del.onclick = () => deleteMeal(item.id);
-  controls.append(edit, del);
-  row.appendChild(controls);
-  return row;
+  actions.push(
+    makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editMeal(item.id) }),
+    makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteMeal(item.id) }),
+  );
+
+  swipe = makeSwipeItem(card, actions, `meal-swipe meal-item ${item.done ? 'done' : ''} category-${item.category || 'korean'}`);
+  swipe.dataset.mealId = item.id;
+  swipe.draggable = false;
+  swipe.addEventListener('dragstart', (event) => {
+    if (!dragArmed) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer?.setData('text/plain', item.id);
+    event.dataTransfer?.setData('application/x-family-meal-id', item.id);
+    event.dataTransfer?.setData('text/id', item.id);
+  });
+  swipe.addEventListener('dragend', () => disarmDrag());
+  return swipe;
 }
 
 

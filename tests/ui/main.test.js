@@ -23,6 +23,7 @@ describe('app/main', () => {
   beforeEach(() => {
     vi.resetModules();
     global.fetch = mockFetch();
+    delete window.Swiped;
   });
 
   it('renders login panel for unauthenticated user', async () => {
@@ -196,4 +197,103 @@ describe('app/main', () => {
     });
     expect(global.fetch).toHaveBeenCalledWith('/api/ask', expect.objectContaining({ method: 'POST' }));
   });
+
+  it('jumps every date control back to today', async () => {
+    await import('../../app/main.js?case=today-jump');
+
+    const babyPicker = document.querySelector('#day-picker');
+    const taskPicker = document.querySelector('#task-day-picker');
+    const mealPicker = document.querySelector('#meal-day-picker');
+
+    fireEvent.change(babyPicker, { target: { value: '2026-05-01' } });
+    expect(taskPicker.value).toBe('2026-05-01');
+
+    fireEvent.click(document.querySelector('#meal-today'));
+
+    const today = new Date().toLocaleDateString('en-CA');
+    expect(babyPicker.value).toBe(today);
+    expect(taskPicker.value).toBe(today);
+    expect(mealPicker.value).toBe(today);
+  });
+
+  it('sends edit and delete requests for baby timeline logs', async () => {
+    global.prompt = vi.fn(() => 'updated formula');
+    global.confirm = vi.fn(() => true);
+    const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
+    window.Swiped = { init: swipedInit };
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [{
+            id: 'event-1',
+            rawLogId: 'rawlog-1',
+            type: 'feeding_milk',
+            rawText: 'formula',
+            occurredAt: { value: '2026-05-28T10:00:00.000Z' },
+            amountMl: { value: 120 },
+          }],
+          summary: {},
+        }), { status: 200 });
+      }
+      if (url === '/api/logs/rawlog-1' && init.method === 'PATCH') {
+        return new Response(JSON.stringify({ events: [] }), { status: 200 });
+      }
+      if (url === '/api/logs/rawlog-1' && init.method === 'DELETE') {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-log-actions');
+
+    await vi.waitFor(() => expect(document.querySelector('#timeline .raw-text')?.textContent).toBe('formula'));
+    const timeline = document.querySelector('#timeline');
+    expect(timeline.querySelector('.timeline-swipe .swipe-hint')?.textContent).toBe('Swipe left for actions');
+    expect(timeline.querySelectorAll('.swipe-action svg').length).toBeGreaterThanOrEqual(2);
+    expect(swipedInit).toHaveBeenCalledWith(expect.objectContaining({
+      query: expect.stringContaining('data-swipe-id'),
+      right: expect.any(Number),
+      onOpen: expect.any(Function),
+      onClose: expect.any(Function),
+    }));
+
+    fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'PATCH' })));
+
+    fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'DELETE' })));
+  });
+
+  it('keeps completed tasks in a separate bottom section', async () => {
+    const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
+    window.Swiped = { init: swipedInit };
+
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.endsWith('/api/task-assignees')) return new Response(JSON.stringify({ assignees: [{ id: 'a1', name: 'Mom', color: '#0066cc' }] }), { status: 200 });
+      if (url.startsWith('/api/tasks/today')) {
+        return new Response(JSON.stringify({ tasks: [
+          { id: 't1', title: 'Wash bottles', status: 'open', assigneeId: 'a1', assigneeName: 'Mom', assigneeColor: '#0066cc', dueMode: 'on_date', dueDate: '2026-05-28' },
+          { id: 't2', title: 'Fold laundry', status: 'done', assigneeId: 'a1', assigneeName: 'Mom', assigneeColor: '#0066cc', dueMode: 'on_date', dueDate: '2026-05-28', completedAt: '2026-05-28T12:00:00.000Z' },
+        ] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=completed-tasks');
+    fireEvent.click(document.querySelector('#task-tab'));
+
+    await vi.waitFor(() => expect(screen.getByText('Completed')).toBeTruthy());
+    const completedSection = document.querySelector('.completed-task-section');
+    expect(completedSection.textContent).toContain('Fold laundry');
+    expect(document.querySelector('.task-board').textContent).toContain('Wash bottles');
+  });
+
 });

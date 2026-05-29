@@ -7,7 +7,7 @@
     "node": ">=22.5.0"
   },
   "scripts": {
-    "start": "npm run sync:build && node server.js",
+    "start": "npm run sync:build && node scripts/start-server.js",
     "test": "npm run test:node",
     "check:turso": "node scripts/check-turso.js",
     "seed:turso:tasks": "node scripts/reset-seed-tasks.js",
@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
-    "sortablejs": "^1.15.7"
+    "sortablejs": "^1.15.7",
+    "swiped": "^0.1.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

@@ -6,12 +6,24 @@ Any non-trivial product/code change.
 ## Steps
 1. Identify feature area.
 2. Identify workflow type.
-3. Load relevant feature skill.
-4. Load relevant workflow skill.
-5. Load relevant quality skill.
-6. Make change.
-7. Run required checks.
-8. Update docs/skills if reusable knowledge changed.
+3. For complex generalized UI/interaction/infrastructure behavior, run third-party discovery before custom implementation.
+4. Load relevant feature skill.
+5. Load relevant workflow skill.
+6. Load relevant quality skill.
+7. Make change.
+8. Add or update a user-flow scenario test for any new feature.
+9. Run required checks.
+10. Update docs/skills if reusable knowledge changed.
+
+## Scenario testing
+- Every new feature must add or update a scenario test that exercises the user-visible flow, preferably in `tests/e2e/specs/` with Playwright.
+- The scenario should cover entry point, primary action, and success state/data reflection.
+- If UI E2E is not appropriate, add the closest integration/domain scenario test and document the reason.
+
+## Third-party discovery
+- Before hand-rolling complex generic behavior (gesture/swipe actions, drag/drop, date pickers, rich editors, routing helpers, etc.), check existing dependencies, browser-native capabilities, and reputable third-party packages first.
+- Prefer official docs/npm/GitHub primary sources, then compare license, maintenance, bundle/runtime impact, accessibility, framework fit, and testability.
+- Use a thin adapter around the selected package when it fits; document why a custom implementation is still needed if no package fits.
 
 ## Feature routing
 - Baby log creation/history/general event flow -> `skills/features/baby-logs/SKILL.md`

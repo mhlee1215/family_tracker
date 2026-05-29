@@ -350,6 +350,62 @@ export class SQLiteBabyStore {
     return this.getRawLog(rawLog.id);
   }
 
+  replaceRawLogWithEvents(rawLogId, patch, events, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const babyId = options.babyId || defaultBabyId;
+    const existing = this.getRawLog(rawLogId);
+    if (!existing || existing.familyId !== familyId || existing.babyId !== babyId) return null;
+    const rawText = patch.rawText || existing.rawText;
+    const timezone = patch.timezone || existing.timezone || 'UTC';
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare('UPDATE raw_logs SET raw_text = ?, timezone = ? WHERE id = ? AND family_id = ? AND baby_id = ?')
+        .run(rawText, timezone, rawLogId, familyId, babyId);
+      this.db.prepare('DELETE FROM baby_events WHERE raw_log_id = ? AND family_id = ? AND baby_id = ?')
+        .run(rawLogId, familyId, babyId);
+      const insertEvent = this.db.prepare(`
+        INSERT INTO baby_events (id, raw_log_id, family_id, baby_id, type, occurred_at, event_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      events.forEach((event) => {
+        insertEvent.run(
+          event.id,
+          rawLogId,
+          event.familyId || familyId,
+          event.babyId || babyId,
+          event.type,
+          event.occurredAt?.value || event.startAt?.value || event.endAt?.value || existing.inputAt,
+          serializeEvent(event),
+          event.createdAt || existing.inputAt,
+        );
+      });
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+    return this.getRawLog(rawLogId);
+  }
+
+  deleteRawLog(rawLogId, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const babyId = options.babyId || defaultBabyId;
+    const existing = this.getRawLog(rawLogId);
+    if (!existing || existing.familyId !== familyId || existing.babyId !== babyId) return false;
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare('DELETE FROM baby_events WHERE raw_log_id = ? AND family_id = ? AND baby_id = ?')
+        .run(rawLogId, familyId, babyId);
+      this.db.prepare('DELETE FROM raw_logs WHERE id = ? AND family_id = ? AND baby_id = ?')
+        .run(rawLogId, familyId, babyId);
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+    return true;
+  }
+
   updateEvent(event) {
     this.db.prepare(`
       UPDATE baby_events
@@ -535,13 +591,17 @@ export class SQLiteBabyStore {
             OR (task_items.due_mode = 'before_date' AND task_items.due_date >= ?)
             OR (task_items.due_mode in ('asap','someday'))
           ))
-          OR (task_items.status = 'done' AND substr(task_items.completed_at, 1, 10) = ?)
+          OR (task_items.status = 'done' AND (
+            substr(task_items.completed_at, 1, 10) = ?
+            OR (task_items.due_mode = 'on_date' AND task_items.due_date = ?)
+            OR (task_items.due_mode = 'before_date' AND task_items.due_date >= ?)
+          ))
         )
       ORDER BY
         CASE task_items.status WHEN 'open' THEN 0 ELSE 1 END,
         task_items.created_at ASC,
         task_items.rowid ASC
-    `).all(familyId, day, day, day).map(rowToTask);
+    `).all(familyId, day, day, day, day, day).map(rowToTask);
   }
 
   listAllTasks(options = {}) {
