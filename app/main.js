@@ -196,6 +196,18 @@ const elements = {
   mealFormUrl: $('#meal-form-url'),
   mealFormIngredients: $('#meal-form-ingredients'),
   mealCancel: $('#meal-cancel'),
+  mealDialogCancel: $('[data-dialog-cancel="meal"]'),
+  actionDialog: $('#action-dialog'),
+  actionDialogForm: $('#action-dialog-form'),
+  actionDialogKicker: $('#action-dialog-kicker'),
+  actionDialogTitle: $('#action-dialog-title'),
+  actionDialogDescription: $('#action-dialog-description'),
+  actionDialogInputField: $('#action-dialog-input-field'),
+  actionDialogInputLabel: $('#action-dialog-input-label'),
+  actionDialogInput: $('#action-dialog-input'),
+  actionDialogClose: $('#action-dialog-close'),
+  actionDialogCancel: $('#action-dialog-cancel'),
+  actionDialogConfirm: $('#action-dialog-confirm'),
 };
 
 applyPreferences();
@@ -250,6 +262,14 @@ elements.openWishModal?.addEventListener('click', () => openMealModal({ slot: 'w
 elements.toggleMealLog?.addEventListener('click', toggleMealLogPanel);
 elements.mealForm?.addEventListener('submit', submitMealForm);
 elements.mealCancel?.addEventListener('click', closeMealModal);
+elements.mealDialogCancel?.addEventListener('click', closeMealModal);
+elements.actionDialogForm?.addEventListener('submit', submitFloatingAction);
+elements.actionDialogClose?.addEventListener('click', () => closeFloatingAction(null));
+elements.actionDialogCancel?.addEventListener('click', () => closeFloatingAction(null));
+elements.actionDialog?.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  closeFloatingAction(null);
+});
 elements.openTaskSummary?.addEventListener('click', () => setTaskPanel(state.taskPanel === 'summary' ? 'today' : 'summary'));
 elements.openTaskLog?.addEventListener('click', () => {
   setTaskPanel('today');
@@ -556,9 +576,78 @@ async function toggleTask(task) {
   if (response.ok) await loadTaskData();
 }
 
+let activeFloatingAction = null;
+
+function showFloatingDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute('open', '');
+  }
+}
+
+function hideFloatingDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.close === 'function' && dialog.open) {
+    dialog.close();
+  } else {
+    dialog.removeAttribute('open');
+  }
+}
+
+function openFloatingAction({ kicker = 'Item action', title, description, input = false, inputLabel = 'Details', value = '', confirmLabel = 'Save' }) {
+  if (!elements.actionDialog || !elements.actionDialogForm) {
+    if (input) return Promise.resolve(window.prompt(title, value));
+    return Promise.resolve(window.confirm(description || title));
+  }
+  if (activeFloatingAction) closeFloatingAction(null);
+  elements.actionDialogKicker.textContent = kicker;
+  elements.actionDialogTitle.textContent = title;
+  elements.actionDialogDescription.textContent = description || '';
+  elements.actionDialogInputField.classList.toggle('hidden', !input);
+  elements.actionDialogInputLabel.textContent = inputLabel;
+  elements.actionDialogInput.value = value || '';
+  elements.actionDialogInput.required = Boolean(input);
+  elements.actionDialogConfirm.textContent = confirmLabel;
+  return new Promise((resolve) => {
+    activeFloatingAction = { resolve, input };
+    showFloatingDialog(elements.actionDialog);
+    if (input) elements.actionDialogInput.focus();
+    else elements.actionDialogConfirm.focus();
+  });
+}
+
+function submitFloatingAction(event) {
+  event.preventDefault();
+  if (!activeFloatingAction) return;
+  const result = activeFloatingAction.input ? elements.actionDialogInput.value : true;
+  closeFloatingAction(result);
+}
+
+function closeFloatingAction(result) {
+  if (!activeFloatingAction) {
+    hideFloatingDialog(elements.actionDialog);
+    return;
+  }
+  const { resolve } = activeFloatingAction;
+  activeFloatingAction = null;
+  hideFloatingDialog(elements.actionDialog);
+  elements.actionDialogForm?.reset();
+  resolve(result);
+}
+
 async function editBabyLog(event) {
   if (!event.rawLogId) return;
-  const nextText = window.prompt('Edit this baby log', event.rawText || '');
+  const nextText = await openFloatingAction({
+    kicker: 'Baby log',
+    title: 'Edit baby log',
+    description: 'Update the original note and Family Tracker will re-parse the timeline item.',
+    input: true,
+    inputLabel: 'Original note',
+    value: event.rawText || '',
+    confirmLabel: 'Save',
+  });
   if (nextText === null) return;
   const cleanText = nextText.trim();
   if (!cleanText) return;
@@ -578,7 +667,12 @@ async function editBabyLog(event) {
 
 async function deleteBabyLog(event) {
   if (!event.rawLogId) return;
-  const ok = window.confirm(`Delete this baby log?\n\n${event.rawText || eventTitle(event)}`);
+  const ok = await openFloatingAction({
+    kicker: 'Baby log',
+    title: 'Delete baby log?',
+    description: event.rawText || eventTitle(event),
+    confirmLabel: 'Delete',
+  });
   if (!ok) return;
   const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, { method: 'DELETE' });
   const payload = await response.json().catch(() => ({}));
@@ -2033,11 +2127,11 @@ function openMealModal({ slot = 'wish', item = null } = {}) {
   elements.mealFormCategory.value = item?.category || 'korean';
   elements.mealFormUrl.value = item?.url || '';
   elements.mealFormIngredients.value = item?.ingredients || '';
-  elements.mealModal.showModal();
+  showFloatingDialog(elements.mealModal);
 }
 
 function closeMealModal() {
-  elements.mealModal?.close();
+  hideFloatingDialog(elements.mealModal);
 }
 
 function upsertPlannedMeal(slot, data) {
@@ -2326,9 +2420,16 @@ function editMeal(id) {
   openMealModal({ slot: found.slot, item: found.item });
 }
 
-function deleteMeal(id) {
+async function deleteMeal(id) {
   const found = findMeal(id);
   if (!found) return;
+  const ok = await openFloatingAction({
+    kicker: 'Meal item',
+    title: 'Delete meal item?',
+    description: found.item.name,
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
   const source = found.slot === 'wish' ? state.meals.wish : state.meals.plannedByDay[found.day || state.selectedDay][found.slot];
   const [item] = source.splice(found.idx, 1);
   logMealAction(`deleted "${item.name}" from ${found.slot}`);

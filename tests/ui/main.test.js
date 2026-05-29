@@ -371,9 +371,15 @@ describe('app/main', () => {
     }));
 
     fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Edit baby log' })).toBeTruthy());
+    const editInput = document.querySelector('#action-dialog-input');
+    fireEvent.input(editInput, { target: { value: 'updated formula' } });
+    fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'PATCH' })));
 
     fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Delete baby log?' })).toBeTruthy());
+    fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'DELETE' })));
   });
 
