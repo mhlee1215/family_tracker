@@ -11,7 +11,8 @@ export async function parseBabyLogWithProvider(text, context = {}, options = {})
   const provider = options.provider || 'mock';
   const model = options.model || 'mock-local';
   const apiKey = options.apiKey || '';
-  const canUseLLM = provider !== 'mock' && Boolean(apiKey);
+  const forceHeuristic = options.parserMode === 'heuristic';
+  const canUseLLM = !forceHeuristic && provider !== 'mock' && Boolean(apiKey);
 
   if (!canUseLLM) {
     return applyParserInfo(parseBabyLogText(text, context), heuristicParserInfo());

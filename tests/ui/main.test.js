@@ -238,6 +238,59 @@ describe('app/main', () => {
     expect(composerButton.getAttribute('aria-expanded')).toBe('false');
   });
 
+
+  it('toggles sleep shortcut buttons to Wake and posts button logs through heuristic parsing', async () => {
+    const requests = [];
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      requests.push({ url, init });
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.endsWith('/api/task-assignees')) return new Response(JSON.stringify({ assignees: [] }), { status: 200 });
+      if (url.startsWith('/api/tasks/today')) return new Response(JSON.stringify({ tasks: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [{
+            id: 'sleep-start',
+            rawLogId: 'rawlog-sleep',
+            type: 'sleep',
+            rawText: 'nap',
+            action: { value: 'start' },
+            startAt: { value: new Date(Date.now() - 10 * 60000).toISOString() },
+            status: 'ongoing_or_predicted',
+          }],
+          summary: {},
+        }), { status: 200 });
+      }
+      if (url === '/api/logs' && init.method === 'POST') return new Response(JSON.stringify({ events: [] }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-sleep-buttons');
+
+    await vi.waitFor(() => expect(document.querySelector('#sleep-status')?.classList.contains('hidden')).toBe(false));
+    const quickActions = Array.from(document.querySelectorAll('#quick-actions button'));
+    const tabletActions = Array.from(document.querySelectorAll('#tablet-actions button'));
+
+    expect(quickActions.every((button) => button.querySelector('svg'))).toBe(true);
+    expect(tabletActions.every((button) => button.querySelector('svg'))).toBe(true);
+    expect(document.querySelector('#quick-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Nap start');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#tablet-actions').textContent).not.toContain('Nap start');
+    expect(document.querySelector('#sleep-status button')?.querySelector('svg')).toBeTruthy();
+
+    fireEvent.click(screen.getAllByText('Wake')[0].closest('button'));
+
+    await vi.waitFor(() => {
+      const post = requests.find((request) => request.url === '/api/logs' && request.init.method === 'POST');
+      expect(post).toBeTruthy();
+      expect(JSON.parse(post.init.body)).toMatchObject({ text: 'woke up', parserMode: 'heuristic', inputSource: 'button' });
+    });
+  });
+
   it('submits question form and renders response', async () => {
     await import('../../app/main.js?case=ask');
 

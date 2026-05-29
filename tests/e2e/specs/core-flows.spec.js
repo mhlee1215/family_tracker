@@ -53,6 +53,57 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('baby nap shortcut toggles to Wake while using heuristic button parsing', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let hasOpenSleep = false;
+    let shortcutPayload = null;
+    const openSleep = {
+      id: 'e2e-open-sleep',
+      rawLogId: 'e2e-raw-sleep',
+      type: 'sleep',
+      rawText: 'nap',
+      action: { value: 'start' },
+      startAt: { value: new Date(Date.now() - 5 * 60000).toISOString() },
+      status: 'ongoing_or_predicted',
+      parserInfo: { kind: 'heuristic' },
+    };
+
+    await page.route('**/api/logs/today**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: hasOpenSleep ? [openSleep] : [], summary: {} }),
+      });
+    });
+    await page.route('**/api/logs', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      shortcutPayload = route.request().postDataJSON();
+      hasOpenSleep = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: [openSleep] }),
+      });
+    });
+
+    await app.loginAsDevAdmin();
+    await expect(page.locator('#tablet-actions')).toContainText('Nap start');
+    await app.captureStep('Opened baby shortcut board', 'Nap start appears before an open sleep session exists.');
+
+    await page.locator('#tablet-actions button', { hasText: 'Nap start' }).click();
+
+    await expect(page.locator('#sleep-status')).toContainText('Napping now');
+    await expect(page.locator('#tablet-actions')).toContainText('Wake');
+    await expect(page.locator('#tablet-actions')).not.toContainText('Nap start');
+    expect(shortcutPayload).toMatchObject({ text: 'nap', parserMode: 'heuristic', inputSource: 'button' });
+    await app.captureStep('Nap shortcut toggled to Wake', 'Open sleep status is visible and the shortcut is now a Wake action.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('baby timeline item reveals and runs actions after a left swipe', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
