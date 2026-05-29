@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
-    "sortablejs": "^1.15.7"
+    "sortablejs": "^1.15.7",
+    "swiped": "^0.1.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

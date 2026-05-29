@@ -680,12 +680,12 @@ label {
 
 .timeline-item {
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr) minmax(112px, auto);
-  gap: 24px;
+  grid-template-columns: minmax(96px, 128px) minmax(0, 1fr) minmax(96px, auto);
+  gap: clamp(12px, 4vw, 24px);
   align-items: center;
   min-height: 80px;
   border-bottom: 1px solid var(--hairline);
-  padding: 18px 0;
+  padding: 18px 12px;
 }
 
 .timeline-title {
@@ -714,6 +714,7 @@ label {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  min-width: 0;
   gap: 6px;
 }
 
@@ -1562,13 +1563,9 @@ label {
 .swipe-card {
   position: relative;
   z-index: 1;
-  transform: translateX(var(--swipe-offset, 0));
+  transform: translate3d(0, 0, 0);
   transition: transform 180ms ease;
   will-change: transform;
-}
-
-.swipe-card.is-dragging {
-  transition: none;
 }
 
 .swipe-actions {

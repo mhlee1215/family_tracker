@@ -15,6 +15,20 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - 제품 라우팅: `.agents/skills/family-tracker-orchestrator/SKILL.md`
 - 기존 제품 스킬: `skills/`
 
+
+## Third-party Discovery Gate
+- 구현 난이도가 높은 범용 상호작용(예: swipe actions, drag/drop, rich editor, date picker)은 직접 구현하기 전에 기존 의존성, 브라우저 표준, 검증된 서드파티 패키지를 먼저 조사한다.
+- 후보 평가는 공식 문서/npm/GitHub 같은 1차 출처를 우선하고, 라이선스·유지보수 상태·번들 영향·프레임워크 적합성·접근성·테스트 가능성을 함께 본다.
+- 적합한 후보가 있으면 제품 코드에는 얇은 어댑터와 스타일만 남기고 제스처/복잡 상태 처리는 패키지에 위임한다. 직접 구현을 선택하면 왜 서드파티를 쓰지 않았는지 기록한다.
+- PR 전 보고에는 선택한 패키지나 기각한 후보, 확인 명령/출처, 변경된 dependency/vendor asset을 명시한다.
+
+
+## Scenario Test Gate
+- 모든 기능 추가는 PR 전에 사용자 흐름 기반 시나리오 테스트를 포함해야 한다. 기본 위치는 `tests/e2e/specs/` Playwright 테스트다.
+- 시나리오는 최소한 기능 진입점, 주요 사용자 액션, 성공 상태/데이터 반영을 검증한다.
+- UI가 없는 기능은 E2E 대신 통합/도메인 시나리오 테스트를 추가하고, 대체한 이유와 커버한 흐름을 PR 설명에 적는다.
+- 새 시나리오를 만들지 않고 기존 시나리오를 확장한 경우, 확장된 assertion/step을 PR 설명과 최종 보고에 명시한다.
+
 ## Validation Gate (PR 전 필수)
 - 코드 변경이 있으면 로컬에서 아래를 모두 통과해야 한다.
   - `npm test`

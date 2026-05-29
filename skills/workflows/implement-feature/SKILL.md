@@ -14,6 +14,7 @@ Building a new feature.
 - Find existing patterns first and implement with minimal change.
 - Keep domain logic in `src/domain/`, UI in `app/`, persistence in `src/server/db/`.
 - Add/update tests for behavior changes.
+- Add or update a scenario test for the new feature; prefer Playwright E2E under `tests/e2e/specs/` for user-facing flows.
 - Run `npm test`.
 - Run `npm run test:e2e` locally before PR.
 - Bump README build badge.
@@ -24,6 +25,7 @@ Building a new feature.
 - Confirm scope and matching pattern.
 - Implement minimal, coherent slice.
 - Add or adjust tests.
+- Add or update the feature scenario test and verify it covers the user entry point, primary action, and success state.
 - Run `npm test` and fix failures.
 - Run `npm run test:e2e` and fix failures.
 - Update badge/docs/skills as required.
