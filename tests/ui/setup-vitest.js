@@ -8,6 +8,7 @@ const bodyHtml = (bodyMatch ? bodyMatch[1] : html).replace(/<script[\s\S]*?<\/sc
 
 beforeEach(() => {
   document.body.innerHTML = bodyHtml;
+  window.localStorage.clear();
   window.history.replaceState({}, '', '/app/');
   Object.defineProperty(window.navigator, 'serviceWorker', {
     configurable: true,

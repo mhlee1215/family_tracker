@@ -688,6 +688,44 @@ label {
   gap: 12px;
 }
 
+.timeline-header {
+  align-items: flex-start;
+}
+
+.timeline-header > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.timeline-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.compact-select-control {
+  display: grid;
+  gap: 6px;
+  min-width: 132px;
+}
+
+.compact-select-control span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.compact-select-control select {
+  min-height: 36px;
+  border-color: var(--hairline);
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.29;
+  padding: 8px 34px 8px 14px;
+}
+
 .tablet-board .muted-count {
   color: var(--body-muted-dark);
 }
@@ -1018,6 +1056,19 @@ label {
 
   .tablet-board {
     display: none;
+  }
+
+  .timeline-header {
+    display: grid;
+  }
+
+  .timeline-controls {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .compact-select-control {
+    min-width: min(180px, 100%);
   }
 
   .timeline-item {

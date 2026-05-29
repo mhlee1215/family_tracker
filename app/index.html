@@ -211,9 +211,30 @@
             </form>
 
             <section class="timeline-section">
-              <div class="section-header">
-                <h2>Timeline</h2>
-                <span id="event-count" class="muted-count">0 items</span>
+              <div class="section-header timeline-header">
+                <div>
+                  <h2>Timeline</h2>
+                  <span id="event-count" class="muted-count">0 items</span>
+                </div>
+                <div class="timeline-controls" aria-label="Timeline controls">
+                  <label class="compact-select-control" for="timeline-sort">
+                    <span>Sort</span>
+                    <select id="timeline-sort" name="timelineSort">
+                      <option value="asc">Oldest first</option>
+                      <option value="desc">Newest first</option>
+                    </select>
+                  </label>
+                  <label class="compact-select-control" for="timeline-filter">
+                    <span>Filter</span>
+                    <select id="timeline-filter" name="timelineFilter">
+                      <option value="all">All logs</option>
+                      <option value="sleep">Sleep</option>
+                      <option value="feeding_milk">Milk</option>
+                      <option value="feeding_solid">Solids</option>
+                      <option value="diaper">Diaper</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div id="timeline" class="timeline"></div>
             </section>
