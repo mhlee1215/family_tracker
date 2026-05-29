@@ -1178,9 +1178,107 @@ label {
 
 }
 
-.meal-modal { border:1px solid var(--hairline); border-radius:16px; padding:0; }
-.meal-modal-form { display:grid; gap:10px; padding:16px; min-width:320px; }
-.meal-modal menu { display:flex; gap:8px; justify-content:flex-end; margin:0; padding:0; }
+.floating-window {
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  padding: 0;
+  background: color-mix(in srgb, var(--canvas) 96%, transparent);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.floating-window::backdrop {
+  background: rgba(245, 245, 247, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.floating-window-form {
+  display: grid;
+  gap: 14px;
+  min-width: min(360px, calc(100vw - 32px));
+  margin: 0;
+  padding: 24px;
+}
+
+.floating-window-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.floating-window-header h3 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: -0.374px;
+}
+
+.floating-window-close {
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 9999px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.floating-window-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  white-space: pre-wrap;
+}
+
+.floating-field {
+  display: grid;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: -0.224px;
+}
+
+.floating-field input,
+.floating-field select,
+.floating-field textarea {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  background: var(--surface-pearl);
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  padding: 12px 14px;
+}
+
+.floating-field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.floating-window-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.meal-modal-form {
+  gap: 12px;
+}
+
+.action-dialog .floating-window-actions {
+  margin-top: 2px;
+}
 
 
 .meal-floating-panel {

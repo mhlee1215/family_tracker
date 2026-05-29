@@ -382,20 +382,46 @@
           </section>
         </section>
 
-        <dialog id="meal-modal" class="meal-modal">
-          <form id="meal-form" class="meal-modal-form" method="dialog" autocomplete="off">
-            <h3 id="meal-form-title">Add meal</h3>
-            <input id="meal-form-name" type="text" placeholder="Menu name" required>
-            <select id="meal-form-category">
+        <dialog id="meal-modal" class="floating-window meal-modal" aria-labelledby="meal-form-title">
+          <form id="meal-form" class="meal-modal-form floating-window-form" method="dialog" autocomplete="off">
+            <header class="floating-window-header">
+              <div>
+                <p class="eyebrow">Meal item</p>
+                <h3 id="meal-form-title">Add meal</h3>
+              </div>
+              <button id="meal-cancel" type="button" class="ghost-button floating-window-close" aria-label="Close meal editor">×</button>
+            </header>
+            <label class="floating-field"><span>Menu name</span><input id="meal-form-name" type="text" placeholder="Menu name" required></label>
+            <label class="floating-field"><span>Category</span><select id="meal-form-category">
               <option value="korean">Korean</option><option value="japanese">Japanese</option><option value="chinese">Chinese</option><option value="western">Western</option><option value="snack">Snack</option>
-            </select>
-            <input id="meal-form-url" type="url" placeholder="Recipe URL">
-            <input id="meal-form-ingredients" type="text" placeholder="Ingredients">
-            <menu><button id="meal-cancel" type="button" class="ghost-button">Cancel</button><button type="submit">Save</button></menu>
+            </select></label>
+            <label class="floating-field"><span>Recipe URL</span><input id="meal-form-url" type="url" placeholder="Recipe URL"></label>
+            <label class="floating-field"><span>Ingredients</span><input id="meal-form-ingredients" type="text" placeholder="Ingredients"></label>
+            <menu class="floating-window-actions"><button type="button" class="ghost-button" data-dialog-cancel="meal">Cancel</button><button type="submit">Save</button></menu>
           </form>
         </dialog>
       </section>
     </main>
+    <dialog id="action-dialog" class="floating-window action-dialog" aria-labelledby="action-dialog-title" aria-describedby="action-dialog-description">
+      <form id="action-dialog-form" class="floating-window-form" method="dialog" autocomplete="off">
+        <header class="floating-window-header">
+          <div>
+            <p id="action-dialog-kicker" class="eyebrow">Item action</p>
+            <h3 id="action-dialog-title">Update item</h3>
+          </div>
+          <button id="action-dialog-close" type="button" class="ghost-button floating-window-close" aria-label="Close action window">×</button>
+        </header>
+        <p id="action-dialog-description" class="floating-window-description"></p>
+        <label id="action-dialog-input-field" class="floating-field hidden">
+          <span id="action-dialog-input-label">Details</span>
+          <textarea id="action-dialog-input" rows="4"></textarea>
+        </label>
+        <menu class="floating-window-actions">
+          <button id="action-dialog-cancel" type="button" class="ghost-button">Cancel</button>
+          <button id="action-dialog-confirm" type="submit">Save</button>
+        </menu>
+      </form>
+    </dialog>
     <div id="build-badge" class="build-badge" aria-label="Build and metadata version">
       <button id="build-refresh" type="button" class="build-refresh" aria-label="Refresh page" title="Refresh page">↻</button>
       <span id="build-version">Build ---</span>
