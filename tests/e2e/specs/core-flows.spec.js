@@ -67,35 +67,18 @@ test.describe('Family Tracker core flows', () => {
     await expect(row.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'true');
     await app.captureStep('Created swipable timeline item', 'The new log is present and its action rail starts hidden.');
 
-    await row.locator('.swipe-card').evaluate((node) => {
-      const makeTouchEvent = (type, x, y, touchListName) => {
-        const event = new Event(type, { bubbles: true, cancelable: true });
-        const touch = {
-          identifier: 1,
-          target: node,
-          pageX: x,
-          pageY: y,
-          clientX: x,
-          clientY: y,
-          screenX: x,
-          screenY: y,
-        };
-        Object.defineProperties(event, {
-          changedTouches: { value: [touch] },
-          touches: { value: touchListName === 'touches' ? [touch] : [] },
-          targetTouches: { value: touchListName === 'targetTouches' ? [touch] : [] },
-        });
-        node.dispatchEvent(event);
-      };
-
-      makeTouchEvent('touchstart', 320, 120, 'touches');
-      makeTouchEvent('touchmove', 170, 122, 'targetTouches');
-      makeTouchEvent('touchend', 170, 122, 'changedTouches');
-    });
+    const card = row.locator('.swipe-card');
+    await card.scrollIntoViewIfNeeded();
+    const box = await card.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.move(box.x + box.width - 16, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width - 140, box.y + box.height / 2, { steps: 8 });
+    await page.mouse.up();
 
     await expect(row.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'false');
     await expect.poll(async () => row.locator('.swipe-card').evaluate((node) => node.style.transform)).toMatch(/^translate3d\(-/);
-    await app.captureStep('Revealed swipe action rail', 'A synthetic left swipe opened the Swiped-backed action rail.');
+    await app.captureStep('Revealed swipe action rail', 'A real desktop mouse drag opened the action rail.');
 
     page.once('dialog', async (dialog) => {
       expect(dialog.type()).toBe('confirm');
