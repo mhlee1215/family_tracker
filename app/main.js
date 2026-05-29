@@ -1263,7 +1263,7 @@ function renderTaskDayControls() {
   elements.taskDayPicker.value = state.selectedDay;
   renderTaskComposerDueState();
   elements.taskDayLabel.textContent = dayHeading(state.selectedDay);
-  if (elements.taskCalendarToggle) elements.taskCalendarToggle.textContent = 'Open task calendar';
+  if (elements.taskCalendarToggle) elements.taskCalendarToggle.setAttribute('aria-label', 'Open task calendar');
   renderTaskCalendar();
 }
 
@@ -1289,6 +1289,7 @@ function renderTaskPanel() {
 function setTaskCalendarOpen(open) {
   elements.taskCalendarPopover?.classList.toggle('hidden', !open);
   elements.taskCalendarToggle?.setAttribute('aria-expanded', String(open));
+  elements.taskCalendarToggle?.setAttribute('aria-label', open ? 'Close task calendar' : 'Open task calendar');
 }
 
 function toggleTaskCalendar() {
@@ -1326,11 +1327,11 @@ async function loadBabyCalendarDots(monthKey) {
 function renderBabyDayControls() {
   elements.dayPicker.value = state.selectedDay;
   elements.dayLabel.textContent = dayHeading(state.selectedDay);
-  if (elements.babyCalendarToggle) elements.babyCalendarToggle.textContent = 'Open baby calendar';
+  if (elements.babyCalendarToggle) elements.babyCalendarToggle.setAttribute('aria-label', 'Open baby calendar');
   renderBabyCalendar();
 }
 
-function setBabyCalendarOpen(open) { elements.babyCalendarPopover?.classList.toggle('hidden', !open); elements.babyCalendarToggle?.setAttribute('aria-expanded', String(open)); }
+function setBabyCalendarOpen(open) { elements.babyCalendarPopover?.classList.toggle('hidden', !open); elements.babyCalendarToggle?.setAttribute('aria-expanded', String(open)); elements.babyCalendarToggle?.setAttribute('aria-label', open ? 'Close baby calendar' : 'Open baby calendar'); }
 function toggleBabyCalendar() {
   if (!elements.babyCalendarPopover) return;
   const open = elements.babyCalendarPopover.classList.contains('hidden');
@@ -1352,7 +1353,7 @@ function renderBabyCalendar() {
 function renderMealDayControls() {
   if (elements.mealDayLabel) elements.mealDayLabel.textContent = dayHeading(state.selectedDay);
   if (elements.mealDayPicker) elements.mealDayPicker.value = state.selectedDay;
-  if (elements.mealCalendarToggle) elements.mealCalendarToggle.textContent = 'Open meal calendar';
+  if (elements.mealCalendarToggle) elements.mealCalendarToggle.setAttribute('aria-label', 'Open meal calendar');
   renderMealCalendar();
 }
 
@@ -1369,7 +1370,7 @@ function loadMealCalendarDots(monthKey) {
   state.mealCalendarDots = dots;
   renderMealCalendar();
 }
-function setMealCalendarOpen(open) { elements.mealCalendarPopover?.classList.toggle('hidden', !open); elements.mealCalendarToggle?.setAttribute('aria-expanded', String(open)); }
+function setMealCalendarOpen(open) { elements.mealCalendarPopover?.classList.toggle('hidden', !open); elements.mealCalendarToggle?.setAttribute('aria-expanded', String(open)); elements.mealCalendarToggle?.setAttribute('aria-label', open ? 'Close meal calendar' : 'Open meal calendar'); }
 function toggleMealCalendar() {
   if (!elements.mealCalendarPopover) return;
   const open = elements.mealCalendarPopover.classList.contains('hidden');
