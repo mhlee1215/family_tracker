@@ -1019,6 +1019,7 @@ function makeSwipeItem(content, actions, className = '') {
 
   content.classList.add('swipe-card');
   content.dataset.swipeId = swipeId;
+  shell.replaceChildren(rail, content);
 
   const actionWidth = () => Math.max(88, actions.length * 76, rail.getBoundingClientRect().width || 0);
   const markOpen = (isOpen) => {
@@ -1032,12 +1033,13 @@ function makeSwipeItem(content, actions, className = '') {
     }
   };
 
-  shell.replaceChildren(rail, content);
-
-  const initSwipe = () => {
-    if (typeof window.Swiped?.init !== 'function' || !document.documentElement.contains(content)) return null;
+  let swipeInstance = null;
+  const ensureSwipe = () => {
+    if (swipeInstance || typeof window.Swiped?.init !== 'function' || !document.documentElement.contains(content)) {
+      return swipeInstance;
+    }
     const width = actionWidth();
-    return window.Swiped.init({
+    swipeInstance = window.Swiped.init({
       query: `[data-swipe-id="${swipeId}"]`,
       right: width,
       tolerance: Math.max(32, Math.round(width * 0.38)),
@@ -1049,54 +1051,30 @@ function makeSwipeItem(content, actions, className = '') {
         markOpen(false);
       },
     });
-  };
-
-  let swipeInstance = null;
-  const ensureSwipe = () => {
-    if (!swipeInstance) swipeInstance = initSwipe();
     return swipeInstance;
   };
   queueMicrotask(ensureSwipe);
 
-  const openWithLibrary = () => {
+  const openWithSwiped = () => {
     const swipe = ensureSwipe();
-    if (!swipe) return false;
+    if (!swipe) return;
     swipe.dir = -1;
     swipe.width = actionWidth();
     swipe.right = swipe.width;
     swipe.open(true);
     markOpen(true);
-    return true;
   };
-  const closeWithLibrary = () => {
-    const swipe = ensureSwipe();
-    if (!swipe) return false;
-    swipe.close(true);
-    markOpen(false);
-    return true;
-  };
-
-  const setFallbackOffset = (value) => {
-    content.style.transform = `translate3d(${value}px, 0, 0)`;
-  };
-
-  content.addEventListener('touchstart', (event) => {
-    if (event.target.closest('button, a, input, select, textarea, .meal-item-handle')) event.stopPropagation();
-  });
 
   shell.__closeSwipe = () => {
-    if (closeWithLibrary()) return;
-    setFallbackOffset(0);
+    const swipe = ensureSwipe();
+    swipe?.close(true);
     markOpen(false);
   };
 
   shell.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      if (!openWithLibrary()) {
-        setFallbackOffset(-actionWidth());
-        markOpen(true);
-      }
+      openWithSwiped();
     } else if (event.key === 'ArrowRight' || event.key === 'Escape') {
       event.preventDefault();
       closeSwipeItem(shell);
