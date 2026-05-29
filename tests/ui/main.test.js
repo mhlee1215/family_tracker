@@ -123,6 +123,7 @@ describe('app/main', () => {
           providers: [
             { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'], requiresApiKey: false, configured: true, active: true },
             { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-5.4-mini', models: ['gpt-5.4-mini', 'gpt-5.4'], requiresApiKey: true, configured: false, active: false },
+            { id: 'mistral', label: 'Mistral', defaultModel: 'mistral-small-latest', models: ['mistral-small-latest', 'mistral-medium-latest'], requiresApiKey: true, configured: false, active: false },
           ],
         }), { status: 200 });
       }
@@ -134,6 +135,7 @@ describe('app/main', () => {
           providers: [
             { id: 'mock', label: 'Mock', defaultModel: 'mock-local', models: ['mock-local'], requiresApiKey: false, configured: true, active: false },
             { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-5.4-mini', models: ['gpt-5.4-mini', 'gpt-5.4'], requiresApiKey: true, configured: true, active: true },
+            { id: 'mistral', label: 'Mistral', defaultModel: 'mistral-small-latest', models: ['mistral-small-latest', 'mistral-medium-latest'], requiresApiKey: true, configured: false, active: false },
           ],
         }), { status: 200 });
       }
@@ -149,6 +151,7 @@ describe('app/main', () => {
     const openAiOption = [...providerSelect.options].find((option) => option.value === 'openai');
     expect(openAiOption.disabled).toBe(true);
     expect(screen.getByText('OpenAI')).toBeTruthy();
+    expect(screen.getByText('Mistral')).toBeTruthy();
     expect(screen.getAllByText('Needs API key').length).toBeGreaterThan(0);
 
     const openAiCard = [...document.querySelectorAll('.llm-provider-card')]

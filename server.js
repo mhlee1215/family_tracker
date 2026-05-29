@@ -28,9 +28,10 @@ const storageConfig = getStorageConfig();
 const store = await createBabyStore();
 const runtimeLLMConfig = {
   provider: normalizeLLMProvider(process.env.LLM_PROVIDER || 'mock'),
-  model: process.env.LLM_MODEL || process.env.OPENAI_MODEL || '',
+  model: process.env.LLM_MODEL || '',
   apiKeys: {
     openai: process.env.OPENAI_API_KEY || '',
+    mistral: process.env.MISTRAL_API_KEY || '',
   },
 };
 const processedAlexaRequestIds = new Set();
@@ -772,12 +773,15 @@ function getLLMProvider() {
 }
 
 function getProviderKey(provider) {
-  return provider === 'openai' ? runtimeLLMConfig.apiKeys.openai || process.env.OPENAI_API_KEY || '' : '';
+  if (provider === 'openai') return runtimeLLMConfig.apiKeys.openai || process.env.OPENAI_API_KEY || '';
+  if (provider === 'mistral') return runtimeLLMConfig.apiKeys.mistral || process.env.MISTRAL_API_KEY || '';
+  return '';
 }
 
 function getLLMModel(provider = getLLMProvider()) {
   const configured = getProviderModelOptions().find((item) => item.id === provider);
-  const model = runtimeLLMConfig.model || process.env.LLM_MODEL || process.env.OPENAI_MODEL || configured?.defaultModel;
+  const providerModel = provider === 'openai' ? process.env.OPENAI_MODEL : provider === 'mistral' ? process.env.MISTRAL_MODEL : '';
+  const model = runtimeLLMConfig.model || process.env.LLM_MODEL || providerModel || configured?.defaultModel;
   return configured?.models.includes(model) ? model : configured?.defaultModel;
 }
 

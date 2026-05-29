@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 057](https://img.shields.io/badge/build-057-0066cc)
+![Build 058](https://img.shields.io/badge/build-058-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -87,7 +87,7 @@ Open:
 http://localhost:4174
 ```
 
-The app uses the server-side LLM provider for baby-log parsing when `LLM_PROVIDER` is set to a non-mock provider and the matching key is configured. The provider prompt stays minimal and the JSON schema carries the expected compact `{ "events": [...] }` format, including multiple events from one input when needed. Otherwise it uses the local heuristic parser; failed provider parses fall back to the heuristic parser and keep parser metadata on each event for debugging.
+The app uses the server-side LLM provider for baby-log parsing when `LLM_PROVIDER` is set to a non-mock provider (`openai` or `mistral`) and the matching key is configured. The provider prompt stays minimal and the JSON schema carries the expected compact `{ "events": [...] }` format, including multiple events from one input when needed. Otherwise it uses the local heuristic parser; failed provider parses fall back to the heuristic parser and keep parser metadata on each event for debugging.
 
 ---
 
@@ -151,7 +151,9 @@ Set runtime secrets in the Render dashboard:
 
 ```text
 LLM_PROVIDER=openai
-LLM_MODEL=gpt-5.4-mini
+LLM_MODEL=gpt-5.4-mini # or mistral-small-latest when LLM_PROVIDER=mistral
+OPENAI_MODEL=gpt-5.4-mini
+MISTRAL_MODEL=mistral-small-latest
 OPENAI_API_KEY
 MISTRAL_API_KEY
 DATABASE_PROVIDER=turso
