@@ -13,6 +13,7 @@ const storageKeys = {
   mealsLegacy: 'familyTracker.meals',
   timelineSort: 'familyTracker.timelineSort',
   timelineFilter: 'familyTracker.timelineFilter',
+  recentBabyLogs: 'familyTracker.recentBabyLogs',
 };
 
 const copy = {
@@ -21,7 +22,7 @@ const copy = {
   tomorrow: 'Tomorrow',
   saving: 'Saving...',
   saveFailed: 'Could not save.',
-  logPlaceholder: 'formula, nap, woke up, baby food, diaper (pee), diaper (poop)',
+  logPlaceholder: 'Try: 분유 120 먹고 응가했어',
   askPlaceholder: 'How much sleep today?',
   emptyTimeline: 'No logs for this date yet.',
   emptyFilteredTimeline: 'No logs match this filter.',
@@ -49,6 +50,8 @@ const copy = {
 const state = {
   events: [],
   summary: null,
+  todayContext: null,
+  recentBabyLogs: loadRecentBabyLogs(),
   user: null,
   profile: null,
   growthRecords: [],
@@ -86,6 +89,7 @@ const elements = {
   answer: $('#answer'),
   timeline: $('#timeline'),
   summary: $('#summary'),
+  todayContext: $('#today-context'),
   sleepStatus: $('#sleep-status'),
   growthSummary: $('#growth-summary'),
   babySettingsPanel: $('#baby-settings-panel'),
@@ -457,6 +461,9 @@ async function saveLog(text, options = {}) {
     elements.answer.textContent = payload.error || copy.saveFailed;
     return;
   }
+  const savedCount = (payload.events || []).filter((event) => !event.hiddenFromTimeline).length;
+  rememberRecentBabyLog(cleanText, payload.events || []);
+  elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
   state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
   await loadToday();
 }
@@ -468,6 +475,7 @@ async function loadToday() {
   if (handleAuthFailure(response)) return;
   state.events = payload.events || [];
   state.summary = payload.summary;
+  state.todayContext = payload.context || buildClientTodayContext(state.events);
   renderBaby();
 }
 
@@ -953,6 +961,7 @@ function renderAuthState() {
 function renderBaby() {
   renderDayControls();
   renderSummary();
+  renderTodayContext();
   renderSleepStatus();
   renderQuickActions();
   renderTabletActions();
@@ -990,9 +999,11 @@ function renderBabySettings() {
 
 function renderQuickActions() {
   const openSleep = currentOpenSleep();
-  elements.quickActions.replaceChildren(...copy.quickActions.map((action) => (
+  const baseButtons = copy.quickActions.map((action) => (
     makeBabyActionButton(resolveSleepAction(action, openSleep), 'quick-action-button')
-  )));
+  ));
+  const suggestionButtons = state.recentBabyLogs.slice(0, 3).map(makeRecentSuggestionButton);
+  elements.quickActions.replaceChildren(...baseButtons, ...suggestionButtons);
 }
 
 function renderTabletActions() {
@@ -1007,6 +1018,19 @@ function resolveSleepAction(action, openSleep) {
   return openSleep
     ? { ...action, label: action.wakeLabel, value: action.wakeValue, icon: action.wakeIcon, activeSleep: true }
     : action;
+}
+
+function makeRecentSuggestionButton(item) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'quick-action-button suggested-action';
+  button.innerHTML = `${actionIcon('note')}<span>${escapeHtml(item.text)}</span>`;
+  button.title = 'Suggested recent log';
+  button.addEventListener('click', () => {
+    elements.logInput.value = item.text;
+    elements.logInput.focus();
+  });
+  return button;
 }
 
 function makeBabyActionButton(action, className) {
@@ -1033,6 +1057,99 @@ function renderSummary() {
     summaryItem('Baby food', `${summary.solidCount || 0}x`),
     summaryItem('Diaper', `${summary.diaperCount || 0}x`),
   );
+}
+
+function renderTodayContext() {
+  if (!elements.todayContext) return;
+  const context = state.todayContext || buildClientTodayContext(state.events);
+  const cards = [
+    contextCard('Last milk', milkContextLabel(context.lastMilk), 'feeding_milk'),
+    contextCard('Last diaper', diaperContextLabel(context.lastDiaper), 'diaper'),
+    contextCard('Sleep', sleepContextLabel(context.sleep), 'sleep'),
+    contextCard('AI checks', estimateContextLabel(context), 'all'),
+  ];
+  elements.todayContext.replaceChildren(...cards);
+}
+
+function contextCard(label, value, filter) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'today-context-card';
+  button.dataset.filter = filter;
+  button.innerHTML = `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>`;
+  button.addEventListener('click', () => {
+    if (filter !== 'all') {
+      state.timelineFilter = normalizeTimelineFilter(filter);
+      localStorage.setItem(storageKeys.timelineFilter, state.timelineFilter);
+      renderTimelineControls();
+      renderTimeline();
+    }
+    elements.timeline?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  return button;
+}
+
+function milkContextLabel(item) {
+  if (!item) return 'No milk yet';
+  return item.amountMl ? `${item.label} · ${item.amountMl}ml` : item.label;
+}
+
+function diaperContextLabel(item) {
+  if (!item) return 'No diaper yet';
+  if (item.diaperKind === 'dirty') return `${item.label} · poop`;
+  return item.label;
+}
+
+function sleepContextLabel(item) {
+  if (!item) return 'No sleep yet';
+  return item.label || (item.state === 'ongoing' ? 'Sleeping now' : 'Logged');
+}
+
+function estimateContextLabel(context) {
+  const inferred = context?.inferredFieldCount || 0;
+  const corrected = context?.correctedFieldCount || 0;
+  if (corrected) return `${inferred} estimated · ${corrected} corrected`;
+  if (inferred) return `${inferred} estimated`;
+  return 'No estimates';
+}
+
+function buildClientTodayContext(events = []) {
+  const visible = events.filter((event) => !event.hiddenFromTimeline);
+  const now = new Date();
+  const lastMilk = latestClientEvent(visible.filter((event) => event.type === 'feeding_milk'));
+  const lastDiaper = latestClientEvent(visible.filter((event) => event.type === 'diaper'));
+  const openSleep = currentOpenSleep();
+  const lastSleep = latestClientEvent(visible.filter((event) => event.type === 'sleep' && event.status === 'completed' && !(event.action?.value === 'end' && event.linkedStartEventId)), (event) => event.endAt?.value || event.startAt?.value);
+  return {
+    lastMilk: lastMilk ? clientContextItem(lastMilk, now) : null,
+    lastDiaper: lastDiaper ? { ...clientContextItem(lastDiaper, now), diaperKind: lastDiaper.diaperKind?.value || 'wet_or_unspecified' } : null,
+    sleep: openSleep ? { state: 'ongoing', label: `${durationLabel(minutesSince(openSleep.startAt?.value, now))} sleeping` }
+      : lastSleep ? { state: 'completed', label: `Woke ${durationLabel(minutesSince(lastSleep.endAt?.value || lastSleep.startAt?.value, now))} ago` }
+        : null,
+    inferredFieldCount: visible.reduce((sum, event) => sum + Object.values(event).filter((value) => value?.source === 'inferred').length, 0),
+    correctedFieldCount: visible.reduce((sum, event) => sum + Object.values(event).filter((value) => value?.source === 'user_corrected').length, 0),
+  };
+}
+
+function latestClientEvent(events, getValue = eventTimeValue) {
+  return [...events].filter((event) => getValue(event)).sort((a, b) => timestamp(getValue(b)) - timestamp(getValue(a)))[0] || null;
+}
+
+function clientContextItem(event, now) {
+  return { eventId: event.id, label: `${durationLabel(minutesSince(eventTimeValue(event), now))} ago`, amountMl: event.amountMl?.value ?? null };
+}
+
+function minutesSince(value, now) {
+  if (!value) return 0;
+  return Math.max(0, Math.round((new Date(now) - new Date(value)) / 60000));
+}
+
+function durationLabel(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest}m`;
+  if (!rest) return `${hours}h`;
+  return `${hours}h ${rest}m`;
 }
 
 function summaryItem(label, value, accentColor = '') {
@@ -1910,6 +2027,32 @@ function inferredBadges(event) {
       badge.title = `${value.basis} · confidence ${value.confidence}`;
       return badge;
     });
+}
+
+function rememberRecentBabyLog(text, events = []) {
+  if (!events.some((event) => !event.hiddenFromTimeline)) return;
+  const cleanText = String(text || '').trim();
+  if (!cleanText || cleanText.length > 120) return;
+  const existing = state.recentBabyLogs.find((item) => item.text === cleanText);
+  const next = existing
+    ? { ...existing, useCount: existing.useCount + 1, lastUsedAt: Date.now() }
+    : { text: cleanText, useCount: 1, lastUsedAt: Date.now() };
+  state.recentBabyLogs = [next, ...state.recentBabyLogs.filter((item) => item.text !== cleanText)]
+    .sort((a, b) => (b.useCount - a.useCount) || (b.lastUsedAt - a.lastUsedAt))
+    .slice(0, 5);
+  localStorage.setItem(storageKeys.recentBabyLogs, JSON.stringify(state.recentBabyLogs));
+  renderQuickActions();
+}
+
+function loadRecentBabyLogs() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKeys.recentBabyLogs) || '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item && typeof item.text === 'string').slice(0, 5)
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function refreshActiveTab() {

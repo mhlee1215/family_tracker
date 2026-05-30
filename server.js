@@ -5,7 +5,7 @@ import { parseBabyLogWithProvider } from './src/domain/log-parser-orchestrator.j
 import { applyInferences } from './src/domain/inference-engine.js';
 import { getProviderModelOptions, normalizeLLMProvider } from './src/domain/llm-provider.js';
 import { completedOpenSleepUpdate, createAutoWakeEvents, findOpenSleep, linkSleepSessions } from './src/domain/sleep-session.js';
-import { answerSimpleQuestion, buildTodaySummary } from './src/domain/summary-builder.js';
+import { answerSimpleQuestion, buildTodayContext, buildTodaySummary } from './src/domain/summary-builder.js';
 import { defaultAuthorId } from './src/domain/profile-defaults.js';
 import {
   clearOAuthStateCookie,
@@ -299,7 +299,11 @@ async function handleApi(request, response) {
       const today = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
       const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
       const events = await store.listEventsForDay(today, { ...scope, timezone });
-      sendJson(response, 200, { events, summary: buildTodaySummary(events) });
+      sendJson(response, 200, {
+        events,
+        summary: buildTodaySummary(events),
+        context: buildTodayContext(events, { selectedDay: today, today: localDateKeyFromIso(new Date().toISOString(), timezone), now: new Date() }),
+      });
       return;
     }
     if (request.method === 'GET' && requestUrl.pathname === '/api/logs/calendar') {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createField } from '../src/domain/baby-events.js';
-import { buildTodaySummary } from '../src/domain/summary-builder.js';
+import { buildTodayContext, buildTodaySummary } from '../src/domain/summary-builder.js';
 
 test('buildTodaySummary does not double-count linked sleep end events', () => {
   const summary = buildTodaySummary([
@@ -50,5 +50,39 @@ test('buildTodaySummary ignores hidden automatic wake events', () => {
 
   assert.equal(summary.sleepMinutes, 20);
   assert.equal(summary.milkCount, 1);
+});
+
+
+
+test('buildTodayContext summarizes last care events and provenance counts', () => {
+  const context = buildTodayContext([
+    {
+      id: 'milk-1',
+      type: 'feeding_milk',
+      occurredAt: createField('2026-05-30T09:00:00.000Z', 'explicit', 'typed_time'),
+      amountMl: createField(120, 'inferred', 'profile_or_age_default'),
+    },
+    {
+      id: 'diaper-1',
+      type: 'diaper',
+      occurredAt: createField('2026-05-30T09:30:00.000Z', 'system', 'current_time'),
+      diaperKind: createField('dirty', 'explicit', 'keyword'),
+    },
+    {
+      id: 'sleep-1',
+      type: 'sleep',
+      action: createField('start', 'explicit', 'sleep_keyword'),
+      status: 'ongoing_or_predicted',
+      startAt: createField('2026-05-30T09:45:00.000Z', 'system', 'current_time'),
+    },
+  ], { now: new Date('2026-05-30T10:00:00.000Z'), selectedDay: '2026-05-30', today: '2026-05-30' });
+
+  assert.equal(context.lastMilk.label, '1h ago');
+  assert.equal(context.lastMilk.amountMl, 120);
+  assert.equal(context.lastDiaper.label, '30m ago');
+  assert.equal(context.lastDiaper.diaperKind, 'dirty');
+  assert.equal(context.sleep.state, 'ongoing');
+  assert.equal(context.sleep.minutes, 15);
+  assert.equal(context.inferredFieldCount, 1);
 });
 

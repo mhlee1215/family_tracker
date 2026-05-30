@@ -504,6 +504,47 @@ input {
   letter-spacing: 0;
 }
 
+
+.today-context {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.today-context-card {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  min-height: 88px;
+  border-radius: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  padding: 18px min(24px, 4vw);
+  text-align: left;
+}
+
+.today-context-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.today-context-card strong {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(17px, 2vw, 24px);
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.today-context-card:hover {
+  background: var(--surface-pearl);
+}
+
 .sleep-status {
   display: flex;
   align-items: center;
@@ -651,6 +692,7 @@ label {
 }
 
 .quick-actions button.sleep-active,
+.quick-actions button.suggested-action,
 .tablet-actions button.sleep-active,
 .sleep-status-action {
   color: var(--primary);
@@ -1052,7 +1094,8 @@ label {
     min-width: 86px;
   }
 
-  .summary-strip {
+  .summary-strip,
+  .today-context {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
