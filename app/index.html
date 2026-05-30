@@ -200,7 +200,9 @@
         </section>
 
         <section id="summary" class="summary-strip" aria-label="Today summary"></section>
+        <section id="today-context" class="today-context" aria-label="Today context"></section>
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
+        <section id="baby-patterns" class="baby-patterns" aria-label="Baby weekly patterns"></section>
         <section id="growth-summary" class="growth-summary app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth summary"></section>
 
         <section id="workspace" class="workspace-grid">
@@ -208,7 +210,7 @@
             <form id="log-form" class="input-panel" autocomplete="off">
               <label for="log-input">Record</label>
               <div class="composer-row">
-                <input id="log-input" name="record" type="text" placeholder="formula, nap, woke up, sweet potato" autofocus>
+                <input id="log-input" name="record" type="text" placeholder="Try: 분유 120 먹고 응가했어" autofocus>
                 <button type="submit">Save</button>
               </div>
               <div id="quick-actions" class="quick-actions" aria-label="Suggested logs"></div>
@@ -234,7 +236,7 @@
                       <option value="all">All records</option>
                       <option value="sleep">Sleep</option>
                       <option value="feeding_milk">Milk</option>
-                      <option value="feeding_solid">Solids</option>
+                      <option value="feeding_solid">Baby food</option>
                       <option value="diaper">Diaper</option>
                     </select>
                   </label>
@@ -400,9 +402,9 @@
             <div class="meal-columns">
               <section class="meal-column meal-column-planned">
                 <h3>Planned meals</h3>
-                <div class="meal-slot"><div class="meal-slot-label">Breakfast</div><div id="meal-breakfast" class="task-list"></div></div>
-                <div class="meal-slot"><div class="meal-slot-label">Lunch</div><div id="meal-lunch" class="task-list"></div></div>
-                <div class="meal-slot"><div class="meal-slot-label">Dinner</div><div id="meal-dinner" class="task-list"></div></div>
+                <div class="meal-slot meal-slot-breakfast"><div class="meal-slot-label">Breakfast</div><div id="meal-breakfast" class="task-list"></div></div>
+                <div class="meal-slot meal-slot-lunch"><div class="meal-slot-label">Lunch</div><div id="meal-lunch" class="task-list"></div></div>
+                <div class="meal-slot meal-slot-dinner"><div class="meal-slot-label">Dinner</div><div id="meal-dinner" class="task-list"></div></div>
               </section>
               <section class="meal-column meal-column-wish">
                 <div class="meal-wish-header"><h3>Wish menu</h3><button id="open-wish-modal" type="button" class="compact-button">+ Add wish</button></div>

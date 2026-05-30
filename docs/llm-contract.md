@@ -1,6 +1,6 @@
 # LLM Contract
 
-The parser accepts short, incomplete baby activity text and returns event candidates. Controlled UI shortcut buttons bypass LLM provider calls and use the local heuristic parser; the LLM contract applies to free-form natural-language input. LLM provider parsing may return multiple events from one input when the text contains multiple baby activities; the local heuristic parser may still return one event per input.
+The parser accepts short, incomplete baby activity text and returns event candidates. Controlled UI shortcut buttons bypass LLM provider calls and use the local heuristic parser; the LLM contract applies to free-form natural-language input. LLM provider parsing may return multiple events from one input when the text contains multiple baby activities; the local heuristic parser also returns multiple events when clear connector words combine supported activities.
 
 ## MVP Event Types
 
@@ -61,9 +61,10 @@ Examples:
 분유 먹음 -> feeding_milk, time from current time, amount inferred
 ate formula 12 ml at 1:20 pm today -> feeding_milk, explicit time, explicit amount
 formula 12 ml and dirty diaper at 1:20 pm -> feeding_milk + diaper, shared explicit time
-낮잠 -> sleep start, start from current time, end predicted
+낮잠 -> sleep start, start from current time, remains open until a wake/end event or another awake-only activity closes it
 낮잠 잤음 -> sleep completed, end from current time, start inferred
 깸 -> closes open sleep session if one exists
+분유 먹음 / 고구마 먹음 / 응가 while sleep is open -> first auto-closes the open sleep session at the activity time
 고구마 먹음 -> feeding_solid, time from current time, amount inferred
 응가 -> diaper dirty, time from current time
 ```

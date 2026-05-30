@@ -5,7 +5,7 @@ import { parseBabyLogWithProvider } from './src/domain/log-parser-orchestrator.j
 import { applyInferences } from './src/domain/inference-engine.js';
 import { getProviderModelOptions, normalizeLLMProvider } from './src/domain/llm-provider.js';
 import { completedOpenSleepUpdate, createAutoWakeEvents, findOpenSleep, linkSleepSessions } from './src/domain/sleep-session.js';
-import { answerSimpleQuestion, buildTodaySummary } from './src/domain/summary-builder.js';
+import { answerSimpleQuestion, buildTodayContext, buildTodaySummary } from './src/domain/summary-builder.js';
 import { defaultAuthorId } from './src/domain/profile-defaults.js';
 import {
   clearOAuthStateCookie,
@@ -20,6 +20,7 @@ import {
 } from './src/server/auth.js';
 import { createBabyStore, getStorageConfig } from './src/server/db/store-factory.js';
 import { createId } from './src/utils/ids.js';
+import { colorForBabyEventType } from './src/utils/tracker-colors.js';
 
 const port = Number(process.env.PORT || 4174);
 const root = resolve('.');
@@ -316,7 +317,11 @@ async function handleApi(request, response) {
       const today = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
       const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
       const events = await store.listEventsForDay(today, { ...scope, timezone });
-      sendJson(response, 200, { events, summary: buildTodaySummary(events) });
+      sendJson(response, 200, {
+        events,
+        summary: buildTodaySummary(events),
+        context: buildTodayContext(events, { selectedDay: today, today: localDateKeyFromIso(new Date().toISOString(), timezone), now: new Date() }),
+      });
       return;
     }
     if (request.method === 'GET' && requestUrl.pathname === '/api/logs/calendar') {
@@ -330,10 +335,7 @@ async function handleApi(request, response) {
         const day = localDateKeyFromIso(value, timezone);
         if (!day.startsWith(month)) continue;
         if (!days[day]) days[day] = [];
-        const color = event.type === 'sleep' ? '#6366f1'
-          : event.type === 'feeding_milk' ? '#0ea5e9'
-            : event.type === 'feeding_solid' ? '#f59e0b'
-              : event.type === 'diaper' ? '#22c55e' : '#9ca3af';
+        const color = colorForBabyEventType(event.type);
         if (!days[day].includes(color)) days[day].push(color);
       }
       sendJson(response, 200, { days });

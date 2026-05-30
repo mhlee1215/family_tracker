@@ -1,3 +1,5 @@
+import { babyActionIconColors, babySummaryLabelColors, mealSlotColors } from '../src/utils/tracker-colors.js';
+
 const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
 
@@ -5,12 +7,21 @@ const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
 const swipeState = { openItem: null, nextId: 0 };
 
+const patternEventTypes = [
+  { type: 'sleep', label: 'Sleep' },
+  { type: 'feeding_milk', label: 'Milk' },
+  { type: 'feeding_solid', label: 'Baby food' },
+  { type: 'diaper', label: 'Diaper' },
+];
+
 const storageKeys = {
   theme: 'familyTracker.theme',
   activeTab: 'familyTracker.activeTab',
   mealsLegacy: 'familyTracker.meals',
   timelineSort: 'familyTracker.timelineSort',
   timelineFilter: 'familyTracker.timelineFilter',
+  recentBabyLogs: 'familyTracker.recentBabyLogs',
+  patternTypes: 'familyTracker.patternTypes',
 };
 
 const copy = {
@@ -19,7 +30,7 @@ const copy = {
   tomorrow: 'Tomorrow',
   saving: 'Saving...',
   saveFailed: 'Could not save.',
-  logPlaceholder: 'formula, nap, woke up, sweet potato',
+  logPlaceholder: 'Try: 분유 120 먹고 응가했어',
   askPlaceholder: 'How much sleep today?',
   emptyTimeline: 'No records for this date yet.',
   emptyFilteredTimeline: 'No records match this filter.',
@@ -29,17 +40,17 @@ const copy = {
     { label: 'Formula', value: 'formula', icon: 'formula' },
     { label: 'Breast', value: 'breast milk', icon: 'breast' },
     { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Dirty', value: 'dirty diaper', icon: 'dirty' },
-    { label: 'Wet', value: 'wet diaper', icon: 'wet' },
-    { label: 'Solids', value: 'solids eaten', icon: 'solids' },
+    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
+    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
+    { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
   ],
   tabletActions: [
     { label: 'Formula', value: 'formula', icon: 'formula' },
     { label: 'Breast', value: 'breast milk', icon: 'breast' },
-    { label: 'Solids', value: 'solids eaten', icon: 'solids' },
+    { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
     { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Dirty', value: 'dirty diaper', icon: 'dirty' },
-    { label: 'Wet', value: 'wet diaper', icon: 'wet' },
+    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
+    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
     { label: 'Note', value: '', icon: 'note' },
   ],
 };
@@ -47,6 +58,8 @@ const copy = {
 const state = {
   events: [],
   summary: null,
+  todayContext: null,
+  recentBabyLogs: loadRecentBabyLogs(),
   user: null,
   profile: null,
   growthRecords: [],
@@ -71,6 +84,11 @@ const state = {
   llmConfig: { provider: 'mock', model: 'mock-local', providers: [] },
   timelineSort: normalizeTimelineSort(localStorage.getItem(storageKeys.timelineSort)),
   timelineFilter: normalizeTimelineFilter(localStorage.getItem(storageKeys.timelineFilter)),
+  patternDays: [],
+  patternLoading: false,
+  patternError: '',
+  patternRequestId: 0,
+  patternTypes: normalizePatternTypes(localStorage.getItem(storageKeys.patternTypes)),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -86,7 +104,9 @@ const elements = {
   answer: $('#answer'),
   timeline: $('#timeline'),
   summary: $('#summary'),
+  todayContext: $('#today-context'),
   sleepStatus: $('#sleep-status'),
+  babyPatterns: $('#baby-patterns'),
   growthSummary: $('#growth-summary'),
   babySettingsPanel: $('#baby-settings-panel'),
   openBabySummary: $('#open-baby-summary'),
@@ -466,6 +486,9 @@ async function saveLog(text, options = {}) {
     elements.answer.textContent = payload.error || copy.saveFailed;
     return;
   }
+  const savedCount = (payload.events || []).filter((event) => !event.hiddenFromTimeline).length;
+  rememberRecentBabyLog(cleanText, payload.events || []);
+  elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
   state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
   await loadToday();
 }
@@ -482,7 +505,10 @@ async function loadToday() {
   state.events = payload.events || [];
   state.summary = payload.summary;
   state.babyActionLog = actionLogResponse.ok ? actionLogPayload.logs || [] : [];
+  state.todayContext = payload.context || buildClientTodayContext(state.events);
+  seedSelectedDayPattern();
   renderBaby();
+  loadBabyPatterns();
 }
 
 async function loadBabyProfile() {
@@ -979,7 +1005,9 @@ function renderAuthState() {
 function renderBaby() {
   renderDayControls();
   renderSummary();
+  renderTodayContext();
   renderSleepStatus();
+  renderBabyPatterns();
   renderQuickActions();
   renderTabletActions();
   renderGrowthSummary();
@@ -1017,9 +1045,11 @@ function renderBabySettings() {
 
 function renderQuickActions() {
   const openSleep = currentOpenSleep();
-  elements.quickActions.replaceChildren(...copy.quickActions.map((action) => (
+  const baseButtons = copy.quickActions.map((action) => (
     makeBabyActionButton(resolveSleepAction(action, openSleep), 'quick-action-button')
-  )));
+  ));
+  const suggestionButtons = state.recentBabyLogs.slice(0, 3).map(makeRecentSuggestionButton);
+  elements.quickActions.replaceChildren(...baseButtons, ...suggestionButtons);
 }
 
 function renderTabletActions() {
@@ -1036,10 +1066,25 @@ function resolveSleepAction(action, openSleep) {
     : action;
 }
 
+function makeRecentSuggestionButton(item) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'quick-action-button suggested-action';
+  button.innerHTML = `${actionIcon('note')}<span>${escapeHtml(item.text)}</span>`;
+  button.title = 'Suggested recent log';
+  button.addEventListener('click', () => {
+    elements.logInput.value = item.text;
+    elements.logInput.focus();
+  });
+  return button;
+}
+
 function makeBabyActionButton(action, className) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = className;
+  const accentColor = babyActionIconColors[action.icon];
+  if (accentColor) button.style.setProperty('--tracker-accent', accentColor);
   if (action.activeSleep) button.classList.add('sleep-active');
   button.innerHTML = `${actionIcon(action.icon)}<span>${escapeHtml(action.label)}</span>`;
   if (action.value) {
@@ -1053,16 +1098,337 @@ function makeBabyActionButton(action, className) {
 function renderSummary() {
   const summary = state.summary || {};
   elements.summary.replaceChildren(
-    summaryItem('Sleep', `${summary.sleepMinutes || 0} min`),
-    summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`),
-    summaryItem('Solids', `${summary.solidCount || 0}x`),
+    summaryItem('Sleep', `${summary.sleepMinutes || 0} min`, babySummaryLabelColors.Sleep),
+    summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`, babySummaryLabelColors.Milk),
+    summaryItem('Baby food', `${summary.solidCount || 0}x`),
     summaryItem('Diaper', `${summary.diaperCount || 0}x`),
   );
 }
 
-function summaryItem(label, value) {
+function renderTodayContext() {
+  if (!elements.todayContext) return;
+  const context = state.todayContext || buildClientTodayContext(state.events);
+  const cards = [
+    contextCard('Last milk', milkContextLabel(context.lastMilk), 'feeding_milk'),
+    contextCard('Last diaper', diaperContextLabel(context.lastDiaper), 'diaper'),
+    contextCard('Sleep', sleepContextLabel(context.sleep), 'sleep'),
+    contextCard('AI checks', estimateContextLabel(context), 'all'),
+  ];
+  elements.todayContext.replaceChildren(...cards);
+}
+
+function contextCard(label, value, filter) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'today-context-card';
+  button.dataset.filter = filter;
+  button.innerHTML = `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>`;
+  button.addEventListener('click', () => {
+    if (filter !== 'all') {
+      state.timelineFilter = normalizeTimelineFilter(filter);
+      localStorage.setItem(storageKeys.timelineFilter, state.timelineFilter);
+      renderTimelineControls();
+      renderTimeline();
+    }
+    elements.timeline?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  return button;
+}
+
+function milkContextLabel(item) {
+  if (!item) return 'No milk yet';
+  return item.amountMl ? `${item.label} · ${item.amountMl}ml` : item.label;
+}
+
+function diaperContextLabel(item) {
+  if (!item) return 'No diaper yet';
+  if (item.diaperKind === 'dirty') return `${item.label} · poop`;
+  return item.label;
+}
+
+function sleepContextLabel(item) {
+  if (!item) return 'No sleep yet';
+  return item.label || (item.state === 'ongoing' ? 'Sleeping now' : 'Logged');
+}
+
+function estimateContextLabel(context) {
+  const inferred = context?.inferredFieldCount || 0;
+  const corrected = context?.correctedFieldCount || 0;
+  if (corrected) return `${inferred} estimated · ${corrected} corrected`;
+  if (inferred) return `${inferred} estimated`;
+  return 'No estimates';
+}
+
+function seedSelectedDayPattern() {
+  state.patternDays = patternDayKeys(state.selectedDay).map((day) => ({
+    day,
+    events: day === state.selectedDay ? state.events : [],
+  }));
+  state.patternError = '';
+}
+
+async function loadBabyPatterns() {
+  if (!elements.babyPatterns || !state.user) return;
+  const requestId = state.patternRequestId + 1;
+  state.patternRequestId = requestId;
+  state.patternLoading = true;
+  renderBabyPatterns();
+  const days = patternDayKeys(state.selectedDay);
+  try {
+    const patternDays = await Promise.all(days.map(async (day) => {
+      if (day === state.selectedDay) return { day, events: state.events };
+      const params = new URLSearchParams({ day, timezone: localTimezone() });
+      const response = await fetch(`/api/logs/today?${params.toString()}`);
+      if (!response.ok) throw new Error(`Could not load ${day}`);
+      const payload = await response.json();
+      return { day, events: payload.events || [] };
+    }));
+    if (requestId !== state.patternRequestId) return;
+    state.patternDays = patternDays;
+    state.patternError = '';
+  } catch {
+    if (requestId !== state.patternRequestId) return;
+    state.patternError = 'Could not load weekly patterns.';
+  } finally {
+    if (requestId === state.patternRequestId) {
+      state.patternLoading = false;
+      renderBabyPatterns();
+    }
+  }
+}
+
+function renderBabyPatterns() {
+  if (!elements.babyPatterns) return;
+  const days = state.patternDays.length ? state.patternDays : patternDayKeys(state.selectedDay).map((day) => ({ day, events: [] }));
+  const visibleTypes = new Set(state.patternTypes);
+  const flatEvents = days.flatMap(({ day, events }) => (events || [])
+    .filter((event) => !event.hiddenFromTimeline && visibleTypes.has(event.type))
+    .map((event) => ({ ...event, patternDay: day })));
+  const range = `${shortDayLabel(days[0]?.day)} – ${shortDayLabel(days.at(-1)?.day)}`;
+  elements.babyPatterns.innerHTML = `
+    <div class="baby-patterns-header">
+      <div>
+        <span class="eyebrow">Patterns</span>
+        <h2>7-day rhythm</h2>
+        <p>${escapeHtml(range)} · 24-hour lanes from recent baby logs</p>
+      </div>
+      <div class="pattern-status">${state.patternLoading ? 'Refreshing…' : `${flatEvents.length} visible logs`}</div>
+    </div>
+    ${state.patternError ? `<p class="pattern-error">${escapeHtml(state.patternError)}</p>` : ''}
+    <div class="pattern-type-toggles" aria-label="Pattern event filters">
+      ${patternEventTypes.map((item) => patternTypeToggle(item, visibleTypes.has(item.type))).join('')}
+    </div>
+    <div class="pattern-chart-shell">
+      <div class="pattern-time-axis" aria-hidden="true">${[0, 6, 12, 18, 24].map((hour) => `<span style="top:${hour / 24 * 100}%">${String(hour).padStart(2, '0')}</span>`).join('')}</div>
+      <div class="pattern-chart" role="img" aria-label="Weekly baby activity pattern chart">
+        ${days.map(({ day, events }) => patternDayColumn(day, events || [], visibleTypes)).join('')}
+      </div>
+    </div>
+    <div class="pattern-legend" aria-label="Pattern legend">
+      ${patternEventTypes.map((item) => `<span><i class="pattern-swatch pattern-${item.type}"></i>${escapeHtml(item.label)}</span>`).join('')}
+    </div>
+    <section class="pattern-insights" aria-label="Interval insights">
+      ${patternInsightCards(days).join('')}
+    </section>
+  `;
+  elements.babyPatterns.querySelectorAll('[data-pattern-type]').forEach((button) => {
+    button.addEventListener('click', () => togglePatternType(button.dataset.patternType));
+  });
+}
+
+function patternTypeToggle(item, active) {
+  return `<button type="button" class="pattern-toggle${active ? ' active' : ''}" data-pattern-type="${escapeHtml(item.type)}" aria-pressed="${active}">${escapeHtml(item.label)}</button>`;
+}
+
+function togglePatternType(type) {
+  const next = new Set(state.patternTypes);
+  if (next.has(type) && next.size > 1) next.delete(type);
+  else next.add(type);
+  state.patternTypes = [...next].filter((item) => patternEventTypes.some((eventType) => eventType.type === item));
+  localStorage.setItem(storageKeys.patternTypes, state.patternTypes.join(','));
+  renderBabyPatterns();
+}
+
+function patternDayColumn(day, events, visibleTypes) {
+  const markers = events
+    .filter((event) => !event.hiddenFromTimeline && visibleTypes.has(event.type))
+    .map((event) => patternMarker(day, event))
+    .filter(Boolean)
+    .join('');
+  return `
+    <article class="pattern-day" aria-label="${escapeHtml(dayHeading(day))}">
+      <div class="pattern-day-lane">${markers}</div>
+      <strong>${escapeHtml(patternDayName(day))}</strong>
+      <span>${escapeHtml(shortDayLabel(day))}</span>
+    </article>
+  `;
+}
+
+function patternMarker(day, event) {
+  const range = eventMinuteRange(day, event);
+  if (!range) return '';
+  const title = `${eventTitle(event)} · ${patternTimeRangeLabel(day, event, range)}`;
+  const poop = event.type === 'diaper' && event.diaperKind?.value === 'dirty';
+  const estimated = Object.values(event).some((value) => value?.source === 'inferred');
+  const style = `top:${range.start / 1440 * 100}%;height:${Math.max(0.6, (range.end - range.start) / 1440 * 100)}%;`;
+  return `<span class="pattern-marker pattern-${event.type}${poop ? ' pattern-poop' : ''}${estimated ? ' pattern-estimated' : ''}" style="${style}" title="${escapeHtml(title)}">${poop ? '💩' : ''}</span>`;
+}
+
+function eventMinuteRange(day, event) {
+  const startValue = event.type === 'sleep' ? (event.startAt?.value || event.occurredAt?.value) : eventTimeValue(event);
+  if (!startValue) return null;
+  const dayStart = dateFromKey(day).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+  const startMs = new Date(startValue).getTime();
+  if (!Number.isFinite(startMs)) return null;
+  let endMs = startMs + 12 * 60 * 1000;
+  if (event.type === 'sleep') {
+    const explicitEnd = event.endAt?.value ? new Date(event.endAt.value).getTime() : NaN;
+    const durationMs = Number(event.durationMinutes?.value) * 60 * 1000;
+    if (Number.isFinite(explicitEnd)) endMs = explicitEnd;
+    else if (Number.isFinite(durationMs) && durationMs > 0) endMs = startMs + durationMs;
+    else endMs = startMs + 45 * 60 * 1000;
+  }
+  const clampedStart = Math.max(dayStart, startMs);
+  const clampedEnd = Math.min(dayEnd, Math.max(endMs, startMs + 8 * 60 * 1000));
+  if (clampedEnd <= dayStart || clampedStart >= dayEnd) return null;
+  return {
+    start: Math.max(0, Math.round((clampedStart - dayStart) / 60000)),
+    end: Math.min(1440, Math.round((clampedEnd - dayStart) / 60000)),
+  };
+}
+
+function patternTimeRangeLabel(day, event, range) {
+  const start = minutesToClock(range.start);
+  const end = minutesToClock(range.end);
+  return event.type === 'sleep' ? `${start}–${end}` : start;
+}
+
+function patternInsightCards(days) {
+  const events = days.flatMap(({ events = [] }) => events).filter((event) => !event.hiddenFromTimeline);
+  const milkEvents = sortedEventsWithTime(events.filter((event) => event.type === 'feeding_milk'));
+  const diaperEvents = sortedEventsWithTime(events.filter((event) => event.type === 'diaper'));
+  const poopEvents = diaperEvents.filter((event) => event.diaperKind?.value === 'dirty');
+  const sleepEvents = events.filter((event) => event.type === 'sleep' && Number(event.durationMinutes?.value) > 0 && !(event.action?.value === 'end' && event.linkedStartEventId));
+  const inferredCount = events.reduce((sum, event) => sum + Object.values(event).filter((value) => value?.source === 'inferred').length, 0);
+  return [
+    insightCard('Milk interval', averageGapLabel(milkEvents), milkEvents.length ? `${milkEvents.length} feeds · last ${timeAgoLabel(eventTimeValue(milkEvents.at(-1)))}` : 'No milk logs in range'),
+    insightCard('Sleep rhythm', averageSleepLabel(sleepEvents), sleepEvents.length ? `${sleepEvents.length} sessions · longest ${minutesLabel(Math.max(...sleepEvents.map((event) => Number(event.durationMinutes?.value || 0))))}` : 'No completed sleep logs'),
+    insightCard('Diaper rhythm', averageGapLabel(diaperEvents), poopEvents.length ? `Last poop ${timeAgoLabel(eventTimeValue(poopEvents.at(-1)))}` : 'No poop logs in range'),
+    insightCard('Data confidence', `${events.length} logs`, inferredCount ? `${inferredCount} estimated fields shown with soft edges` : 'No estimated fields in range'),
+  ];
+}
+
+function insightCard(label, value, detail) {
+  return `<article class="pattern-insight-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></article>`;
+}
+
+function sortedEventsWithTime(events) {
+  return [...events]
+    .filter((event) => eventTimeValue(event))
+    .sort((left, right) => timestamp(eventTimeValue(left)) - timestamp(eventTimeValue(right)));
+}
+
+function averageGapLabel(events) {
+  if (events.length < 2) return 'Need 2+ logs';
+  const gaps = [];
+  for (let index = 1; index < events.length; index += 1) {
+    const gap = Math.round((timestamp(eventTimeValue(events[index])) - timestamp(eventTimeValue(events[index - 1]))) / 60000);
+    if (gap > 0 && gap < 36 * 60) gaps.push(gap);
+  }
+  if (!gaps.length) return 'Need 2+ logs';
+  return `${minutesLabel(Math.round(gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length))} avg`;
+}
+
+function averageSleepLabel(events) {
+  if (!events.length) return 'Need sleep logs';
+  const minutes = events.map((event) => Number(event.durationMinutes?.value || 0)).filter((value) => value > 0);
+  if (!minutes.length) return 'Need sleep logs';
+  return `${minutesLabel(Math.round(minutes.reduce((sum, value) => sum + value, 0) / minutes.length))} avg`;
+}
+
+function minutesLabel(minutes) {
+  const safe = Math.max(0, Number(minutes) || 0);
+  const hours = Math.floor(safe / 60);
+  const rest = safe % 60;
+  if (!hours) return `${rest}m`;
+  if (!rest) return `${hours}h`;
+  return `${hours}h ${rest}m`;
+}
+
+function timeAgoLabel(value) {
+  if (!value) return 'unknown';
+  return `${minutesLabel(Math.round(Math.max(0, Date.now() - timestamp(value)) / 60000))} ago`;
+}
+
+function patternDayKeys(endDay, count = 7) {
+  const end = dateFromKey(endDay || localDateKey(new Date()));
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(end);
+    date.setDate(end.getDate() - (count - index - 1));
+    return localDateKey(date);
+  });
+}
+
+function patternDayName(day) {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(dateFromKey(day));
+}
+
+function shortDayLabel(day) {
+  if (!day) return '';
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(dateFromKey(day));
+}
+
+function minutesToClock(minutes) {
+  const safe = Math.max(0, Math.min(1440, Number(minutes) || 0));
+  const hour = Math.floor(safe / 60);
+  const minute = safe % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function buildClientTodayContext(events = []) {
+  const visible = events.filter((event) => !event.hiddenFromTimeline);
+  const now = new Date();
+  const lastMilk = latestClientEvent(visible.filter((event) => event.type === 'feeding_milk'));
+  const lastDiaper = latestClientEvent(visible.filter((event) => event.type === 'diaper'));
+  const openSleep = currentOpenSleep();
+  const lastSleep = latestClientEvent(visible.filter((event) => event.type === 'sleep' && event.status === 'completed' && !(event.action?.value === 'end' && event.linkedStartEventId)), (event) => event.endAt?.value || event.startAt?.value);
+  return {
+    lastMilk: lastMilk ? clientContextItem(lastMilk, now) : null,
+    lastDiaper: lastDiaper ? { ...clientContextItem(lastDiaper, now), diaperKind: lastDiaper.diaperKind?.value || 'wet_or_unspecified' } : null,
+    sleep: openSleep ? { state: 'ongoing', label: `${durationLabel(minutesSince(openSleep.startAt?.value, now))} sleeping` }
+      : lastSleep ? { state: 'completed', label: `Woke ${durationLabel(minutesSince(lastSleep.endAt?.value || lastSleep.startAt?.value, now))} ago` }
+        : null,
+    inferredFieldCount: visible.reduce((sum, event) => sum + Object.values(event).filter((value) => value?.source === 'inferred').length, 0),
+    correctedFieldCount: visible.reduce((sum, event) => sum + Object.values(event).filter((value) => value?.source === 'user_corrected').length, 0),
+  };
+}
+
+function latestClientEvent(events, getValue = eventTimeValue) {
+  return [...events].filter((event) => getValue(event)).sort((a, b) => timestamp(getValue(b)) - timestamp(getValue(a)))[0] || null;
+}
+
+function clientContextItem(event, now) {
+  return { eventId: event.id, label: `${durationLabel(minutesSince(eventTimeValue(event), now))} ago`, amountMl: event.amountMl?.value ?? null };
+}
+
+function minutesSince(value, now) {
+  if (!value) return 0;
+  return Math.max(0, Math.round((new Date(now) - new Date(value)) / 60000));
+}
+
+function durationLabel(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest}m`;
+  if (!rest) return `${hours}h`;
+  return `${hours}h ${rest}m`;
+}
+
+function summaryItem(label, value, accentColor = '') {
   const item = document.createElement('div');
   item.className = 'summary-item';
+  if (accentColor) item.style.setProperty('--tracker-accent', accentColor);
   item.innerHTML = `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>`;
   return item;
 }
@@ -1834,9 +2200,9 @@ function loadMealCalendarDots(monthKey) {
   Object.keys(state.meals.plannedByDay || {}).filter((day) => day.startsWith(monthKey)).forEach((day) => {
     const plan = state.meals.plannedByDay[day] || {};
     const colors = [];
-    if ((plan.breakfast || []).length) colors.push('#f59e0b');
-    if ((plan.lunch || []).length) colors.push('#22c55e');
-    if ((plan.dinner || []).length) colors.push('#8b5cf6');
+    if ((plan.breakfast || []).length) colors.push(mealSlotColors.breakfast);
+    if ((plan.lunch || []).length) colors.push(mealSlotColors.lunch);
+    if ((plan.dinner || []).length) colors.push(mealSlotColors.dinner);
     if (colors.length) dots[day] = colors;
   });
   state.mealCalendarDots = dots;
@@ -1940,9 +2306,19 @@ function renderOverviewTask(task) {
 function eventTitle(event) {
   if (event.type === 'sleep') return event.action?.value === 'end' ? 'Sleep ended' : 'Sleep';
   if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? 'Breast milk' : 'Formula';
-  if (event.type === 'feeding_solid') return event.food?.value || 'Solids';
-  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? 'Dirty diaper' : 'Diaper';
+  if (event.type === 'feeding_solid') return event.food?.value || 'Baby food';
+  if (event.type === 'diaper') return diaperTitle(event);
   return 'Log';
+}
+
+function diaperTitle(event) {
+  if (event.diaperKind?.value === 'dirty') return 'Diaper (poop)';
+  if (looksLikePeeDiaper(event.rawText)) return 'Diaper (pee)';
+  return 'Diaper';
+}
+
+function looksLikePeeDiaper(text = '') {
+  return /쉬|소변|\bwet\b|\bpee\b|ướt|\buot\b/i.test(String(text));
 }
 
 function eventMeta(event) {
@@ -1978,6 +2354,32 @@ function inferredBadges(event) {
       badge.title = `${value.basis} · confidence ${value.confidence}`;
       return badge;
     });
+}
+
+function rememberRecentBabyLog(text, events = []) {
+  if (!events.some((event) => !event.hiddenFromTimeline)) return;
+  const cleanText = String(text || '').trim();
+  if (!cleanText || cleanText.length > 120) return;
+  const existing = state.recentBabyLogs.find((item) => item.text === cleanText);
+  const next = existing
+    ? { ...existing, useCount: existing.useCount + 1, lastUsedAt: Date.now() }
+    : { text: cleanText, useCount: 1, lastUsedAt: Date.now() };
+  state.recentBabyLogs = [next, ...state.recentBabyLogs.filter((item) => item.text !== cleanText)]
+    .sort((a, b) => (b.useCount - a.useCount) || (b.lastUsedAt - a.lastUsedAt))
+    .slice(0, 5);
+  localStorage.setItem(storageKeys.recentBabyLogs, JSON.stringify(state.recentBabyLogs));
+  renderQuickActions();
+}
+
+function loadRecentBabyLogs() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKeys.recentBabyLogs) || '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item && typeof item.text === 'string').slice(0, 5)
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function refreshActiveTab() {
@@ -2082,6 +2484,12 @@ function normalizeTimelineSort(value) {
 
 function normalizeTimelineFilter(value) {
   return ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'].includes(value) ? value : 'all';
+}
+
+function normalizePatternTypes(value) {
+  const allowed = ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'];
+  const selected = String(value || '').split(',').filter((item) => allowed.includes(item));
+  return selected.length ? [...new Set(selected)] : allowed;
 }
 
 function normalizeTab(value) {

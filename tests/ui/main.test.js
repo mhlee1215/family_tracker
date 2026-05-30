@@ -309,9 +309,22 @@ describe('app/main', () => {
 
     expect(quickActions.every((button) => button.querySelector('svg'))).toBe(true);
     expect(tabletActions.every((button) => button.querySelector('svg'))).toBe(true);
+    expect(quickActions.find((button) => button.textContent.includes('Formula')).style.getPropertyValue('--tracker-accent')).toBe('#0ea5e9');
+    expect(quickActions.find((button) => button.textContent.includes('Wake')).style.getPropertyValue('--tracker-accent')).toBe('#6366f1');
+    expect(quickActions.find((button) => button.textContent.includes('Diaper (poop)')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
+    expect(quickActions.find((button) => button.textContent.includes('Baby food')).style.getPropertyValue('--tracker-accent')).toBe('#f59e0b');
     expect(document.querySelector('#quick-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (poop)');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (pee)');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Baby food');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Nap start');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Dirty');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Wet');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Solids');
     expect(document.querySelector('#tablet-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Diaper (poop)');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Diaper (pee)');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Baby food');
     expect(document.querySelector('#tablet-actions').textContent).not.toContain('Nap start');
     expect(document.querySelector('#sleep-status button')?.querySelector('svg')).toBeTruthy();
 
@@ -372,6 +385,69 @@ describe('app/main', () => {
     expect(mealPicker.value).toBe(today);
   });
 
+  it('uses the same meal slot colors in labels and calendar dots', async () => {
+    await import('../../app/main.js?case=meal-calendar-colors');
+
+    fireEvent.click(document.querySelector('#meal-tab'));
+    fireEvent.click(document.querySelector('#meal-calendar-toggle'));
+
+    const slotLabels = Array.from(document.querySelectorAll('.meal-slot-label'));
+    expect(slotLabels.map((label) => label.textContent)).toEqual(['Breakfast', 'Lunch', 'Dinner']);
+    expect(document.querySelector('.meal-slot-breakfast')).toBeTruthy();
+    expect(document.querySelector('.meal-slot-lunch')).toBeTruthy();
+    expect(document.querySelector('.meal-slot-dinner')).toBeTruthy();
+
+    const dotStyles = Array.from(document.querySelectorAll('#meal-calendar-grid .calendar-dot'))
+      .map((dot) => dot.getAttribute('style'));
+    expect(dotStyles).toEqual(expect.arrayContaining([
+      'background:#f59e0b',
+      'background:#22c55e',
+      'background:#8b5cf6',
+    ]));
+  });
+
+  it('renders weekly baby patterns and interval insights from recent logs', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        const day = new URL(url, 'https://example.test').searchParams.get('day') || '2026-05-30';
+        const eventsByDay = {
+          '2026-05-28': [
+            { id: 'milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+            { id: 'sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T10:00:00.000Z' }, endAt: { value: '2026-05-28T11:00:00.000Z' }, durationMinutes: { value: 60 }, createdAt: '2026-05-28T10:00:00.000Z' },
+          ],
+          '2026-05-29': [
+            { id: 'milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, createdAt: '2026-05-29T08:31:00.000Z' },
+            { id: 'poop-1', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T12:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T12:00:00.000Z' },
+          ],
+          '2026-05-30': [
+            { id: 'milk-3', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-30T09:00:00.000Z' }, amountMl: { value: 140 }, createdAt: '2026-05-30T09:01:00.000Z' },
+          ],
+        };
+        return new Response(JSON.stringify({ events: eventsByDay[day] || [], summary: {}, context: null }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    window.history.replaceState({}, '', '/?day=2026-05-30');
+    await import('../../app/main.js?case=baby-patterns');
+
+    await vi.waitFor(() => expect(document.querySelector('#baby-patterns').textContent).toContain('5 visible logs'));
+    expect(document.querySelector('#baby-patterns').textContent).toContain('7-day rhythm');
+    expect(document.querySelectorAll('#baby-patterns .pattern-marker')).toHaveLength(5);
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Milk interval');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Sleep rhythm');
+    expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
+
+    fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));
+    expect(document.querySelector('#baby-patterns').textContent).toContain('2 visible logs');
+    expect(document.querySelectorAll('#baby-patterns .pattern-marker.pattern-feeding_milk')).toHaveLength(0);
+    localStorage.removeItem('familyTracker.patternTypes');
+  });
+
   it('sorts the baby timeline by event time and filters by log type', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
@@ -397,6 +473,10 @@ describe('app/main', () => {
     const timelineTexts = () => [...document.querySelectorAll('#timeline .raw-text')].map((node) => node.textContent);
 
     expect(timelineTexts()).toEqual(['formula', 'nap', 'wet diaper']);
+    expect([...document.querySelectorAll('#timeline .timeline-title')].map((node) => node.textContent)).toEqual(['Formula', 'Sleep', 'Diaper (pee)']);
+    expect([...document.querySelectorAll('#summary .summary-item span')].map((node) => node.textContent)).toEqual(['Sleep', 'Milk', 'Baby food', 'Diaper']);
+    expect(document.querySelector('#timeline-filter option[value=\"feeding_solid\"]').textContent).toBe('Baby food');
+    expect(document.querySelector('#timeline-filter option[value=\"diaper\"]').textContent).toBe('Diaper');
     expect(document.querySelector('#event-count').textContent).toBe('3 of 3 items');
 
     fireEvent.change(document.querySelector('#timeline-sort'), { target: { value: 'desc' } });
@@ -409,6 +489,71 @@ describe('app/main', () => {
     fireEvent.change(document.querySelector('#timeline-filter'), { target: { value: 'feeding_solid' } });
     expect(document.querySelector('#timeline').textContent).toContain('No records match this filter.');
     expect(document.querySelector('#event-count').textContent).toBe('0 of 3 items');
+  });
+
+  it('shows LLM-first baby context, save feedback, and recent suggestions', async () => {
+    let todayEvents = [
+      {
+        id: 'event-1',
+        type: 'feeding_milk',
+        rawText: 'formula',
+        occurredAt: { value: '2026-05-30T08:00:00.000Z' },
+        amountMl: { value: 120, source: 'inferred', basis: 'profile_or_age_default', confidence: 0.62 },
+        parserInfo: { kind: 'llm', provider: 'openai', model: 'gpt-5.4-mini', label: 'openai · gpt-5.4-mini' },
+        createdAt: '2026-05-30T08:01:00.000Z',
+      },
+      {
+        id: 'event-2',
+        type: 'diaper',
+        rawText: 'poop diaper',
+        occurredAt: { value: '2026-05-30T09:00:00.000Z' },
+        diaperKind: { value: 'dirty', source: 'explicit' },
+        parserInfo: { kind: 'heuristic', provider: 'local', model: 'rule-based-mvp' },
+        createdAt: '2026-05-30T09:01:00.000Z',
+      },
+    ];
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url === '/api/logs' && init.method === 'POST') {
+        todayEvents = [
+          ...todayEvents,
+          { id: 'event-3', type: 'feeding_milk', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, amountMl: { value: 120, source: 'explicit' }, createdAt: '2026-05-30T10:00:00.000Z' },
+          { id: 'event-4', type: 'diaper', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, diaperKind: { value: 'dirty', source: 'explicit' }, createdAt: '2026-05-30T10:00:00.000Z' },
+        ];
+        return new Response(JSON.stringify({ events: todayEvents.slice(-2) }), { status: 200 });
+      }
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: todayEvents,
+          summary: { sleepMinutes: 0, milkCount: 1, milkAmountMl: 120, solidCount: 0, diaperCount: 1 },
+          context: {
+            lastMilk: { label: '2h ago', amountMl: 120 },
+            lastDiaper: { label: '1h ago', diaperKind: 'dirty' },
+            sleep: null,
+            inferredFieldCount: 1,
+            correctedFieldCount: 0,
+          },
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-llm-context');
+
+    await vi.waitFor(() => expect(document.querySelector('#today-context').textContent).toContain('2h ago · 120ml'));
+    expect(document.querySelector('#today-context').textContent).toContain('1h ago · poop');
+    expect(document.querySelector('#today-context').textContent).toContain('1 estimated');
+    expect(document.querySelector('#timeline').textContent).toContain('LLM · gpt-5.4-mini');
+    expect(document.querySelector('#timeline').textContent).toContain('Amount estimated');
+
+    fireEvent.input(document.querySelector('#log-input'), { target: { value: '분유 120 먹고 응가했어' } });
+    fireEvent.submit(document.querySelector('#log-form'));
+
+    await vi.waitFor(() => expect(document.querySelector('#answer').textContent).toBe('2 logs saved'));
+    expect([...document.querySelectorAll('#quick-actions .suggested-action span')].map((node) => node.textContent)).toContain('분유 120 먹고 응가했어');
   });
 
   it('sends edit and delete requests for baby timeline logs', async () => {

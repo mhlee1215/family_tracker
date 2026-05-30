@@ -205,6 +205,8 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
 
     await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
+    await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Diaper (pee)']);
+    await expect(page.locator('#summary .summary-item span')).toHaveText(['Sleep', 'Milk', 'Baby food', 'Diaper']);
     await app.captureStep('Timeline sorted oldest first', 'The default timeline order follows event time from earliest to latest.');
 
     await page.locator('#timeline-sort').selectOption('desc');
@@ -215,6 +217,101 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#timeline .raw-text')).toHaveText(['nap']);
     await expect(page.locator('#event-count')).toHaveText('1 of 3 items');
     await app.captureStep('Timeline filtered to sleep', 'The filter control limits visible timeline items to sleep logs.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
+  test('baby weekly patterns summarize seven-day rhythm and type filters', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const eventsByDay = {
+      '2026-05-28': [
+        { id: 'pattern-e2e-milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+        { id: 'pattern-e2e-sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T10:00:00.000Z' }, endAt: { value: '2026-05-28T11:00:00.000Z' }, durationMinutes: { value: 60 }, createdAt: '2026-05-28T10:00:00.000Z' },
+      ],
+      '2026-05-29': [
+        { id: 'pattern-e2e-milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, createdAt: '2026-05-29T08:31:00.000Z' },
+        { id: 'pattern-e2e-poop-1', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T12:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T12:00:00.000Z' },
+      ],
+      '2026-05-30': [
+        { id: 'pattern-e2e-milk-3', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-30T09:00:00.000Z' }, amountMl: { value: 140 }, createdAt: '2026-05-30T09:01:00.000Z' },
+      ],
+    };
+
+    await page.route('**/api/logs/today**', async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const day = requestUrl.searchParams.get('day') || '2026-05-30';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: eventsByDay[day] || [], summary: {}, context: null }),
+      });
+    });
+
+    const loginResponse = await page.request.post('/api/auth/dev', { data: { id: 'admin' } });
+    expect(loginResponse.ok()).toBeTruthy();
+    await page.goto('/?day=2026-05-30');
+
+    await expect(page.locator('#baby-patterns')).toContainText('7-day rhythm');
+    await expect(page.locator('#baby-patterns')).toContainText('5 visible logs');
+    await expect(page.locator('#baby-patterns .pattern-marker')).toHaveCount(5);
+    await expect(page.locator('#baby-patterns')).toContainText('Milk interval');
+    await expect(page.locator('#baby-patterns')).toContainText('Sleep rhythm');
+    await app.captureStep('Weekly baby pattern rendered', 'The pattern chart loaded seven calendar lanes and interval cards from recent baby logs.');
+
+    await page.locator('#baby-patterns .pattern-toggle', { hasText: 'Milk' }).click();
+    await expect(page.locator('#baby-patterns')).toContainText('2 visible logs');
+    await expect(page.locator('#baby-patterns .pattern-marker.pattern-feeding_milk')).toHaveCount(0);
+    await app.captureStep('Filtered milk out of the pattern chart', 'The type toggle hides milk markers while preserving other rhythm cards.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
+  test('LLM-first baby context and recent suggestions update after mixed log save', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let events = [];
+
+    await page.route('**/api/logs/today**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          events,
+          summary: { sleepMinutes: 0, milkCount: events.filter((event) => event.type === 'feeding_milk').length, milkAmountMl: 120, solidCount: 0, diaperCount: events.filter((event) => event.type === 'diaper').length },
+          context: events.length ? {
+            lastMilk: { label: '0m ago', amountMl: 120 },
+            lastDiaper: { label: '0m ago', diaperKind: 'dirty' },
+            sleep: null,
+            inferredFieldCount: 0,
+            correctedFieldCount: 0,
+          } : { lastMilk: null, lastDiaper: null, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 },
+        }),
+      });
+    });
+    await page.route('**/api/logs', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      events = [
+        { id: 'e2e-milk', type: 'feeding_milk', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, amountMl: { value: 120, source: 'explicit' }, parserInfo: { kind: 'llm', provider: 'openai', model: 'gpt-5.4-mini' }, createdAt: '2026-05-30T10:00:00.000Z' },
+        { id: 'e2e-diaper', type: 'diaper', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, diaperKind: { value: 'dirty', source: 'explicit' }, parserInfo: { kind: 'llm', provider: 'openai', model: 'gpt-5.4-mini' }, createdAt: '2026-05-30T10:00:00.000Z' },
+      ];
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events }) });
+    });
+
+    await app.loginAsDevAdmin();
+    await page.locator('#log-input').fill('분유 120 먹고 응가했어');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await expect(page.locator('#answer')).toHaveText('2 logs saved');
+    await expect(page.locator('#today-context')).toContainText('0m ago · 120ml');
+    await expect(page.locator('#today-context')).toContainText('0m ago · poop');
+    await expect(page.locator('#timeline .parser-badge-llm').first()).toContainText('LLM');
+    await expect(page.locator('#quick-actions .suggested-action')).toContainText('분유 120 먹고 응가했어');
+    await app.captureStep('Saved mixed baby log with context', 'A mixed natural-language log produced two visible records, updated Today Context, and became a recent suggestion.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
@@ -369,13 +466,14 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
 
     await page.locator('#menu-toggle').click();
-    await expect(page.locator('#llm-provider-list')).toContainText('OpenAI');
-    await expect(page.locator('#llm-provider-list')).toContainText('Mistral');
+    await expect(page.locator('#menu-panel')).toBeVisible();
+    await expect(page.locator('#menu-panel #llm-provider-list')).toContainText('OpenAI');
+    await expect(page.locator('#menu-panel #llm-provider-list')).toContainText('Mistral');
     const openAiOption = page.locator('#llm-provider-select option[value="openai"]');
     await expect(openAiOption).toHaveAttribute('disabled', '');
     await app.captureStep('Opened LLM provider settings', 'Account menu shows implemented providers and marks OpenAI as unavailable before an API key is saved.');
 
-    const openAiCard = page.locator('.llm-provider-card', { hasText: 'OpenAI' });
+    const openAiCard = page.locator('#menu-panel .llm-provider-card', { hasText: 'OpenAI' });
     await openAiCard.locator('[data-llm-key]').fill('sk-e2e-placeholder');
     await openAiCard.locator('[data-llm-provider="openai"]').click();
 

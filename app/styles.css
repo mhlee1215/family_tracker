@@ -20,6 +20,13 @@
   --on-dark: #ffffff;
   --badge-bg: #fafafc;
   --badge-text: #333333;
+  --tracker-baby-sleep: #6366f1;
+  --tracker-baby-milk: #0ea5e9;
+  --tracker-baby-solids: #f59e0b;
+  --tracker-baby-diaper: #22c55e;
+  --tracker-meal-breakfast: #f59e0b;
+  --tracker-meal-lunch: #22c55e;
+  --tracker-meal-dinner: #8b5cf6;
   --product-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
   background: var(--canvas-parchment);
   color: var(--ink);
@@ -467,6 +474,7 @@ input {
 
 .summary-item {
   min-height: 148px;
+  border-top: 4px solid var(--tracker-accent, transparent);
   border-right: 1px solid var(--hairline);
   background: var(--canvas-parchment);
   padding: 32px 24px;
@@ -494,6 +502,244 @@ input {
   font-weight: 600;
   line-height: 1.12;
   letter-spacing: 0;
+}
+
+
+.today-context {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.today-context-card {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  min-height: 88px;
+  border-radius: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  padding: 18px min(24px, 4vw);
+  text-align: left;
+}
+
+.today-context-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.today-context-card strong {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(17px, 2vw, 24px);
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.today-context-card:hover {
+  background: var(--surface-pearl);
+}
+
+.baby-patterns {
+  display: grid;
+  gap: 22px;
+  border-top: 1px solid var(--hairline);
+  background: var(--canvas);
+  padding: 48px min(80px, 7vw);
+}
+
+.baby-patterns-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.baby-patterns-header h2 {
+  margin: 4px 0 6px;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 600;
+  line-height: 1.07;
+  letter-spacing: -0.28px;
+}
+
+.baby-patterns-header p,
+.pattern-status,
+.pattern-error {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.43;
+}
+
+.pattern-status {
+  white-space: nowrap;
+}
+
+.pattern-error {
+  color: #b00020;
+}
+
+.pattern-type-toggles,
+.pattern-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pattern-toggle {
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--ink-muted);
+  font-size: 14px;
+  padding: 8px 14px;
+}
+
+.pattern-toggle.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.pattern-chart-shell {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.pattern-time-axis {
+  position: relative;
+  min-height: 420px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-time-axis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.pattern-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(72px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.pattern-day {
+  display: grid;
+  gap: 8px;
+  min-width: 72px;
+}
+
+.pattern-day-lane {
+  position: relative;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(12.5% - 1px), var(--divider-soft) calc(12.5% - 1px), var(--divider-soft) 12.5%),
+    var(--canvas-parchment);
+}
+
+.pattern-day strong,
+.pattern-day span {
+  display: block;
+  text-align: center;
+}
+
+.pattern-day strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.pattern-day span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-marker {
+  position: absolute;
+  right: 8px;
+  left: 8px;
+  min-height: 4px;
+  border-radius: 9999px;
+  background: var(--pattern-color, var(--primary));
+  color: var(--on-primary);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+}
+
+.pattern-estimated {
+  opacity: 0.54;
+  outline: 1px dashed color-mix(in srgb, var(--pattern-color, var(--primary)) 70%, white);
+  outline-offset: 2px;
+}
+
+.pattern-sleep { --pattern-color: #6f6ee8; }
+.pattern-feeding_milk { --pattern-color: #f5b700; }
+.pattern-feeding_solid { --pattern-color: #3fc8bd; }
+.pattern-diaper { --pattern-color: #c58b5f; }
+.pattern-poop { --pattern-color: #9a6a3a; }
+
+.pattern-legend {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pattern-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--pattern-color, var(--primary));
+}
+
+.pattern-insights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+}
+
+.pattern-insight-card {
+  display: grid;
+  gap: 6px;
+  background: var(--canvas);
+  padding: 18px;
+}
+
+.pattern-insight-card span,
+.pattern-insight-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pattern-insight-card strong {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.12;
 }
 
 .sleep-status {
@@ -628,7 +874,7 @@ label {
   gap: 8px;
   background: var(--canvas);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 3px 0 var(--tracker-accent, transparent);
   font-size: 14px;
   padding: 12px 16px;
 }
@@ -636,12 +882,14 @@ label {
 .quick-actions button svg,
 .tablet-actions button svg,
 .sleep-status-action svg {
+  color: var(--tracker-accent, currentColor);
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
 }
 
 .quick-actions button.sleep-active,
+.quick-actions button.suggested-action,
 .tablet-actions button.sleep-active,
 .sleep-status-action {
   color: var(--primary);
@@ -1054,8 +1302,28 @@ label {
     min-width: 86px;
   }
 
-  .summary-strip {
+  .summary-strip,
+  .today-context,
+  .pattern-insights {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .baby-patterns {
+    padding: 48px 16px;
+  }
+
+  .baby-patterns-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pattern-chart-shell {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .pattern-time-axis,
+  .pattern-day-lane {
+    min-height: 360px;
   }
 
   .summary-item {
@@ -1204,7 +1472,11 @@ label {
 .meal-columns { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
 .meal-column { border:1px solid var(--hairline); border-radius:12px; background:var(--canvas); padding:12px; }
 .meal-slot { margin-bottom:10px; }
-.meal-slot-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
+.meal-slot-breakfast { --tracker-accent: var(--tracker-meal-breakfast); }
+.meal-slot-lunch { --tracker-accent: var(--tracker-meal-lunch); }
+.meal-slot-dinner { --tracker-accent: var(--tracker-meal-dinner); }
+.meal-slot-label { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-bottom:6px; }
+.meal-slot-label::before { content:''; width:8px; height:8px; border-radius:9999px; background:var(--tracker-accent); }
 .meal-wish-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .meal-placeholder { width:100%; min-height:64px; border:1px dashed var(--hairline); background:var(--canvas-parchment); color:var(--muted); }
 .meal-item {
