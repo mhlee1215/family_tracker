@@ -72,8 +72,8 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
 
     await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
-    await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Pee diaper']);
-    await expect(page.locator('#summary .summary-item span')).toHaveText(['Sleep', 'Milk', 'Baby food', 'Pee / poop']);
+    await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Diaper (pee)']);
+    await expect(page.locator('#summary .summary-item span')).toHaveText(['Sleep', 'Milk', 'Baby food', 'Diaper']);
     await app.captureStep('Timeline sorted oldest first', 'The default timeline order follows event time from earliest to latest.');
 
     await page.locator('#timeline-sort').selectOption('desc');

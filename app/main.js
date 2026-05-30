@@ -19,7 +19,7 @@ const copy = {
   tomorrow: 'Tomorrow',
   saving: 'Saving...',
   saveFailed: 'Could not save.',
-  logPlaceholder: 'formula, nap, woke up, baby food, pee, poop',
+  logPlaceholder: 'formula, nap, woke up, baby food, diaper (pee), diaper (poop)',
   askPlaceholder: 'How much sleep today?',
   emptyTimeline: 'No logs for this date yet.',
   emptyFilteredTimeline: 'No logs match this filter.',
@@ -29,8 +29,8 @@ const copy = {
     { label: 'Formula', value: 'formula', icon: 'formula' },
     { label: 'Breast', value: 'breast milk', icon: 'breast' },
     { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Poop', value: 'poop diaper', icon: 'dirty' },
-    { label: 'Pee', value: 'pee diaper', icon: 'wet' },
+    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
+    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
     { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
   ],
   tabletActions: [
@@ -38,8 +38,8 @@ const copy = {
     { label: 'Breast', value: 'breast milk', icon: 'breast' },
     { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
     { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Poop', value: 'poop diaper', icon: 'dirty' },
-    { label: 'Pee', value: 'pee diaper', icon: 'wet' },
+    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
+    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
     { label: 'Note', value: '', icon: 'note' },
   ],
 };
@@ -1027,7 +1027,7 @@ function renderSummary() {
     summaryItem('Sleep', `${summary.sleepMinutes || 0} min`),
     summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`),
     summaryItem('Baby food', `${summary.solidCount || 0}x`),
-    summaryItem('Pee / poop', `${summary.diaperCount || 0}x`),
+    summaryItem('Diaper', `${summary.diaperCount || 0}x`),
   );
 }
 
@@ -1863,8 +1863,8 @@ function eventTitle(event) {
 }
 
 function diaperTitle(event) {
-  if (event.diaperKind?.value === 'dirty') return 'Poop diaper';
-  if (looksLikePeeDiaper(event.rawText)) return 'Pee diaper';
+  if (event.diaperKind?.value === 'dirty') return 'Diaper (poop)';
+  if (looksLikePeeDiaper(event.rawText)) return 'Diaper (pee)';
   return 'Diaper';
 }
 
