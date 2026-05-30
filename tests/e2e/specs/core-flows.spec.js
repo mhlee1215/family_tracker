@@ -121,17 +121,27 @@ test.describe('Family Tracker core flows', () => {
     expect(loginResponse.ok()).toBeTruthy();
     await page.goto('/?day=2026-05-30');
 
+    await expect(page.locator('#baby-patterns')).toBeHidden();
+    await page.locator('#open-baby-patterns').click();
+    await expect(page.locator('#baby-patterns')).toBeVisible();
     await expect(page.locator('#baby-patterns')).toContainText('7-day rhythm');
     await expect(page.locator('#baby-patterns')).toContainText('5 visible logs');
     await expect(page.locator('#baby-patterns .pattern-marker')).toHaveCount(5);
     await expect(page.locator('#baby-patterns')).toContainText('Milk interval');
     await expect(page.locator('#baby-patterns')).toContainText('Sleep rhythm');
-    await app.captureStep('Weekly baby pattern rendered', 'The pattern chart loaded seven calendar lanes and interval cards from recent baby logs.');
+    await expect(page.locator('#baby-patterns')).toContainText('Week comparison');
+    await app.captureStep('Weekly baby pattern rendered', 'The pattern panel opened from the baby menu with seven calendar lanes, interval cards, and statistics.');
 
     await page.locator('#baby-patterns .pattern-toggle', { hasText: 'Milk' }).click();
     await expect(page.locator('#baby-patterns')).toContainText('2 visible logs');
     await expect(page.locator('#baby-patterns .pattern-marker.pattern-feeding_milk')).toHaveCount(0);
     await app.captureStep('Filtered milk out of the pattern chart', 'The type toggle hides milk markers while preserving other rhythm cards.');
+
+    await page.locator('#pattern-period-days').selectOption('30');
+    await expect(page.locator('#baby-patterns')).toContainText('Monthly rhythm');
+    await page.locator('#pattern-stat-unit').selectOption('day');
+    await expect(page.locator('#baby-patterns')).toContainText('Day comparison');
+    await app.captureStep('Changed pattern period and statistics grouping', 'The same menu panel switches from weekly rhythm to monthly history and daily comparison bars.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
