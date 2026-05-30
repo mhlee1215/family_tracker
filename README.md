@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 060](https://img.shields.io/badge/build-060-0066cc)
+![Build 061](https://img.shields.io/badge/build-061-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -26,6 +26,9 @@ Designed for very short natural-language input such as `낮잠`, `깸`, `분유 
 - Stores detailed baby profile fields including birth time, height, head size, weight, and Apgar
 - Saves dated growth records for birth, current, or custom dates and shows growth history summaries with an in-section trend chart
 - Marks inferred values separately from user-provided values
+- Shows Today Context for last milk, diaper, sleep state, and estimated fields
+- Reuses successful natural-language logs as smart recent suggestions
+- Tracks staged LLM-first baby work in `docs/llm-first-baby-tracker-roadmap.md`
 - Supports core baby event types:
   - sleep
   - milk feeding

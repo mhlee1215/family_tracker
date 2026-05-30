@@ -85,8 +85,7 @@ export function parseBabyLogText(text, context = {}) {
   }
 
   if (candidates.length) {
-    candidates.sort((a, b) => b.score - a.score);
-    return [candidates[0].event];
+    return selectHeuristicEvents(candidates, lower);
   }
 
   return [{
@@ -257,6 +256,40 @@ function looksLikeDiaper(text) {
 
 function dirtyDiaper(text) {
   return /응가|똥|대변|\bdirty\b|\bpoop\b|bẩn|\bban\b/.test(text);
+}
+
+
+function selectHeuristicEvents(candidates, text) {
+  candidates.sort((a, b) => b.score - a.score);
+  if (!hasMultiActivitySignal(text)) return [candidates[0].event];
+
+  const selected = [];
+  const seenTypes = new Set();
+  for (const candidate of candidates) {
+    const event = candidate.event;
+    if (event.type === 'feeding_solid' && looksLikeMilk(text) && !hasSpecificSolidFood(text)) continue;
+    if (event.type === 'sleep' && event.action?.value === 'start' && hasExplicitSleepEndCandidate(candidates)) continue;
+    const key = event.type === 'sleep' ? `sleep:${event.action?.value || 'session'}` : event.type;
+    if (seenTypes.has(key)) continue;
+    selected.push(event);
+    seenTypes.add(key);
+  }
+
+  return selected.length ? selected : [candidates[0].event];
+}
+
+function hasMultiActivitySignal(text) {
+  const matched = [looksLikeMilk(text), looksLikeDiaper(text), looksLikeSleep(text) || looksLikeSleepEnd(text), looksLikeSolid(text) && hasSpecificSolidFood(text)]
+    .filter(Boolean).length;
+  return matched > 1 && /그리고|하고|먹고|자고|깬|후|다음|,|\/|\+|\band\b|\bthen\b|\bafter\b/.test(text);
+}
+
+function hasExplicitSleepEndCandidate(candidates) {
+  return candidates.some(({ event }) => event.type === 'sleep' && event.action?.value === 'end');
+}
+
+function hasSpecificSolidFood(text) {
+  return /이유식|밥|죽|고구마|감자|바나나|사과|소고기|닭고기|\bsolid(?:s)?\b|\bfood\b|sweet potato|dặm|\bdam\b|khoai/.test(text);
 }
 
 function milkScore(text, amount) {

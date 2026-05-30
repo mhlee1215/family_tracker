@@ -91,6 +91,53 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('LLM-first baby context and recent suggestions update after mixed log save', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let events = [];
+
+    await page.route('**/api/logs/today**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          events,
+          summary: { sleepMinutes: 0, milkCount: events.filter((event) => event.type === 'feeding_milk').length, milkAmountMl: 120, solidCount: 0, diaperCount: events.filter((event) => event.type === 'diaper').length },
+          context: events.length ? {
+            lastMilk: { label: '0m ago', amountMl: 120 },
+            lastDiaper: { label: '0m ago', diaperKind: 'dirty' },
+            sleep: null,
+            inferredFieldCount: 0,
+            correctedFieldCount: 0,
+          } : { lastMilk: null, lastDiaper: null, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 },
+        }),
+      });
+    });
+    await page.route('**/api/logs', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      events = [
+        { id: 'e2e-milk', type: 'feeding_milk', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, amountMl: { value: 120, source: 'explicit' }, parserInfo: { kind: 'llm', provider: 'openai', model: 'gpt-5.4-mini' }, createdAt: '2026-05-30T10:00:00.000Z' },
+        { id: 'e2e-diaper', type: 'diaper', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, diaperKind: { value: 'dirty', source: 'explicit' }, parserInfo: { kind: 'llm', provider: 'openai', model: 'gpt-5.4-mini' }, createdAt: '2026-05-30T10:00:00.000Z' },
+      ];
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events }) });
+    });
+
+    await app.loginAsDevAdmin();
+    await page.locator('#log-input').fill('분유 120 먹고 응가했어');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await expect(page.locator('#answer')).toHaveText('2 logs saved');
+    await expect(page.locator('#today-context')).toContainText('0m ago · 120ml');
+    await expect(page.locator('#today-context')).toContainText('0m ago · poop');
+    await expect(page.locator('#timeline .parser-badge-llm').first()).toContainText('LLM');
+    await expect(page.locator('#quick-actions .suggested-action')).toContainText('분유 120 먹고 응가했어');
+    await app.captureStep('Saved mixed baby log with context', 'A mixed natural-language log produced two visible records, updated Today Context, and became a recent suggestion.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('baby nap shortcut toggles to Wake while using heuristic button parsing', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let hasOpenSleep = false;
@@ -238,13 +285,14 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
 
     await page.locator('#menu-toggle').click();
-    await expect(page.locator('#llm-provider-list')).toContainText('OpenAI');
-    await expect(page.locator('#llm-provider-list')).toContainText('Mistral');
+    await expect(page.locator('#menu-panel')).toBeVisible();
+    await expect(page.locator('#menu-panel #llm-provider-list')).toContainText('OpenAI');
+    await expect(page.locator('#menu-panel #llm-provider-list')).toContainText('Mistral');
     const openAiOption = page.locator('#llm-provider-select option[value="openai"]');
     await expect(openAiOption).toHaveAttribute('disabled', '');
     await app.captureStep('Opened LLM provider settings', 'Account menu shows implemented providers and marks OpenAI as unavailable before an API key is saved.');
 
-    const openAiCard = page.locator('.llm-provider-card', { hasText: 'OpenAI' });
+    const openAiCard = page.locator('#menu-panel .llm-provider-card', { hasText: 'OpenAI' });
     await openAiCard.locator('[data-llm-key]').fill('sk-e2e-placeholder');
     await openAiCard.locator('[data-llm-provider="openai"]').click();
 

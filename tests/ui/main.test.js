@@ -311,8 +311,8 @@ describe('app/main', () => {
     expect(tabletActions.every((button) => button.querySelector('svg'))).toBe(true);
     expect(quickActions.find((button) => button.textContent.includes('Formula')).style.getPropertyValue('--tracker-accent')).toBe('#0ea5e9');
     expect(quickActions.find((button) => button.textContent.includes('Wake')).style.getPropertyValue('--tracker-accent')).toBe('#6366f1');
-    expect(quickActions.find((button) => button.textContent.includes('Dirty')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
-    expect(quickActions.find((button) => button.textContent.includes('Solids')).style.getPropertyValue('--tracker-accent')).toBe('#f59e0b');
+    expect(quickActions.find((button) => button.textContent.includes('Diaper (poop)')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
+    expect(quickActions.find((button) => button.textContent.includes('Baby food')).style.getPropertyValue('--tracker-accent')).toBe('#f59e0b');
     expect(document.querySelector('#quick-actions').textContent).toContain('Wake');
     expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (poop)');
     expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (pee)');
@@ -447,6 +447,71 @@ describe('app/main', () => {
     fireEvent.change(document.querySelector('#timeline-filter'), { target: { value: 'feeding_solid' } });
     expect(document.querySelector('#timeline').textContent).toContain('No logs match this filter.');
     expect(document.querySelector('#event-count').textContent).toBe('0 of 3 items');
+  });
+
+  it('shows LLM-first baby context, save feedback, and recent suggestions', async () => {
+    let todayEvents = [
+      {
+        id: 'event-1',
+        type: 'feeding_milk',
+        rawText: 'formula',
+        occurredAt: { value: '2026-05-30T08:00:00.000Z' },
+        amountMl: { value: 120, source: 'inferred', basis: 'profile_or_age_default', confidence: 0.62 },
+        parserInfo: { kind: 'llm', provider: 'openai', model: 'gpt-5.4-mini', label: 'openai · gpt-5.4-mini' },
+        createdAt: '2026-05-30T08:01:00.000Z',
+      },
+      {
+        id: 'event-2',
+        type: 'diaper',
+        rawText: 'poop diaper',
+        occurredAt: { value: '2026-05-30T09:00:00.000Z' },
+        diaperKind: { value: 'dirty', source: 'explicit' },
+        parserInfo: { kind: 'heuristic', provider: 'local', model: 'rule-based-mvp' },
+        createdAt: '2026-05-30T09:01:00.000Z',
+      },
+    ];
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url === '/api/logs' && init.method === 'POST') {
+        todayEvents = [
+          ...todayEvents,
+          { id: 'event-3', type: 'feeding_milk', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, amountMl: { value: 120, source: 'explicit' }, createdAt: '2026-05-30T10:00:00.000Z' },
+          { id: 'event-4', type: 'diaper', rawText: '분유 120 먹고 응가했어', occurredAt: { value: '2026-05-30T10:00:00.000Z' }, diaperKind: { value: 'dirty', source: 'explicit' }, createdAt: '2026-05-30T10:00:00.000Z' },
+        ];
+        return new Response(JSON.stringify({ events: todayEvents.slice(-2) }), { status: 200 });
+      }
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: todayEvents,
+          summary: { sleepMinutes: 0, milkCount: 1, milkAmountMl: 120, solidCount: 0, diaperCount: 1 },
+          context: {
+            lastMilk: { label: '2h ago', amountMl: 120 },
+            lastDiaper: { label: '1h ago', diaperKind: 'dirty' },
+            sleep: null,
+            inferredFieldCount: 1,
+            correctedFieldCount: 0,
+          },
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-llm-context');
+
+    await vi.waitFor(() => expect(document.querySelector('#today-context').textContent).toContain('2h ago · 120ml'));
+    expect(document.querySelector('#today-context').textContent).toContain('1h ago · poop');
+    expect(document.querySelector('#today-context').textContent).toContain('1 estimated');
+    expect(document.querySelector('#timeline').textContent).toContain('LLM · gpt-5.4-mini');
+    expect(document.querySelector('#timeline').textContent).toContain('Amount estimated');
+
+    fireEvent.input(document.querySelector('#log-input'), { target: { value: '분유 120 먹고 응가했어' } });
+    fireEvent.submit(document.querySelector('#log-form'));
+
+    await vi.waitFor(() => expect(document.querySelector('#answer').textContent).toBe('2 logs saved'));
+    expect([...document.querySelectorAll('#quick-actions .suggested-action span')].map((node) => node.textContent)).toContain('분유 120 먹고 응가했어');
   });
 
   it('sends edit and delete requests for baby timeline logs', async () => {

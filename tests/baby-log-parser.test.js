@@ -92,3 +92,14 @@ test('parses explicit Korean times on the local day for the user timezone', () =
   assert.equal(event.type, 'feeding_milk');
   assert.equal(event.occurredAt.value, '2026-05-29T02:30:00.000Z');
 });
+
+
+test('heuristic parser returns multiple events from one mixed natural-language log', () => {
+  const events = parseBabyLogText('분유 120 먹고 응가했어', { now });
+
+  assert.deepEqual(events.map((event) => event.type), ['feeding_milk', 'diaper']);
+  assert.equal(events[0].amountMl.value, 120);
+  assert.equal(events[0].amountMl.source, 'explicit');
+  assert.equal(events[1].diaperKind.value, 'dirty');
+  assert.equal(events[1].diaperKind.source, 'explicit');
+});
