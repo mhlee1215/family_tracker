@@ -20,6 +20,7 @@ import {
 } from './src/server/auth.js';
 import { createBabyStore, getStorageConfig } from './src/server/db/store-factory.js';
 import { createId } from './src/utils/ids.js';
+import { colorForBabyEventType } from './src/utils/tracker-colors.js';
 
 const port = Number(process.env.PORT || 4174);
 const root = resolve('.');
@@ -312,10 +313,7 @@ async function handleApi(request, response) {
         const day = localDateKeyFromIso(value, timezone);
         if (!day.startsWith(month)) continue;
         if (!days[day]) days[day] = [];
-        const color = event.type === 'sleep' ? '#6366f1'
-          : event.type === 'feeding_milk' ? '#0ea5e9'
-            : event.type === 'feeding_solid' ? '#f59e0b'
-              : event.type === 'diaper' ? '#22c55e' : '#9ca3af';
+        const color = colorForBabyEventType(event.type);
         if (!days[day].includes(color)) days[day].push(color);
       }
       sendJson(response, 200, { days });

@@ -20,6 +20,13 @@
   --on-dark: #ffffff;
   --badge-bg: #fafafc;
   --badge-text: #333333;
+  --tracker-baby-sleep: #6366f1;
+  --tracker-baby-milk: #0ea5e9;
+  --tracker-baby-solids: #f59e0b;
+  --tracker-baby-diaper: #22c55e;
+  --tracker-meal-breakfast: #f59e0b;
+  --tracker-meal-lunch: #22c55e;
+  --tracker-meal-dinner: #8b5cf6;
   --product-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
   background: var(--canvas-parchment);
   color: var(--ink);
@@ -467,6 +474,7 @@ input {
 
 .summary-item {
   min-height: 148px;
+  border-top: 4px solid var(--tracker-accent, transparent);
   border-right: 1px solid var(--hairline);
   background: var(--canvas-parchment);
   padding: 32px 24px;
@@ -628,7 +636,7 @@ label {
   gap: 8px;
   background: var(--canvas);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 3px 0 var(--tracker-accent, transparent);
   font-size: 14px;
   padding: 12px 16px;
 }
@@ -636,6 +644,7 @@ label {
 .quick-actions button svg,
 .tablet-actions button svg,
 .sleep-status-action svg {
+  color: var(--tracker-accent, currentColor);
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
@@ -1193,7 +1202,11 @@ label {
 .meal-columns { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
 .meal-column { border:1px solid var(--hairline); border-radius:12px; background:var(--canvas); padding:12px; }
 .meal-slot { margin-bottom:10px; }
-.meal-slot-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
+.meal-slot-breakfast { --tracker-accent: var(--tracker-meal-breakfast); }
+.meal-slot-lunch { --tracker-accent: var(--tracker-meal-lunch); }
+.meal-slot-dinner { --tracker-accent: var(--tracker-meal-dinner); }
+.meal-slot-label { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-bottom:6px; }
+.meal-slot-label::before { content:''; width:8px; height:8px; border-radius:9999px; background:var(--tracker-accent); }
 .meal-wish-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .meal-placeholder { width:100%; min-height:64px; border:1px dashed var(--hairline); background:var(--canvas-parchment); color:var(--muted); }
 .meal-item {
