@@ -1,3 +1,4 @@
+import { buildFeedingGuidance } from '../src/domain/feeding-guidance.js';
 import { babyActionIconColors, babySummaryLabelColors, mealSlotColors } from '../src/utils/tracker-colors.js';
 
 const BUILD_PLACEHOLDER = '---';
@@ -49,6 +50,8 @@ const copy = {
 
 const state = {
   events: [],
+  previousEvents: [],
+  previousSummary: null,
   summary: null,
   todayContext: null,
   recentBabyLogs: loadRecentBabyLogs(),
@@ -90,6 +93,7 @@ const elements = {
   timeline: $('#timeline'),
   summary: $('#summary'),
   todayContext: $('#today-context'),
+  feedingGuidance: $('#feeding-guidance'),
   sleepStatus: $('#sleep-status'),
   growthSummary: $('#growth-summary'),
   babySettingsPanel: $('#baby-settings-panel'),
@@ -476,7 +480,23 @@ async function loadToday() {
   state.events = payload.events || [];
   state.summary = payload.summary;
   state.todayContext = payload.context || buildClientTodayContext(state.events);
+  await loadPreviousBabyDay();
   renderBaby();
+}
+
+async function loadPreviousBabyDay() {
+  const previousDay = shiftDateKey(state.selectedDay, -1);
+  const params = new URLSearchParams({ day: previousDay, timezone: localTimezone() });
+  try {
+    const response = await fetch(`/api/logs/today?${params.toString()}`);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Previous day unavailable');
+    state.previousEvents = payload.events || [];
+    state.previousSummary = payload.summary || null;
+  } catch {
+    state.previousEvents = [];
+    state.previousSummary = null;
+  }
 }
 
 async function loadBabyProfile() {
@@ -962,6 +982,7 @@ function renderBaby() {
   renderDayControls();
   renderSummary();
   renderTodayContext();
+  renderFeedingGuidance();
   renderSleepStatus();
   renderQuickActions();
   renderTabletActions();
@@ -1069,6 +1090,67 @@ function renderTodayContext() {
     contextCard('AI checks', estimateContextLabel(context), 'all'),
   ];
   elements.todayContext.replaceChildren(...cards);
+}
+
+function renderFeedingGuidance() {
+  if (!elements.feedingGuidance) return;
+  const guidance = buildFeedingGuidance({
+    profile: state.profile || {},
+    events: state.events,
+    previousEvents: state.previousEvents,
+    selectedDay: state.selectedDay,
+  });
+  const comparison = guidance.comparison || {};
+  const guideline = guidance.guideline;
+  const expectedCount = comparison.feedCount ? rangeLabel(comparison.feedCount, 'x') : 'Add birth date';
+  const expectedAmount = comparison.amount ? rangeLabel(comparison.amount, 'ml') : 'Add ml records';
+  const averageTarget = guideline?.amountPerFeedMl ? rangeLabel(guideline.amountPerFeedMl, 'ml') : 'Track baseline';
+  const dayPercent = Math.round(guidance.dayProgress * 100);
+  const amountPercent = comparison.amount?.max ? Math.min(100, Math.round((guidance.today.totalAmountMl / comparison.amount.max) * 100)) : 0;
+  const sources = guidance.sources.map((source) => `<a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.label)}</a>`).join(' · ');
+  const suggestions = guidance.suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+  const yesterday = guidance.yesterdayComparison?.hasYesterday
+    ? `<span>${escapeHtml(deltaLabel(guidance.yesterdayComparison.totalAmountDeltaMl, 'ml'))}</span><strong>${escapeHtml(deltaLabel(guidance.yesterdayComparison.feedCountDelta, 'feed'))}</strong>`
+    : '<span>No previous milk records</span><strong>Start baseline</strong>';
+
+  elements.feedingGuidance.innerHTML = `
+    <div class="feeding-guidance-hero">
+      <div>
+        <p class="eyebrow">Feeding progress</p>
+        <h2>${escapeHtml(guidance.stageLabel)}</h2>
+        <p>${escapeHtml(guidance.summary)}</p>
+      </div>
+      <div class="feeding-progress-ring" aria-label="${dayPercent}% of day elapsed">${dayPercent}%</div>
+    </div>
+    <div class="feeding-guidance-grid">
+      ${guidanceMetricCard('Today milk', `${guidance.today.feedCount}x · ${guidance.today.totalAmountMl}ml`, `Average ${guidance.today.averageAmountMl ?? 0}ml/feed`)}
+      ${guidanceMetricCard('Expected by now', `${expectedCount} · ${expectedAmount}`, `Per feed target ${averageTarget}`)}
+      ${guidanceMetricCard('Vs yesterday', yesterday, 'Same time-window comparison', true)}
+    </div>
+    <div class="feeding-progress-bar" aria-label="Milk volume progress against upper expected pace"><span style="width: ${amountPercent}%"></span></div>
+    <div class="feeding-guidance-notes">
+      <ul>${suggestions}</ul>
+      <p>Sources: ${sources}</p>
+    </div>
+  `;
+}
+
+function guidanceMetricCard(label, value, note, rawValue = false) {
+  const valueMarkup = rawValue ? value : `<strong>${escapeHtml(value)}</strong>`;
+  return `<article class="feeding-guidance-card"><span>${escapeHtml(label)}</span>${valueMarkup}<small>${escapeHtml(note)}</small></article>`;
+}
+
+function rangeLabel(range, unit) {
+  if (!range) return '';
+  if (range.min === range.max) return `${range.min}${unit}`;
+  return `${range.min}–${range.max}${unit}`;
+}
+
+function deltaLabel(value, unit) {
+  if (!Number.isFinite(value) || value === 0) return unit === 'ml' ? 'same ml' : 'same feeds';
+  const suffix = value > 0 ? 'more' : unit === 'ml' ? 'less' : 'fewer';
+  const label = unit === 'ml' ? 'ml' : (Math.abs(value) === 1 ? 'feed' : 'feeds');
+  return `${Math.abs(value)} ${label} ${suffix}`;
 }
 
 function contextCard(label, value, filter) {

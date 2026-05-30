@@ -29,6 +29,13 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
    - `skills/quality/privacy-review/SKILL.md`
 
 
+
+## Planning Checklist Gate
+- 모든 비단순 작업은 코드/문서 변경 전에 작업 계획과 체크리스트를 먼저 작성한다.
+- 체크리스트는 최소한 범위 확인, 구현 항목, 테스트/검증, 문서/스킬 업데이트 필요 여부를 포함한다.
+- 작업 중 상태가 바뀌면 체크리스트를 갱신하고, 완료 전 실제 결과와 대조한다.
+- 새 기능 또는 정책 변경은 관련 문서/스킬에 체크리스트 또는 운영 규칙으로 남긴다.
+
 ## Third-party Discovery Policy
 - 복잡도가 있는 UI/gesture/drag-drop/date-picker/editor 등 일반화된 상호작용을 직접 구현하기 전, 먼저 기존 의존성·브라우저 표준·검증된 서드파티 패키지를 조사한다.
 - 조사 순서: 현재 `package.json`/vendored assets 확인 → 공식 문서 또는 npm/GitHub 등 1차 출처 확인 → 번들 크기, 유지보수 상태, 접근성, 라이선스, 프레임워크 적합성, 테스트 가능성을 비교한다.

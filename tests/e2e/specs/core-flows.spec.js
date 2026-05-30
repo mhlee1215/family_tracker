@@ -24,6 +24,65 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+
+  test('baby feeding guidance compares current milk records with the newborn pace', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+
+    await page.route('**/api/profile', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ profile: { babyName: 'Ari', birthDate: '2026-05-16', milkAmountMlOverride: 30 }, growthRecords: [] }),
+      });
+    });
+    await page.route('**/api/logs/today**', async (route) => {
+      const url = new URL(route.request().url());
+      const day = url.searchParams.get('day') || '2026-05-30';
+      const isPrevious = day === '2026-05-29';
+      const count = isPrevious ? 6 : 5;
+      const amount = isPrevious ? 25 : 20;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          events: Array.from({ length: count }, (_, index) => ({
+            id: `${day}-${index}`,
+            type: 'feeding_milk',
+            rawText: `formula ${amount}`,
+            occurredAt: { value: `${day}T0${Math.min(index + 1, 9)}:00:00.000Z` },
+            amountMl: { value: amount },
+            createdAt: `${day}T0${Math.min(index + 1, 9)}:01:00.000Z`,
+          })),
+          summary: { milkCount: count, milkAmountMl: count * amount },
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      const fixedNow = new Date('2026-05-30T12:00:00').getTime();
+      const RealDate = Date;
+      // eslint-disable-next-line no-global-assign
+      Date = class extends RealDate {
+        constructor(...args) {
+          super(...(args.length ? args : [fixedNow]));
+        }
+        static now() { return fixedNow; }
+      };
+    });
+
+    await app.loginAsDevAdmin();
+    await expect(page.locator('#feeding-guidance')).toContainText('Feeding progress');
+    await expect(page.locator('#feeding-guidance')).toContainText('5x · 100ml');
+    await expect(page.locator('#feeding-guidance')).toContainText('4–6x · 120–180ml');
+    await expect(page.locator('#feeding-guidance')).toContainText('50ml less');
+    await expect(page.locator('#feeding-guidance a')).toHaveCount(3);
+    await app.captureStep('Reviewed feeding progress guidance', 'The baby tab shows guideline progress, yesterday comparison, and source links.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('log input submit and CTA flow to task composer works', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
