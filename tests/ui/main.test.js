@@ -310,8 +310,17 @@ describe('app/main', () => {
     expect(quickActions.every((button) => button.querySelector('svg'))).toBe(true);
     expect(tabletActions.every((button) => button.querySelector('svg'))).toBe(true);
     expect(document.querySelector('#quick-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Poop');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Pee');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Baby food');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Nap start');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Dirty');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Wet');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Solids');
     expect(document.querySelector('#tablet-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Poop');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Pee');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Baby food');
     expect(document.querySelector('#tablet-actions').textContent).not.toContain('Nap start');
     expect(document.querySelector('#sleep-status button')?.querySelector('svg')).toBeTruthy();
 
@@ -397,6 +406,10 @@ describe('app/main', () => {
     const timelineTexts = () => [...document.querySelectorAll('#timeline .raw-text')].map((node) => node.textContent);
 
     expect(timelineTexts()).toEqual(['formula', 'nap', 'wet diaper']);
+    expect([...document.querySelectorAll('#timeline .timeline-title')].map((node) => node.textContent)).toEqual(['Formula', 'Sleep', 'Pee diaper']);
+    expect([...document.querySelectorAll('#summary .summary-item span')].map((node) => node.textContent)).toEqual(['Sleep', 'Milk', 'Baby food', 'Pee / poop']);
+    expect(document.querySelector('#timeline-filter option[value=\"feeding_solid\"]').textContent).toBe('Baby food');
+    expect(document.querySelector('#timeline-filter option[value=\"diaper\"]').textContent).toBe('Pee / poop');
     expect(document.querySelector('#event-count').textContent).toBe('3 of 3 items');
 
     fireEvent.change(document.querySelector('#timeline-sort'), { target: { value: 'desc' } });
