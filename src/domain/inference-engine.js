@@ -50,16 +50,7 @@ function inferSleep(event, defaults, context) {
   }
 
   if (event.action?.value === 'start' && !event.endAt) {
-    return {
-      ...event,
-      endAt: createField(
-        addMinutes(event.startAt.value, napDuration),
-        'inferred',
-        recentSleepDuration(context.recentEvents) ? 'recent_sleep_average' : 'profile_or_age_default',
-        0.44,
-      ),
-      durationMinutes: createField(napDuration, 'inferred', 'profile_or_age_default', 0.44),
-    };
+    return event;
   }
 
   if (event.startAt && event.endAt && !event.durationMinutes) {
