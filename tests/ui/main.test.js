@@ -314,8 +314,17 @@ describe('app/main', () => {
     expect(quickActions.find((button) => button.textContent.includes('Dirty')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
     expect(quickActions.find((button) => button.textContent.includes('Solids')).style.getPropertyValue('--tracker-accent')).toBe('#f59e0b');
     expect(document.querySelector('#quick-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (poop)');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (pee)');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Baby food');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Nap start');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Dirty');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Wet');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Solids');
     expect(document.querySelector('#tablet-actions').textContent).toContain('Wake');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Diaper (poop)');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Diaper (pee)');
+    expect(document.querySelector('#tablet-actions').textContent).toContain('Baby food');
     expect(document.querySelector('#tablet-actions').textContent).not.toContain('Nap start');
     expect(document.querySelector('#sleep-status button')?.querySelector('svg')).toBeTruthy();
 
@@ -422,6 +431,10 @@ describe('app/main', () => {
     const timelineTexts = () => [...document.querySelectorAll('#timeline .raw-text')].map((node) => node.textContent);
 
     expect(timelineTexts()).toEqual(['formula', 'nap', 'wet diaper']);
+    expect([...document.querySelectorAll('#timeline .timeline-title')].map((node) => node.textContent)).toEqual(['Formula', 'Sleep', 'Diaper (pee)']);
+    expect([...document.querySelectorAll('#summary .summary-item span')].map((node) => node.textContent)).toEqual(['Sleep', 'Milk', 'Baby food', 'Diaper']);
+    expect(document.querySelector('#timeline-filter option[value=\"feeding_solid\"]').textContent).toBe('Baby food');
+    expect(document.querySelector('#timeline-filter option[value=\"diaper\"]').textContent).toBe('Diaper');
     expect(document.querySelector('#event-count').textContent).toBe('3 of 3 items');
 
     fireEvent.change(document.querySelector('#timeline-sort'), { target: { value: 'desc' } });

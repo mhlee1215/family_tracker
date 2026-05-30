@@ -21,7 +21,7 @@ const copy = {
   tomorrow: 'Tomorrow',
   saving: 'Saving...',
   saveFailed: 'Could not save.',
-  logPlaceholder: 'formula, nap, woke up, sweet potato',
+  logPlaceholder: 'formula, nap, woke up, baby food, diaper (pee), diaper (poop)',
   askPlaceholder: 'How much sleep today?',
   emptyTimeline: 'No logs for this date yet.',
   emptyFilteredTimeline: 'No logs match this filter.',
@@ -31,17 +31,17 @@ const copy = {
     { label: 'Formula', value: 'formula', icon: 'formula' },
     { label: 'Breast', value: 'breast milk', icon: 'breast' },
     { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Dirty', value: 'dirty diaper', icon: 'dirty' },
-    { label: 'Wet', value: 'wet diaper', icon: 'wet' },
-    { label: 'Solids', value: 'solids eaten', icon: 'solids' },
+    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
+    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
+    { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
   ],
   tabletActions: [
     { label: 'Formula', value: 'formula', icon: 'formula' },
     { label: 'Breast', value: 'breast milk', icon: 'breast' },
-    { label: 'Solids', value: 'solids eaten', icon: 'solids' },
+    { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
     { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Dirty', value: 'dirty diaper', icon: 'dirty' },
-    { label: 'Wet', value: 'wet diaper', icon: 'wet' },
+    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
+    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
     { label: 'Note', value: '', icon: 'note' },
   ],
 };
@@ -1030,8 +1030,8 @@ function renderSummary() {
   elements.summary.replaceChildren(
     summaryItem('Sleep', `${summary.sleepMinutes || 0} min`, babySummaryLabelColors.Sleep),
     summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`, babySummaryLabelColors.Milk),
-    summaryItem('Solids', `${summary.solidCount || 0}x`, babySummaryLabelColors.Solids),
-    summaryItem('Diaper', `${summary.diaperCount || 0}x`, babySummaryLabelColors.Diaper),
+    summaryItem('Baby food', `${summary.solidCount || 0}x`),
+    summaryItem('Diaper', `${summary.diaperCount || 0}x`),
   );
 }
 
@@ -1862,9 +1862,19 @@ function renderOverviewTask(task) {
 function eventTitle(event) {
   if (event.type === 'sleep') return event.action?.value === 'end' ? 'Sleep ended' : 'Sleep';
   if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? 'Breast milk' : 'Formula';
-  if (event.type === 'feeding_solid') return event.food?.value || 'Solids';
-  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? 'Dirty diaper' : 'Diaper';
+  if (event.type === 'feeding_solid') return event.food?.value || 'Baby food';
+  if (event.type === 'diaper') return diaperTitle(event);
   return 'Log';
+}
+
+function diaperTitle(event) {
+  if (event.diaperKind?.value === 'dirty') return 'Diaper (poop)';
+  if (looksLikePeeDiaper(event.rawText)) return 'Diaper (pee)';
+  return 'Diaper';
+}
+
+function looksLikePeeDiaper(text = '') {
+  return /쉬|소변|\bwet\b|\bpee\b|ướt|\buot\b/i.test(String(text));
 }
 
 function eventMeta(event) {

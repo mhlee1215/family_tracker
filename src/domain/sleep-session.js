@@ -21,10 +21,10 @@ export function createAutoWakeEvents(events, existingEvents = [], options = {}) 
   const openSleep = findOpenSleep(existingEvents);
   if (!openSleep) return [];
   const hasExplicitSleepEnd = events.some((event) => event.type === 'sleep' && event.action?.value === 'end');
-  const hasNonSleepActivity = events.some((event) => event.type !== 'sleep');
-  if (!hasNonSleepActivity || hasExplicitSleepEnd) return [];
+  const hasAwakeOnlyActivity = events.some(isAwakeOnlyActivity);
+  if (!hasAwakeOnlyActivity || hasExplicitSleepEnd) return [];
 
-  const endAt = firstActivityTime(events) || options.now || new Date().toISOString();
+  const endAt = firstAwakeOnlyActivityTime(events) || options.now || new Date().toISOString();
   return [{
     rawText: 'auto wake',
     familyId: openSleep.familyId,
@@ -60,6 +60,10 @@ export function isOpenSleepEvent(event) {
   return event.type === 'sleep' && event.action?.value === 'start' && event.status !== 'completed';
 }
 
+export function isAwakeOnlyActivity(event) {
+  return ['feeding_milk', 'feeding_solid', 'diaper'].includes(event?.type);
+}
+
 export function findOpenSleep(events = []) {
   return [...events].reverse().find(isOpenSleepEvent);
 }
@@ -68,7 +72,7 @@ function minutesBetween(startValue, endValue) {
   return Math.max(0, Math.round((new Date(endValue) - new Date(startValue)) / 60000));
 }
 
-function firstActivityTime(events) {
-  const event = events.find((item) => item.occurredAt?.value || item.startAt?.value || item.endAt?.value);
+function firstAwakeOnlyActivityTime(events) {
+  const event = events.find((item) => isAwakeOnlyActivity(item) && (item.occurredAt?.value || item.startAt?.value || item.endAt?.value));
   return event?.occurredAt?.value || event?.startAt?.value || event?.endAt?.value || null;
 }

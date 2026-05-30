@@ -61,9 +61,10 @@ Examples:
 분유 먹음 -> feeding_milk, time from current time, amount inferred
 ate formula 12 ml at 1:20 pm today -> feeding_milk, explicit time, explicit amount
 formula 12 ml and dirty diaper at 1:20 pm -> feeding_milk + diaper, shared explicit time
-낮잠 -> sleep start, start from current time, end predicted
+낮잠 -> sleep start, start from current time, remains open until a wake/end event or another awake-only activity closes it
 낮잠 잤음 -> sleep completed, end from current time, start inferred
 깸 -> closes open sleep session if one exists
+분유 먹음 / 고구마 먹음 / 응가 while sleep is open -> first auto-closes the open sleep session at the activity time
 고구마 먹음 -> feeding_solid, time from current time, amount inferred
 응가 -> diaper dirty, time from current time
 ```
