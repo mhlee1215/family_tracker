@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 058](https://img.shields.io/badge/build-058-0066cc)
+![Build 060](https://img.shields.io/badge/build-060-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -129,6 +129,8 @@ npm run seed:turso:tasks
 ```text
 GET  /api/config
 GET  /api/logs/today
+GET  /api/action-logs?module=baby|task
+POST /api/action-logs/:id/undo
 POST /api/logs
 POST /api/ask
 GET  /api/profile

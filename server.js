@@ -294,6 +294,24 @@ async function handleApi(request, response) {
       return;
     }
 
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/action-logs') {
+      const module = ['baby', 'task'].includes(requestUrl.searchParams.get('module')) ? requestUrl.searchParams.get('module') : 'baby';
+      const requestedLimit = Number(requestUrl.searchParams.get('limit'));
+      const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 30;
+      sendJson(response, 200, { logs: (await store.listActionLogs({ ...scope, module, limit })).map(publicActionLog) });
+      return;
+    }
+
+
+    if (request.method === 'POST' && requestUrl.pathname.startsWith('/api/action-logs/') && requestUrl.pathname.endsWith('/undo')) {
+      const parts = requestUrl.pathname.split('/');
+      const actionLogId = decodeURIComponent(parts[3] || '');
+      const result = await undoActionLog(store, scope, actionLogId, session.user.id || defaultAuthorId);
+      sendJson(response, 200, { actionLog: publicActionLog(result.actionLog), undoLog: publicActionLog(result.undoLog) });
+      return;
+    }
+
     if (request.method === 'GET' && requestUrl.pathname === '/api/logs/today') {
       const today = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
       const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
@@ -327,7 +345,7 @@ async function handleApi(request, response) {
       const now = body.now ? new Date(body.now) : new Date();
       const rawText = String(body.text || '').trim();
       if (!rawText) {
-        sendJson(response, 400, { error: 'Log text is required.' });
+        sendJson(response, 400, { error: 'Record text is required.' });
         return;
       }
 
@@ -349,6 +367,7 @@ async function handleApi(request, response) {
         authorId: session.user.id || defaultAuthorId,
       });
       const saved = await store.saveLogWithEvents(rawLog, events);
+      await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLog.id, action: 'add', actorId: session.user.id || defaultAuthorId, message: `added baby record "${summarizeActionText(rawText)}"`, metadata: { after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
@@ -359,12 +378,13 @@ async function handleApi(request, response) {
       const rawLogId = decodeURIComponent(requestUrl.pathname.split('/').pop() || '');
       const existing = await store.getRawLog(rawLogId);
       if (!existing || existing.familyId !== scope.familyId || existing.babyId !== scope.babyId) {
-        sendJson(response, 404, { error: 'Log not found.' });
+        sendJson(response, 404, { error: 'Record not found.' });
         return;
       }
 
       if (request.method === 'DELETE') {
         await store.deleteRawLog(rawLogId, scope);
+        await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLogId, action: 'delete', actorId: session.user.id || defaultAuthorId, message: `deleted baby record "${summarizeActionText(existing.rawText)}"`, metadata: { before: { rawLog: existing } } });
         sendJson(response, 200, { ok: true });
         return;
       }
@@ -372,7 +392,7 @@ async function handleApi(request, response) {
       const body = await readJson(request);
       const rawText = String(body.text || '').trim();
       if (!rawText) {
-        sendJson(response, 400, { error: 'Log text is required.' });
+        sendJson(response, 400, { error: 'Record text is required.' });
         return;
       }
       const rawLog = {
@@ -388,6 +408,7 @@ async function handleApi(request, response) {
         excludeRawLogId: rawLogId,
       });
       const saved = await store.replaceRawLogWithEvents(rawLogId, { rawText, timezone: rawLog.timezone }, events, scope);
+      await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLogId, action: 'edit', actorId: session.user.id || defaultAuthorId, message: `edited baby record "${summarizeActionText(rawText)}"`, metadata: { before: { rawLog: existing }, after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
@@ -548,6 +569,7 @@ async function handleApi(request, response) {
         dueMode,
         dueDate: body.dueDate || new Date().toISOString().slice(0, 10),
       });
+      await appendActionLog(store, scope, { module: 'task', entityType: 'task', entityId: task.id, action: 'add', actorId: session.user.id || defaultAuthorId, message: `added task "${summarizeActionText(task.title)}"`, metadata: { after: { task } } });
       sendJson(response, 200, { task });
       return;
     }
@@ -555,6 +577,7 @@ async function handleApi(request, response) {
     if (request.method === 'PATCH' && requestUrl.pathname.startsWith('/api/tasks/')) {
       const taskId = requestUrl.pathname.split('/').pop();
       const body = await readJson(request);
+      const beforeTask = await store.getTask(taskId, scope);
       const task = await store.updateTask(taskId, {
         title: body.title,
         assigneeId: body.assigneeId,
@@ -566,6 +589,9 @@ async function handleApi(request, response) {
         sendJson(response, 404, { error: 'Task not found.' });
         return;
       }
+      const action = body.status ? (task.status === 'done' ? 'complete' : 'reopen') : 'edit';
+      const verb = action === 'complete' ? 'completed' : action === 'reopen' ? 'reopened' : 'edited';
+      await appendActionLog(store, scope, { module: 'task', entityType: 'task', entityId: task.id, action, actorId: session.user.id || defaultAuthorId, message: `${verb} task "${summarizeActionText(task.title)}"`, metadata: { before: { task: beforeTask }, after: { task } } });
       sendJson(response, 200, { task });
       return;
     }
@@ -576,6 +602,139 @@ async function handleApi(request, response) {
   }
 }
 
+
+
+
+function publicActionLog(entry) {
+  if (!entry) return null;
+  const { metadata, ...safeEntry } = entry;
+  return safeEntry;
+}
+
+async function undoActionLog(store, scope, actionLogId, actorId) {
+  const actionLog = await store.getActionLog(actionLogId, scope);
+  if (!actionLog || actionLog.familyId !== scope.familyId) {
+    const error = new Error('Action log not found.');
+    error.status = 404;
+    throw error;
+  }
+  if (actionLog.module === 'baby' && actionLog.babyId && actionLog.babyId !== scope.babyId) {
+    const error = new Error('Action log not found.');
+    error.status = 404;
+    throw error;
+  }
+  if (actionLog.undoneAt || actionLog.action === 'undo') {
+    const error = new Error('Action has already been undone.');
+    error.status = 409;
+    throw error;
+  }
+
+  await applyUndo(store, scope, actionLog);
+  const undoneAt = new Date().toISOString();
+  const marked = await store.markActionLogUndone(actionLog.id, { ...scope, undoneAt, undoneBy: actorId });
+  const undoLog = await appendActionLog(store, scope, {
+    module: actionLog.module,
+    entityType: actionLog.entityType,
+    entityId: actionLog.entityId,
+    action: 'undo',
+    actorId,
+    message: `undid ${actionLog.message}`,
+    metadata: { targetActionLogId: actionLog.id },
+  });
+  return { actionLog: marked, undoLog };
+}
+
+async function applyUndo(store, scope, actionLog) {
+  if (actionLog.module === 'baby') {
+    await undoBabyAction(store, scope, actionLog);
+    return;
+  }
+  if (actionLog.module === 'task') {
+    await undoTaskAction(store, scope, actionLog);
+    return;
+  }
+  const error = new Error('Action cannot be undone.');
+  error.status = 400;
+  throw error;
+}
+
+async function undoBabyAction(store, scope, actionLog) {
+  const beforeRawLog = actionLog.metadata?.before?.rawLog;
+  if (actionLog.action === 'add') {
+    await store.deleteRawLog(actionLog.entityId, scope);
+    return;
+  }
+  if (actionLog.action === 'delete') {
+    if (!beforeRawLog) throwUndoUnavailable();
+    const existing = await store.getRawLog(actionLog.entityId);
+    if (existing && existing.familyId === scope.familyId && existing.babyId === scope.babyId) {
+      await store.replaceRawLogWithEvents(actionLog.entityId, { rawText: beforeRawLog.rawText, timezone: beforeRawLog.timezone }, beforeRawLog.events || [], scope);
+    } else {
+      await store.saveLogWithEvents(beforeRawLog, beforeRawLog.events || []);
+    }
+    return;
+  }
+  if (actionLog.action === 'edit') {
+    if (!beforeRawLog) throwUndoUnavailable();
+    const existing = await store.getRawLog(actionLog.entityId);
+    if (existing && existing.familyId === scope.familyId && existing.babyId === scope.babyId) {
+      await store.replaceRawLogWithEvents(actionLog.entityId, { rawText: beforeRawLog.rawText, timezone: beforeRawLog.timezone }, beforeRawLog.events || [], scope);
+    } else {
+      await store.saveLogWithEvents(beforeRawLog, beforeRawLog.events || []);
+    }
+    return;
+  }
+  throwUndoUnavailable();
+}
+
+async function undoTaskAction(store, scope, actionLog) {
+  const beforeTask = actionLog.metadata?.before?.task;
+  if (actionLog.action === 'add') {
+    if (typeof store.deleteTask !== 'function') throwUndoUnavailable();
+    await store.deleteTask(actionLog.entityId, scope);
+    return;
+  }
+  if (['complete', 'reopen', 'edit'].includes(actionLog.action)) {
+    if (!beforeTask) throwUndoUnavailable();
+    await store.updateTask(actionLog.entityId, taskSnapshotPatch(beforeTask), scope);
+    return;
+  }
+  throwUndoUnavailable();
+}
+
+function taskSnapshotPatch(task) {
+  return {
+    title: task.title,
+    assigneeId: task.assigneeId,
+    status: task.status,
+    dueDate: task.dueDate,
+    dueMode: task.dueMode,
+    completedAt: task.completedAt,
+    completedBy: task.completedBy,
+  };
+}
+
+function throwUndoUnavailable() {
+  const error = new Error('Action cannot be undone.');
+  error.status = 400;
+  throw error;
+}
+
+async function appendActionLog(store, scope, entry) {
+  if (typeof store.appendActionLog !== 'function') return null;
+  return store.appendActionLog({
+    id: createId('actionlog'),
+    familyId: scope.familyId,
+    babyId: entry.module === 'baby' ? scope.babyId : '',
+    ...entry,
+  });
+}
+
+function summarizeActionText(value) {
+  const compact = String(value || '').replace(/\s+/g, ' ').trim();
+  if (compact.length <= 80) return compact;
+  return `${compact.slice(0, 77)}...`;
+}
 
 async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLogId = '' }) {
   const profile = await store.getProfile(scope.babyId, { familyId: scope.familyId });
