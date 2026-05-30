@@ -7,6 +7,13 @@ const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
 const swipeState = { openItem: null, nextId: 0 };
 
+const patternEventTypes = [
+  { type: 'sleep', label: 'Sleep' },
+  { type: 'feeding_milk', label: 'Milk' },
+  { type: 'feeding_solid', label: 'Baby food' },
+  { type: 'diaper', label: 'Diaper' },
+];
+
 const storageKeys = {
   theme: 'familyTracker.theme',
   activeTab: 'familyTracker.activeTab',
@@ -14,6 +21,7 @@ const storageKeys = {
   timelineSort: 'familyTracker.timelineSort',
   timelineFilter: 'familyTracker.timelineFilter',
   recentBabyLogs: 'familyTracker.recentBabyLogs',
+  patternTypes: 'familyTracker.patternTypes',
 };
 
 const copy = {
@@ -74,6 +82,11 @@ const state = {
   llmConfig: { provider: 'mock', model: 'mock-local', providers: [] },
   timelineSort: normalizeTimelineSort(localStorage.getItem(storageKeys.timelineSort)),
   timelineFilter: normalizeTimelineFilter(localStorage.getItem(storageKeys.timelineFilter)),
+  patternDays: [],
+  patternLoading: false,
+  patternError: '',
+  patternRequestId: 0,
+  patternTypes: normalizePatternTypes(localStorage.getItem(storageKeys.patternTypes)),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -91,6 +104,7 @@ const elements = {
   summary: $('#summary'),
   todayContext: $('#today-context'),
   sleepStatus: $('#sleep-status'),
+  babyPatterns: $('#baby-patterns'),
   growthSummary: $('#growth-summary'),
   babySettingsPanel: $('#baby-settings-panel'),
   openBabySummary: $('#open-baby-summary'),
@@ -476,7 +490,9 @@ async function loadToday() {
   state.events = payload.events || [];
   state.summary = payload.summary;
   state.todayContext = payload.context || buildClientTodayContext(state.events);
+  seedSelectedDayPattern();
   renderBaby();
+  loadBabyPatterns();
 }
 
 async function loadBabyProfile() {
@@ -963,6 +979,7 @@ function renderBaby() {
   renderSummary();
   renderTodayContext();
   renderSleepStatus();
+  renderBabyPatterns();
   renderQuickActions();
   renderTabletActions();
   renderGrowthSummary();
@@ -1111,6 +1128,233 @@ function estimateContextLabel(context) {
   if (corrected) return `${inferred} estimated · ${corrected} corrected`;
   if (inferred) return `${inferred} estimated`;
   return 'No estimates';
+}
+
+function seedSelectedDayPattern() {
+  state.patternDays = patternDayKeys(state.selectedDay).map((day) => ({
+    day,
+    events: day === state.selectedDay ? state.events : [],
+  }));
+  state.patternError = '';
+}
+
+async function loadBabyPatterns() {
+  if (!elements.babyPatterns || !state.user) return;
+  const requestId = state.patternRequestId + 1;
+  state.patternRequestId = requestId;
+  state.patternLoading = true;
+  renderBabyPatterns();
+  const days = patternDayKeys(state.selectedDay);
+  try {
+    const patternDays = await Promise.all(days.map(async (day) => {
+      if (day === state.selectedDay) return { day, events: state.events };
+      const params = new URLSearchParams({ day, timezone: localTimezone() });
+      const response = await fetch(`/api/logs/today?${params.toString()}`);
+      if (!response.ok) throw new Error(`Could not load ${day}`);
+      const payload = await response.json();
+      return { day, events: payload.events || [] };
+    }));
+    if (requestId !== state.patternRequestId) return;
+    state.patternDays = patternDays;
+    state.patternError = '';
+  } catch {
+    if (requestId !== state.patternRequestId) return;
+    state.patternError = 'Could not load weekly patterns.';
+  } finally {
+    if (requestId === state.patternRequestId) {
+      state.patternLoading = false;
+      renderBabyPatterns();
+    }
+  }
+}
+
+function renderBabyPatterns() {
+  if (!elements.babyPatterns) return;
+  const days = state.patternDays.length ? state.patternDays : patternDayKeys(state.selectedDay).map((day) => ({ day, events: [] }));
+  const visibleTypes = new Set(state.patternTypes);
+  const flatEvents = days.flatMap(({ day, events }) => (events || [])
+    .filter((event) => !event.hiddenFromTimeline && visibleTypes.has(event.type))
+    .map((event) => ({ ...event, patternDay: day })));
+  const range = `${shortDayLabel(days[0]?.day)} – ${shortDayLabel(days.at(-1)?.day)}`;
+  elements.babyPatterns.innerHTML = `
+    <div class="baby-patterns-header">
+      <div>
+        <span class="eyebrow">Patterns</span>
+        <h2>7-day rhythm</h2>
+        <p>${escapeHtml(range)} · 24-hour lanes from recent baby logs</p>
+      </div>
+      <div class="pattern-status">${state.patternLoading ? 'Refreshing…' : `${flatEvents.length} visible logs`}</div>
+    </div>
+    ${state.patternError ? `<p class="pattern-error">${escapeHtml(state.patternError)}</p>` : ''}
+    <div class="pattern-type-toggles" aria-label="Pattern event filters">
+      ${patternEventTypes.map((item) => patternTypeToggle(item, visibleTypes.has(item.type))).join('')}
+    </div>
+    <div class="pattern-chart-shell">
+      <div class="pattern-time-axis" aria-hidden="true">${[0, 6, 12, 18, 24].map((hour) => `<span style="top:${hour / 24 * 100}%">${String(hour).padStart(2, '0')}</span>`).join('')}</div>
+      <div class="pattern-chart" role="img" aria-label="Weekly baby activity pattern chart">
+        ${days.map(({ day, events }) => patternDayColumn(day, events || [], visibleTypes)).join('')}
+      </div>
+    </div>
+    <div class="pattern-legend" aria-label="Pattern legend">
+      ${patternEventTypes.map((item) => `<span><i class="pattern-swatch pattern-${item.type}"></i>${escapeHtml(item.label)}</span>`).join('')}
+    </div>
+    <section class="pattern-insights" aria-label="Interval insights">
+      ${patternInsightCards(days).join('')}
+    </section>
+  `;
+  elements.babyPatterns.querySelectorAll('[data-pattern-type]').forEach((button) => {
+    button.addEventListener('click', () => togglePatternType(button.dataset.patternType));
+  });
+}
+
+function patternTypeToggle(item, active) {
+  return `<button type="button" class="pattern-toggle${active ? ' active' : ''}" data-pattern-type="${escapeHtml(item.type)}" aria-pressed="${active}">${escapeHtml(item.label)}</button>`;
+}
+
+function togglePatternType(type) {
+  const next = new Set(state.patternTypes);
+  if (next.has(type) && next.size > 1) next.delete(type);
+  else next.add(type);
+  state.patternTypes = [...next].filter((item) => patternEventTypes.some((eventType) => eventType.type === item));
+  localStorage.setItem(storageKeys.patternTypes, state.patternTypes.join(','));
+  renderBabyPatterns();
+}
+
+function patternDayColumn(day, events, visibleTypes) {
+  const markers = events
+    .filter((event) => !event.hiddenFromTimeline && visibleTypes.has(event.type))
+    .map((event) => patternMarker(day, event))
+    .filter(Boolean)
+    .join('');
+  return `
+    <article class="pattern-day" aria-label="${escapeHtml(dayHeading(day))}">
+      <div class="pattern-day-lane">${markers}</div>
+      <strong>${escapeHtml(patternDayName(day))}</strong>
+      <span>${escapeHtml(shortDayLabel(day))}</span>
+    </article>
+  `;
+}
+
+function patternMarker(day, event) {
+  const range = eventMinuteRange(day, event);
+  if (!range) return '';
+  const title = `${eventTitle(event)} · ${patternTimeRangeLabel(day, event, range)}`;
+  const poop = event.type === 'diaper' && event.diaperKind?.value === 'dirty';
+  const estimated = Object.values(event).some((value) => value?.source === 'inferred');
+  const style = `top:${range.start / 1440 * 100}%;height:${Math.max(0.6, (range.end - range.start) / 1440 * 100)}%;`;
+  return `<span class="pattern-marker pattern-${event.type}${poop ? ' pattern-poop' : ''}${estimated ? ' pattern-estimated' : ''}" style="${style}" title="${escapeHtml(title)}">${poop ? '💩' : ''}</span>`;
+}
+
+function eventMinuteRange(day, event) {
+  const startValue = event.type === 'sleep' ? (event.startAt?.value || event.occurredAt?.value) : eventTimeValue(event);
+  if (!startValue) return null;
+  const dayStart = dateFromKey(day).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+  const startMs = new Date(startValue).getTime();
+  if (!Number.isFinite(startMs)) return null;
+  let endMs = startMs + 12 * 60 * 1000;
+  if (event.type === 'sleep') {
+    const explicitEnd = event.endAt?.value ? new Date(event.endAt.value).getTime() : NaN;
+    const durationMs = Number(event.durationMinutes?.value) * 60 * 1000;
+    if (Number.isFinite(explicitEnd)) endMs = explicitEnd;
+    else if (Number.isFinite(durationMs) && durationMs > 0) endMs = startMs + durationMs;
+    else endMs = startMs + 45 * 60 * 1000;
+  }
+  const clampedStart = Math.max(dayStart, startMs);
+  const clampedEnd = Math.min(dayEnd, Math.max(endMs, startMs + 8 * 60 * 1000));
+  if (clampedEnd <= dayStart || clampedStart >= dayEnd) return null;
+  return {
+    start: Math.max(0, Math.round((clampedStart - dayStart) / 60000)),
+    end: Math.min(1440, Math.round((clampedEnd - dayStart) / 60000)),
+  };
+}
+
+function patternTimeRangeLabel(day, event, range) {
+  const start = minutesToClock(range.start);
+  const end = minutesToClock(range.end);
+  return event.type === 'sleep' ? `${start}–${end}` : start;
+}
+
+function patternInsightCards(days) {
+  const events = days.flatMap(({ events = [] }) => events).filter((event) => !event.hiddenFromTimeline);
+  const milkEvents = sortedEventsWithTime(events.filter((event) => event.type === 'feeding_milk'));
+  const diaperEvents = sortedEventsWithTime(events.filter((event) => event.type === 'diaper'));
+  const poopEvents = diaperEvents.filter((event) => event.diaperKind?.value === 'dirty');
+  const sleepEvents = events.filter((event) => event.type === 'sleep' && Number(event.durationMinutes?.value) > 0 && !(event.action?.value === 'end' && event.linkedStartEventId));
+  const inferredCount = events.reduce((sum, event) => sum + Object.values(event).filter((value) => value?.source === 'inferred').length, 0);
+  return [
+    insightCard('Milk interval', averageGapLabel(milkEvents), milkEvents.length ? `${milkEvents.length} feeds · last ${timeAgoLabel(eventTimeValue(milkEvents.at(-1)))}` : 'No milk logs in range'),
+    insightCard('Sleep rhythm', averageSleepLabel(sleepEvents), sleepEvents.length ? `${sleepEvents.length} sessions · longest ${minutesLabel(Math.max(...sleepEvents.map((event) => Number(event.durationMinutes?.value || 0))))}` : 'No completed sleep logs'),
+    insightCard('Diaper rhythm', averageGapLabel(diaperEvents), poopEvents.length ? `Last poop ${timeAgoLabel(eventTimeValue(poopEvents.at(-1)))}` : 'No poop logs in range'),
+    insightCard('Data confidence', `${events.length} logs`, inferredCount ? `${inferredCount} estimated fields shown with soft edges` : 'No estimated fields in range'),
+  ];
+}
+
+function insightCard(label, value, detail) {
+  return `<article class="pattern-insight-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></article>`;
+}
+
+function sortedEventsWithTime(events) {
+  return [...events]
+    .filter((event) => eventTimeValue(event))
+    .sort((left, right) => timestamp(eventTimeValue(left)) - timestamp(eventTimeValue(right)));
+}
+
+function averageGapLabel(events) {
+  if (events.length < 2) return 'Need 2+ logs';
+  const gaps = [];
+  for (let index = 1; index < events.length; index += 1) {
+    const gap = Math.round((timestamp(eventTimeValue(events[index])) - timestamp(eventTimeValue(events[index - 1]))) / 60000);
+    if (gap > 0 && gap < 36 * 60) gaps.push(gap);
+  }
+  if (!gaps.length) return 'Need 2+ logs';
+  return `${minutesLabel(Math.round(gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length))} avg`;
+}
+
+function averageSleepLabel(events) {
+  if (!events.length) return 'Need sleep logs';
+  const minutes = events.map((event) => Number(event.durationMinutes?.value || 0)).filter((value) => value > 0);
+  if (!minutes.length) return 'Need sleep logs';
+  return `${minutesLabel(Math.round(minutes.reduce((sum, value) => sum + value, 0) / minutes.length))} avg`;
+}
+
+function minutesLabel(minutes) {
+  const safe = Math.max(0, Number(minutes) || 0);
+  const hours = Math.floor(safe / 60);
+  const rest = safe % 60;
+  if (!hours) return `${rest}m`;
+  if (!rest) return `${hours}h`;
+  return `${hours}h ${rest}m`;
+}
+
+function timeAgoLabel(value) {
+  if (!value) return 'unknown';
+  return `${minutesLabel(Math.round(Math.max(0, Date.now() - timestamp(value)) / 60000))} ago`;
+}
+
+function patternDayKeys(endDay, count = 7) {
+  const end = dateFromKey(endDay || localDateKey(new Date()));
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(end);
+    date.setDate(end.getDate() - (count - index - 1));
+    return localDateKey(date);
+  });
+}
+
+function patternDayName(day) {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(dateFromKey(day));
+}
+
+function shortDayLabel(day) {
+  if (!day) return '';
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(dateFromKey(day));
+}
+
+function minutesToClock(minutes) {
+  const safe = Math.max(0, Math.min(1440, Number(minutes) || 0));
+  const hour = Math.floor(safe / 60);
+  const minute = safe % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
 function buildClientTodayContext(events = []) {
@@ -2157,6 +2401,12 @@ function normalizeTimelineSort(value) {
 
 function normalizeTimelineFilter(value) {
   return ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'].includes(value) ? value : 'all';
+}
+
+function normalizePatternTypes(value) {
+  const allowed = ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'];
+  const selected = String(value || '').split(',').filter((item) => allowed.includes(item));
+  return selected.length ? [...new Set(selected)] : allowed;
 }
 
 function normalizeTab(value) {
