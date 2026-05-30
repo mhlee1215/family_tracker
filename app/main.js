@@ -22,6 +22,8 @@ const storageKeys = {
   timelineFilter: 'familyTracker.timelineFilter',
   recentBabyLogs: 'familyTracker.recentBabyLogs',
   patternTypes: 'familyTracker.patternTypes',
+  patternPeriodDays: 'familyTracker.patternPeriodDays',
+  patternStatUnit: 'familyTracker.patternStatUnit',
 };
 
 const copy = {
@@ -87,6 +89,8 @@ const state = {
   patternError: '',
   patternRequestId: 0,
   patternTypes: normalizePatternTypes(localStorage.getItem(storageKeys.patternTypes)),
+  patternPeriodDays: normalizePatternPeriodDays(localStorage.getItem(storageKeys.patternPeriodDays)),
+  patternStatUnit: normalizePatternStatUnit(localStorage.getItem(storageKeys.patternStatUnit)),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -108,6 +112,7 @@ const elements = {
   growthSummary: $('#growth-summary'),
   babySettingsPanel: $('#baby-settings-panel'),
   openBabySummary: $('#open-baby-summary'),
+  openBabyPatterns: $('#open-baby-patterns'),
   openBabySettings: $('#open-baby-settings'),
   openBabyLog: $('#open-baby-log'),
   quickActions: $('#quick-actions'),
@@ -236,6 +241,12 @@ const elements = {
   actionDialogConfirm: $('#action-dialog-confirm'),
 };
 
+function handleMenuToggleClick() {
+  setMenuOpen(elements.menuPanel.classList.contains('hidden'));
+}
+
+elements.menuToggle?.addEventListener('click', handleMenuToggleClick);
+
 applyPreferences();
 await syncBuildMetadata();
 renderTabs();
@@ -303,6 +314,7 @@ elements.openTaskLog?.addEventListener('click', () => {
 });
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
 elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
+elements.openBabyPatterns?.addEventListener('click', () => toggleBabyPanel('patterns'));
 elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
 elements.openBabyLog?.addEventListener('click', () => {
   setBabyPanel(null);
@@ -357,7 +369,6 @@ elements.timelineFilter?.addEventListener('change', () => {
 elements.buildRefresh?.addEventListener('click', () => window.location.reload());
 elements.devLogin.addEventListener('click', devLogin);
 elements.logout.addEventListener('click', logout);
-elements.menuToggle.addEventListener('click', () => setMenuOpen(elements.menuPanel.classList.contains('hidden')));
 elements.previousDay.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextDay.addEventListener('click', () => shiftSelectedDay(1));
 elements.babyToday?.addEventListener('click', () => jumpToToday());
@@ -918,8 +929,8 @@ function closeModuleFloatingPanels() {
 }
 
 function closeFloatingSectionPanels(target) {
-  const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel : state.babyPanel === 'summary' ? elements.growthSummary : null;
-  const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings : state.babyPanel === 'summary' ? elements.openBabySummary : null;
+  const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel : state.babyPanel === 'summary' ? elements.growthSummary : state.babyPanel === 'patterns' ? elements.babyPatterns : null;
+  const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings : state.babyPanel === 'summary' ? elements.openBabySummary : state.babyPanel === 'patterns' ? elements.openBabyPatterns : null;
   if (isPanelOpen(babyPanel) && !(babyPanel.contains(target) || babyToggle?.contains(target))) setBabyPanel(null);
 
   if (isPanelOpen(elements.taskSummaryPanel) && !(elements.taskSummaryPanel.contains(target) || elements.openTaskSummary?.contains(target))) setTaskPanel('today');
@@ -937,21 +948,26 @@ function toggleBabyPanel(panel) {
 }
 
 function setBabyPanel(panel) {
-  state.babyPanel = panel === 'summary' || panel === 'settings' ? panel : null;
+  state.babyPanel = ['summary', 'settings', 'patterns'].includes(panel) ? panel : null;
   renderBabyPanel();
 }
 
 function renderBabyPanel() {
   const summaryOpen = state.babyPanel === 'summary';
   const settingsOpen = state.babyPanel === 'settings';
+  const patternsOpen = state.babyPanel === 'patterns';
   elements.growthSummary?.classList.toggle('hidden', !summaryOpen);
   elements.growthSummary?.setAttribute('aria-hidden', String(!summaryOpen));
+  elements.babyPatterns?.classList.toggle('hidden', !patternsOpen);
+  elements.babyPatterns?.setAttribute('aria-hidden', String(!patternsOpen));
   elements.babySettingsPanel?.classList.toggle('hidden', !settingsOpen);
   elements.babySettingsPanel?.setAttribute('aria-hidden', String(!settingsOpen));
   elements.openBabySummary?.classList.toggle('active', summaryOpen);
+  elements.openBabyPatterns?.classList.toggle('active', patternsOpen);
   elements.openBabySettings?.classList.toggle('active', settingsOpen);
-  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen);
+  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen && !patternsOpen);
   elements.openBabySummary?.setAttribute('aria-expanded', String(summaryOpen));
+  elements.openBabyPatterns?.setAttribute('aria-expanded', String(patternsOpen));
   elements.openBabySettings?.setAttribute('aria-expanded', String(settingsOpen));
   if (settingsOpen) renderBabySettings();
 }
@@ -1131,7 +1147,7 @@ function estimateContextLabel(context) {
 }
 
 function seedSelectedDayPattern() {
-  state.patternDays = patternDayKeys(state.selectedDay).map((day) => ({
+  state.patternDays = patternDayKeys(state.selectedDay, state.patternPeriodDays).map((day) => ({
     day,
     events: day === state.selectedDay ? state.events : [],
   }));
@@ -1144,7 +1160,7 @@ async function loadBabyPatterns() {
   state.patternRequestId = requestId;
   state.patternLoading = true;
   renderBabyPatterns();
-  const days = patternDayKeys(state.selectedDay);
+  const days = patternDayKeys(state.selectedDay, state.patternPeriodDays);
   try {
     const patternDays = await Promise.all(days.map(async (day) => {
       if (day === state.selectedDay) return { day, events: state.events };
@@ -1159,7 +1175,7 @@ async function loadBabyPatterns() {
     state.patternError = '';
   } catch {
     if (requestId !== state.patternRequestId) return;
-    state.patternError = 'Could not load weekly patterns.';
+    state.patternError = 'Could not load patterns.';
   } finally {
     if (requestId === state.patternRequestId) {
       state.patternLoading = false;
@@ -1170,28 +1186,41 @@ async function loadBabyPatterns() {
 
 function renderBabyPatterns() {
   if (!elements.babyPatterns) return;
-  const days = state.patternDays.length ? state.patternDays : patternDayKeys(state.selectedDay).map((day) => ({ day, events: [] }));
+  const days = state.patternDays.length ? state.patternDays : patternDayKeys(state.selectedDay, state.patternPeriodDays).map((day) => ({ day, events: [] }));
   const visibleTypes = new Set(state.patternTypes);
-  const flatEvents = days.flatMap(({ day, events }) => (events || [])
-    .filter((event) => !event.hiddenFromTimeline && visibleTypes.has(event.type))
-    .map((event) => ({ ...event, patternDay: day })));
+  const flatEvents = visiblePatternEvents(days, visibleTypes);
   const range = `${shortDayLabel(days[0]?.day)} – ${shortDayLabel(days.at(-1)?.day)}`;
+  const periodLabel = patternPeriodLabel(days.length);
   elements.babyPatterns.innerHTML = `
     <div class="baby-patterns-header">
       <div>
         <span class="eyebrow">Patterns</span>
-        <h2>7-day rhythm</h2>
-        <p>${escapeHtml(range)} · 24-hour lanes from recent baby logs</p>
+        <h2>${escapeHtml(periodLabel)} rhythm</h2>
+        <p>${escapeHtml(range)} · 24-hour lanes from baby logs</p>
       </div>
       <div class="pattern-status">${state.patternLoading ? 'Refreshing…' : `${flatEvents.length} visible logs`}</div>
     </div>
     ${state.patternError ? `<p class="pattern-error">${escapeHtml(state.patternError)}</p>` : ''}
+    <div class="pattern-controls">
+      <label class="compact-select-control" for="pattern-period-days">
+        <span>Period</span>
+        <select id="pattern-period-days" name="patternPeriodDays">
+          ${patternPeriodOptions().map((option) => `<option value="${option.days}"${option.days === days.length ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="compact-select-control" for="pattern-stat-unit">
+        <span>Statistics</span>
+        <select id="pattern-stat-unit" name="patternStatUnit">
+          ${patternStatUnitOptions().map((option) => `<option value="${escapeHtml(option.value)}"${option.value === state.patternStatUnit ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+        </select>
+      </label>
+    </div>
     <div class="pattern-type-toggles" aria-label="Pattern event filters">
       ${patternEventTypes.map((item) => patternTypeToggle(item, visibleTypes.has(item.type))).join('')}
     </div>
     <div class="pattern-chart-shell">
       <div class="pattern-time-axis" aria-hidden="true">${[0, 6, 12, 18, 24].map((hour) => `<span style="top:${hour / 24 * 100}%">${String(hour).padStart(2, '0')}</span>`).join('')}</div>
-      <div class="pattern-chart" role="img" aria-label="Weekly baby activity pattern chart">
+      <div class="pattern-chart" style="--pattern-day-count:${days.length}" role="img" aria-label="Baby activity pattern chart">
         ${days.map(({ day, events }) => patternDayColumn(day, events || [], visibleTypes)).join('')}
       </div>
     </div>
@@ -1201,10 +1230,61 @@ function renderBabyPatterns() {
     <section class="pattern-insights" aria-label="Interval insights">
       ${patternInsightCards(days).join('')}
     </section>
+    <section class="pattern-statistics" aria-label="Baby pattern statistics">
+      ${renderPatternStatistics(days, state.patternStatUnit)}
+    </section>
   `;
   elements.babyPatterns.querySelectorAll('[data-pattern-type]').forEach((button) => {
     button.addEventListener('click', () => togglePatternType(button.dataset.patternType));
   });
+  elements.babyPatterns.querySelector('#pattern-period-days')?.addEventListener('change', (event) => changePatternPeriod(event.target.value));
+  elements.babyPatterns.querySelector('#pattern-stat-unit')?.addEventListener('change', (event) => changePatternStatUnit(event.target.value));
+}
+
+function patternPeriodOptions() {
+  return [
+    { days: 1, label: 'Day' },
+    { days: 7, label: 'Week' },
+    { days: 14, label: '2 weeks' },
+    { days: 30, label: 'Month' },
+  ];
+}
+
+function patternStatUnitOptions() {
+  return [
+    { value: 'day', label: 'Daily average' },
+    { value: 'week', label: 'Weekly average' },
+    { value: 'month', label: 'Monthly average' },
+  ];
+}
+
+function patternPeriodLabel(days) {
+  if (days === 1) return 'Daily';
+  if (days === 7) return '7-day';
+  if (days === 14) return '2-week';
+  if (days >= 28) return 'Monthly';
+  return `${days}-day`;
+}
+
+function changePatternPeriod(value) {
+  const next = normalizePatternPeriodDays(value);
+  if (next === state.patternPeriodDays) return;
+  state.patternPeriodDays = next;
+  localStorage.setItem(storageKeys.patternPeriodDays, String(next));
+  seedSelectedDayPattern();
+  loadBabyPatterns();
+}
+
+function changePatternStatUnit(value) {
+  state.patternStatUnit = normalizePatternStatUnit(value);
+  localStorage.setItem(storageKeys.patternStatUnit, state.patternStatUnit);
+  renderBabyPatterns();
+}
+
+function visiblePatternEvents(days, visibleTypes = new Set(state.patternTypes)) {
+  return days.flatMap(({ day, events }) => (events || [])
+    .filter((event) => !event.hiddenFromTimeline && visibleTypes.has(event.type))
+    .map((event) => ({ ...event, patternDay: day })));
 }
 
 function patternTypeToggle(item, active) {
@@ -1292,6 +1372,95 @@ function patternInsightCards(days) {
 
 function insightCard(label, value, detail) {
   return `<article class="pattern-insight-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></article>`;
+}
+
+function renderPatternStatistics(days, unit) {
+  const buckets = patternStatisticBuckets(days, unit);
+  const metrics = patternStatisticMetrics(days);
+  const maxValue = Math.max(1, ...buckets.flatMap((bucket) => metrics.map((metric) => bucket[metric.key] || 0)));
+  const unitName = { day: 'day', week: 'week', month: 'month' }[unit] || 'day';
+  const average = (metric) => buckets.length ? metricsValueLabel(metric, buckets.reduce((sum, bucket) => sum + (bucket[metric.key] || 0), 0) / buckets.length) : 'No data';
+  return `
+    <div class="pattern-statistics-header">
+      <div>
+        <span class="eyebrow">Statistics</span>
+        <h3>${escapeHtml(unitName[0].toUpperCase() + unitName.slice(1))} comparison</h3>
+        <p>Compare ${escapeHtml(unitName)} averages across the selected history.</p>
+      </div>
+      <div class="pattern-stat-averages">
+        ${metrics.map((metric) => `<span><strong>${escapeHtml(average(metric))}</strong>${escapeHtml(metric.label)} avg</span>`).join('')}
+      </div>
+    </div>
+    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics comparison chart">
+      ${buckets.map((bucket) => patternStatisticBucket(bucket, metrics, maxValue)).join('') || '<p class="empty">No logs to chart yet.</p>'}
+    </div>
+  `;
+}
+
+function patternStatisticMetrics(days) {
+  const events = days.flatMap(({ events = [] }) => events).filter((event) => !event.hiddenFromTimeline);
+  return [
+    { key: 'logs', label: 'Logs', value: (bucketEvents) => bucketEvents.length, format: (value) => String(Math.round(value)) },
+    { key: 'milk', label: 'Milk', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'feeding_milk').reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0), format: (value) => `${Math.round(value)} ml` },
+    { key: 'sleep', label: 'Sleep', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'sleep').reduce((sum, event) => sum + Number(event.durationMinutes?.value || 0), 0), format: (value) => minutesLabel(Math.round(value)) },
+    { key: 'diapers', label: 'Diapers', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'diaper').length, format: (value) => String(Math.round(value)) },
+  ].filter((metric) => metric.key === 'logs' || events.some((event) => metric.value([event]) > 0));
+}
+
+function patternStatisticBuckets(days, unit) {
+  const buckets = new Map();
+  const metrics = patternStatisticMetrics(days);
+  days.forEach(({ day, events = [] }) => {
+    const key = patternBucketKey(day, unit);
+    if (!buckets.has(key)) buckets.set(key, { key, label: patternBucketLabel(day, unit), events: [] });
+    buckets.get(key).events.push(...events.filter((event) => !event.hiddenFromTimeline));
+  });
+  return [...buckets.values()].map((bucket) => {
+    metrics.forEach((metric) => { bucket[metric.key] = metric.value(bucket.events); });
+    return bucket;
+  });
+}
+
+function patternStatisticBucket(bucket, metrics, maxValue) {
+  return `
+    <article class="pattern-stat-bucket">
+      <strong>${escapeHtml(bucket.label)}</strong>
+      <div class="pattern-stat-bars">
+        ${metrics.map((metric) => {
+          const value = bucket[metric.key] || 0;
+          const width = Math.max(value ? 4 : 0, (value / maxValue) * 100);
+          return `<div class="pattern-stat-row pattern-stat-${metric.key}"><span>${escapeHtml(metric.label)}</span><div class="pattern-stat-track"><i style="width:${width}%"></i></div><em>${escapeHtml(metricsValueLabel(metric, value))}</em></div>`;
+        }).join('')}
+      </div>
+    </article>
+  `;
+}
+
+function metricsValueLabel(metric, value) {
+  return metric.format ? metric.format(value) : String(Math.round(value));
+}
+
+function patternBucketKey(day, unit) {
+  const date = dateFromKey(day);
+  if (unit === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  if (unit === 'week') {
+    const start = weekStartDate(date);
+    return localDateKey(start);
+  }
+  return day;
+}
+
+function patternBucketLabel(day, unit) {
+  const date = dateFromKey(day);
+  if (unit === 'month') return new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit' }).format(date);
+  if (unit === 'week') return `Week of ${shortDayLabel(localDateKey(weekStartDate(date)))}`;
+  return shortDayLabel(day);
+}
+
+function weekStartDate(date) {
+  const start = new Date(date);
+  start.setDate(date.getDate() - date.getDay());
+  return start;
 }
 
 function sortedEventsWithTime(events) {
@@ -2407,6 +2576,15 @@ function normalizePatternTypes(value) {
   const allowed = ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'];
   const selected = String(value || '').split(',').filter((item) => allowed.includes(item));
   return selected.length ? [...new Set(selected)] : allowed;
+}
+
+function normalizePatternPeriodDays(value) {
+  const parsed = Number(value);
+  return [1, 7, 14, 30].includes(parsed) ? parsed : 7;
+}
+
+function normalizePatternStatUnit(value) {
+  return ['day', 'week', 'month'].includes(value) ? value : 'week';
 }
 
 function normalizeTab(value) {

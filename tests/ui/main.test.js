@@ -436,16 +436,28 @@ describe('app/main', () => {
     await import('../../app/main.js?case=baby-patterns');
 
     await vi.waitFor(() => expect(document.querySelector('#baby-patterns').textContent).toContain('5 visible logs'));
+    expect(document.querySelector('#baby-patterns').classList.contains('hidden')).toBe(true);
+    fireEvent.click(screen.getByText('Patterns', { selector: '#open-baby-patterns span' }));
+    expect(document.querySelector('#baby-patterns').classList.contains('hidden')).toBe(false);
     expect(document.querySelector('#baby-patterns').textContent).toContain('7-day rhythm');
     expect(document.querySelectorAll('#baby-patterns .pattern-marker')).toHaveLength(5);
     expect(document.querySelector('#baby-patterns').textContent).toContain('Milk interval');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Sleep rhythm');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Statistics');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Week comparison');
     expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
 
     fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));
     expect(document.querySelector('#baby-patterns').textContent).toContain('2 visible logs');
     expect(document.querySelectorAll('#baby-patterns .pattern-marker.pattern-feeding_milk')).toHaveLength(0);
+
+    fireEvent.change(document.querySelector('#pattern-period-days'), { target: { value: '30' } });
+    await vi.waitFor(() => expect(document.querySelector('#baby-patterns').textContent).toContain('Monthly rhythm'));
+    fireEvent.change(document.querySelector('#pattern-stat-unit'), { target: { value: 'day' } });
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Day comparison');
     localStorage.removeItem('familyTracker.patternTypes');
+    localStorage.removeItem('familyTracker.patternPeriodDays');
+    localStorage.removeItem('familyTracker.patternStatUnit');
   });
 
   it('sorts the baby timeline by event time and filters by log type', async () => {

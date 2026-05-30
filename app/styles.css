@@ -587,11 +587,21 @@ input {
   color: #b00020;
 }
 
+.pattern-controls,
 .pattern-type-toggles,
 .pattern-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.pattern-controls {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pattern-controls .compact-select-control {
+  min-width: min(210px, 100%);
 }
 
 .pattern-toggle {
@@ -630,16 +640,18 @@ input {
 
 .pattern-chart {
   display: grid;
-  grid-template-columns: repeat(7, minmax(72px, 1fr));
+  grid-template-columns: repeat(var(--pattern-day-count, 7), minmax(56px, 1fr));
   gap: 8px;
+  min-width: min-content;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
   padding-bottom: 4px;
 }
 
 .pattern-day {
   display: grid;
   gap: 8px;
-  min-width: 72px;
+  min-width: 56px;
 }
 
 .pattern-day-lane {
@@ -741,6 +753,112 @@ input {
   font-weight: 600;
   line-height: 1.12;
 }
+
+.pattern-statistics {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--surface-pearl);
+  padding: 18px;
+}
+
+.pattern-statistics-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.pattern-statistics-header h3 {
+  margin: 4px 0 6px;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.pattern-statistics-header p,
+.pattern-stat-averages span,
+.pattern-stat-row span,
+.pattern-stat-row em {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pattern-stat-averages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pattern-stat-averages span {
+  display: grid;
+  min-width: 82px;
+  border-radius: 12px;
+  background: var(--canvas);
+  padding: 8px 10px;
+}
+
+.pattern-stat-averages strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.pattern-stat-chart {
+  display: grid;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.pattern-stat-bucket {
+  display: grid;
+  grid-template-columns: minmax(72px, 116px) minmax(260px, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-width: 360px;
+}
+
+.pattern-stat-bucket > strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.pattern-stat-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.pattern-stat-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 58px;
+  gap: 8px;
+  align-items: center;
+}
+
+.pattern-stat-track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--canvas);
+}
+
+.pattern-stat-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pattern-stat-color, var(--primary));
+}
+
+.pattern-stat-logs { --pattern-stat-color: var(--primary); }
+.pattern-stat-milk { --pattern-stat-color: #f5b700; }
+.pattern-stat-sleep { --pattern-stat-color: #6f6ee8; }
+.pattern-stat-diapers { --pattern-stat-color: #c58b5f; }
 
 .sleep-status {
   display: flex;
@@ -1295,6 +1413,15 @@ label {
   .today-context,
   .pattern-insights {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pattern-statistics-header,
+  .pattern-stat-bucket {
+    grid-template-columns: 1fr;
+  }
+
+  .pattern-stat-averages {
+    justify-content: flex-start;
   }
 
   .baby-patterns {
@@ -1959,6 +2086,7 @@ label {
 }
 
 .baby-settings-panel.app-floating-panel,
+.baby-patterns.app-floating-panel,
 .growth-summary.app-floating-panel,
 .task-overview.app-floating-panel,
 .task-composer.app-floating-panel {
@@ -1976,8 +2104,13 @@ label {
   padding: 0;
 }
 
+.baby-patterns.app-floating-panel,
 .growth-summary.app-floating-panel {
   border-top: 1px solid var(--hairline);
+}
+
+.baby-patterns.app-floating-panel {
+  width: min(960px, calc(100% - 32px));
 }
 
 .task-overview.app-floating-panel {

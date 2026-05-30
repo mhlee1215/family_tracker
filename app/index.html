@@ -129,6 +129,10 @@
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 16v-5"></path><path d="M12 16V8"></path><path d="M16 16v-9"></path></svg>
             <span>Summary</span>
           </button>
+          <button id="open-baby-patterns" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-patterns">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 17c3.5-8 6.5-8 10 0"></path><path d="M4 7c3.5 8 6.5 8 10 0"></path><path d="M18 5v14"></path><path d="M15 8l3-3 3 3"></path><path d="M15 16l3 3 3-3"></path></svg>
+            <span>Patterns</span>
+          </button>
           <button id="open-baby-log" type="button" class="app-menu-button active" aria-controls="log-form">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6Z"></path><path d="M14 4v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
             <span>Log</span>
@@ -198,7 +202,7 @@
         <section id="summary" class="summary-strip" aria-label="Today summary"></section>
         <section id="today-context" class="today-context" aria-label="Today context"></section>
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
-        <section id="baby-patterns" class="baby-patterns" aria-label="Baby weekly patterns"></section>
+        <section id="baby-patterns" class="baby-patterns app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby patterns"></section>
         <section id="growth-summary" class="growth-summary app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth summary"></section>
 
         <section id="workspace" class="workspace-grid">
