@@ -16,15 +16,17 @@ test('infers milk amount from profile or age defaults', () => {
   assert.equal(event.amountMl.source, 'inferred');
 });
 
-test('infers sleep end for nap start', () => {
+test('keeps nap start open until wake is logged', () => {
   const parsed = parseBabyLogText('낮잠', { now });
   const [event] = applyInferences(parsed, {
     now,
     profile: { napDurationMinutesOverride: 60 },
   });
 
-  assert.equal(event.endAt.source, 'inferred');
-  assert.equal(event.durationMinutes.value, 60);
+  assert.equal(event.startAt.value, now.toISOString());
+  assert.equal(event.status, 'ongoing_or_predicted');
+  assert.equal(event.endAt, undefined);
+  assert.equal(event.durationMinutes, undefined);
 });
 
 test('infers sleep start for completed nap with missing start', () => {
