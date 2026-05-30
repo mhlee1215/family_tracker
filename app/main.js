@@ -1,3 +1,5 @@
+import { babyActionIconColors, babySummaryLabelColors, mealSlotColors } from '../src/utils/tracker-colors.js';
+
 const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
 
@@ -1011,6 +1013,8 @@ function makeBabyActionButton(action, className) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = className;
+  const accentColor = babyActionIconColors[action.icon];
+  if (accentColor) button.style.setProperty('--tracker-accent', accentColor);
   if (action.activeSleep) button.classList.add('sleep-active');
   button.innerHTML = `${actionIcon(action.icon)}<span>${escapeHtml(action.label)}</span>`;
   if (action.value) {
@@ -1024,16 +1028,17 @@ function makeBabyActionButton(action, className) {
 function renderSummary() {
   const summary = state.summary || {};
   elements.summary.replaceChildren(
-    summaryItem('Sleep', `${summary.sleepMinutes || 0} min`),
-    summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`),
+    summaryItem('Sleep', `${summary.sleepMinutes || 0} min`, babySummaryLabelColors.Sleep),
+    summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`, babySummaryLabelColors.Milk),
     summaryItem('Baby food', `${summary.solidCount || 0}x`),
     summaryItem('Diaper', `${summary.diaperCount || 0}x`),
   );
 }
 
-function summaryItem(label, value) {
+function summaryItem(label, value, accentColor = '') {
   const item = document.createElement('div');
   item.className = 'summary-item';
+  if (accentColor) item.style.setProperty('--tracker-accent', accentColor);
   item.innerHTML = `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>`;
   return item;
 }
@@ -1751,9 +1756,9 @@ function loadMealCalendarDots(monthKey) {
   Object.keys(state.meals.plannedByDay || {}).filter((day) => day.startsWith(monthKey)).forEach((day) => {
     const plan = state.meals.plannedByDay[day] || {};
     const colors = [];
-    if ((plan.breakfast || []).length) colors.push('#f59e0b');
-    if ((plan.lunch || []).length) colors.push('#22c55e');
-    if ((plan.dinner || []).length) colors.push('#8b5cf6');
+    if ((plan.breakfast || []).length) colors.push(mealSlotColors.breakfast);
+    if ((plan.lunch || []).length) colors.push(mealSlotColors.lunch);
+    if ((plan.dinner || []).length) colors.push(mealSlotColors.dinner);
     if (colors.length) dots[day] = colors;
   });
   state.mealCalendarDots = dots;

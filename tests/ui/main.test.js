@@ -309,6 +309,10 @@ describe('app/main', () => {
 
     expect(quickActions.every((button) => button.querySelector('svg'))).toBe(true);
     expect(tabletActions.every((button) => button.querySelector('svg'))).toBe(true);
+    expect(quickActions.find((button) => button.textContent.includes('Formula')).style.getPropertyValue('--tracker-accent')).toBe('#0ea5e9');
+    expect(quickActions.find((button) => button.textContent.includes('Wake')).style.getPropertyValue('--tracker-accent')).toBe('#6366f1');
+    expect(quickActions.find((button) => button.textContent.includes('Dirty')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
+    expect(quickActions.find((button) => button.textContent.includes('Solids')).style.getPropertyValue('--tracker-accent')).toBe('#f59e0b');
     expect(document.querySelector('#quick-actions').textContent).toContain('Wake');
     expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (poop)');
     expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (pee)');
@@ -379,6 +383,27 @@ describe('app/main', () => {
     expect(babyPicker.value).toBe(today);
     expect(taskPicker.value).toBe(today);
     expect(mealPicker.value).toBe(today);
+  });
+
+  it('uses the same meal slot colors in labels and calendar dots', async () => {
+    await import('../../app/main.js?case=meal-calendar-colors');
+
+    fireEvent.click(document.querySelector('#meal-tab'));
+    fireEvent.click(document.querySelector('#meal-calendar-toggle'));
+
+    const slotLabels = Array.from(document.querySelectorAll('.meal-slot-label'));
+    expect(slotLabels.map((label) => label.textContent)).toEqual(['Breakfast', 'Lunch', 'Dinner']);
+    expect(document.querySelector('.meal-slot-breakfast')).toBeTruthy();
+    expect(document.querySelector('.meal-slot-lunch')).toBeTruthy();
+    expect(document.querySelector('.meal-slot-dinner')).toBeTruthy();
+
+    const dotStyles = Array.from(document.querySelectorAll('#meal-calendar-grid .calendar-dot'))
+      .map((dot) => dot.getAttribute('style'));
+    expect(dotStyles).toEqual(expect.arrayContaining([
+      'background:#f59e0b',
+      'background:#22c55e',
+      'background:#8b5cf6',
+    ]));
   });
 
   it('sorts the baby timeline by event time and filters by log type', async () => {
