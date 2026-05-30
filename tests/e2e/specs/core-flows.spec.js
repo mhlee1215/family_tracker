@@ -91,6 +91,54 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('baby weekly patterns summarize seven-day rhythm and type filters', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const eventsByDay = {
+      '2026-05-28': [
+        { id: 'pattern-e2e-milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+        { id: 'pattern-e2e-sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T10:00:00.000Z' }, endAt: { value: '2026-05-28T11:00:00.000Z' }, durationMinutes: { value: 60 }, createdAt: '2026-05-28T10:00:00.000Z' },
+      ],
+      '2026-05-29': [
+        { id: 'pattern-e2e-milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, createdAt: '2026-05-29T08:31:00.000Z' },
+        { id: 'pattern-e2e-poop-1', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T12:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T12:00:00.000Z' },
+      ],
+      '2026-05-30': [
+        { id: 'pattern-e2e-milk-3', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-30T09:00:00.000Z' }, amountMl: { value: 140 }, createdAt: '2026-05-30T09:01:00.000Z' },
+      ],
+    };
+
+    await page.route('**/api/logs/today**', async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const day = requestUrl.searchParams.get('day') || '2026-05-30';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: eventsByDay[day] || [], summary: {}, context: null }),
+      });
+    });
+
+    const loginResponse = await page.request.post('/api/auth/dev', { data: { id: 'admin' } });
+    expect(loginResponse.ok()).toBeTruthy();
+    await page.goto('/?day=2026-05-30');
+
+    await expect(page.locator('#baby-patterns')).toContainText('7-day rhythm');
+    await expect(page.locator('#baby-patterns')).toContainText('5 visible logs');
+    await expect(page.locator('#baby-patterns .pattern-marker')).toHaveCount(5);
+    await expect(page.locator('#baby-patterns')).toContainText('Milk interval');
+    await expect(page.locator('#baby-patterns')).toContainText('Sleep rhythm');
+    await app.captureStep('Weekly baby pattern rendered', 'The pattern chart loaded seven calendar lanes and interval cards from recent baby logs.');
+
+    await page.locator('#baby-patterns .pattern-toggle', { hasText: 'Milk' }).click();
+    await expect(page.locator('#baby-patterns')).toContainText('2 visible logs');
+    await expect(page.locator('#baby-patterns .pattern-marker.pattern-feeding_milk')).toHaveCount(0);
+    await app.captureStep('Filtered milk out of the pattern chart', 'The type toggle hides milk markers while preserving other rhythm cards.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('LLM-first baby context and recent suggestions update after mixed log save', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let events = [];

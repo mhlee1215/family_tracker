@@ -406,6 +406,48 @@ describe('app/main', () => {
     ]));
   });
 
+  it('renders weekly baby patterns and interval insights from recent logs', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        const day = new URL(url, 'https://example.test').searchParams.get('day') || '2026-05-30';
+        const eventsByDay = {
+          '2026-05-28': [
+            { id: 'milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+            { id: 'sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T10:00:00.000Z' }, endAt: { value: '2026-05-28T11:00:00.000Z' }, durationMinutes: { value: 60 }, createdAt: '2026-05-28T10:00:00.000Z' },
+          ],
+          '2026-05-29': [
+            { id: 'milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, createdAt: '2026-05-29T08:31:00.000Z' },
+            { id: 'poop-1', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T12:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T12:00:00.000Z' },
+          ],
+          '2026-05-30': [
+            { id: 'milk-3', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-30T09:00:00.000Z' }, amountMl: { value: 140 }, createdAt: '2026-05-30T09:01:00.000Z' },
+          ],
+        };
+        return new Response(JSON.stringify({ events: eventsByDay[day] || [], summary: {}, context: null }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    window.history.replaceState({}, '', '/?day=2026-05-30');
+    await import('../../app/main.js?case=baby-patterns');
+
+    await vi.waitFor(() => expect(document.querySelector('#baby-patterns').textContent).toContain('5 visible logs'));
+    expect(document.querySelector('#baby-patterns').textContent).toContain('7-day rhythm');
+    expect(document.querySelectorAll('#baby-patterns .pattern-marker')).toHaveLength(5);
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Milk interval');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Sleep rhythm');
+    expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
+
+    fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));
+    expect(document.querySelector('#baby-patterns').textContent).toContain('2 visible logs');
+    expect(document.querySelectorAll('#baby-patterns .pattern-marker.pattern-feeding_milk')).toHaveLength(0);
+    localStorage.removeItem('familyTracker.patternTypes');
+  });
+
   it('sorts the baby timeline by event time and filters by log type', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
