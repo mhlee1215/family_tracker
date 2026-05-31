@@ -24,6 +24,65 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+
+  test('baby feeding guidance compares current milk records with the newborn pace', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+
+    await page.route('**/api/profile', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ profile: { babyName: 'Ari', birthDate: '2026-05-16', milkAmountMlOverride: 30 }, growthRecords: [] }),
+      });
+    });
+    await page.route('**/api/logs/today**', async (route) => {
+      const url = new URL(route.request().url());
+      const day = url.searchParams.get('day') || '2026-05-30';
+      const isPrevious = day === '2026-05-29';
+      const count = isPrevious ? 6 : 5;
+      const amount = isPrevious ? 25 : 20;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          events: Array.from({ length: count }, (_, index) => ({
+            id: `${day}-${index}`,
+            type: 'feeding_milk',
+            rawText: `formula ${amount}`,
+            occurredAt: { value: `${day}T0${Math.min(index + 1, 9)}:00:00.000Z` },
+            amountMl: { value: amount },
+            createdAt: `${day}T0${Math.min(index + 1, 9)}:01:00.000Z`,
+          })),
+          summary: { milkCount: count, milkAmountMl: count * amount },
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      const fixedNow = new Date('2026-05-30T12:00:00').getTime();
+      const RealDate = Date;
+      // eslint-disable-next-line no-global-assign
+      Date = class extends RealDate {
+        constructor(...args) {
+          super(...(args.length ? args : [fixedNow]));
+        }
+        static now() { return fixedNow; }
+      };
+    });
+
+    await app.loginAsDevAdmin();
+    await expect(page.locator('#feeding-guidance')).toContainText('Feeding progress');
+    await expect(page.locator('#feeding-guidance')).toContainText('5x · 100ml');
+    await expect(page.locator('#feeding-guidance')).toContainText('4–6x · 120–180ml');
+    await expect(page.locator('#feeding-guidance')).toContainText('50ml less');
+    await expect(page.locator('#feeding-guidance a')).toHaveCount(3);
+    await app.captureStep('Reviewed feeding progress guidance', 'The baby tab shows guideline progress, yesterday comparison, and source links.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('log input submit and CTA flow to task composer works', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
@@ -84,6 +143,64 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#timeline .raw-text')).toHaveText(['nap']);
     await expect(page.locator('#event-count')).toHaveText('1 of 3 items');
     await app.captureStep('Timeline filtered to sleep', 'The filter control limits visible timeline items to sleep logs.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
+  test('baby weekly patterns summarize seven-day rhythm and type filters', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const eventsByDay = {
+      '2026-05-28': [
+        { id: 'pattern-e2e-milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+        { id: 'pattern-e2e-sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T10:00:00.000Z' }, endAt: { value: '2026-05-28T11:00:00.000Z' }, durationMinutes: { value: 60 }, createdAt: '2026-05-28T10:00:00.000Z' },
+      ],
+      '2026-05-29': [
+        { id: 'pattern-e2e-milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, createdAt: '2026-05-29T08:31:00.000Z' },
+        { id: 'pattern-e2e-poop-1', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T12:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T12:00:00.000Z' },
+      ],
+      '2026-05-30': [
+        { id: 'pattern-e2e-milk-3', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-30T09:00:00.000Z' }, amountMl: { value: 140 }, createdAt: '2026-05-30T09:01:00.000Z' },
+      ],
+    };
+
+    await page.route('**/api/logs/today**', async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const day = requestUrl.searchParams.get('day') || '2026-05-30';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: eventsByDay[day] || [], summary: {}, context: null }),
+      });
+    });
+
+    const loginResponse = await page.request.post('/api/auth/dev', { data: { id: 'admin' } });
+    expect(loginResponse.ok()).toBeTruthy();
+    await page.goto('/?day=2026-05-30');
+
+    await expect(page.locator('#baby-patterns')).toBeHidden();
+    await page.locator('#open-baby-patterns').click();
+    await expect(page.locator('#baby-patterns')).toBeVisible();
+    await expect(page.locator('#baby-patterns')).toContainText('7-day rhythm');
+    await expect(page.locator('#baby-patterns')).toContainText('5 visible logs');
+    await expect(page.locator('#baby-patterns .pattern-marker')).toHaveCount(5);
+    await expect(page.locator('#baby-patterns')).toContainText('Milk interval');
+    await expect(page.locator('#baby-patterns')).toContainText('Sleep rhythm');
+    await expect(page.locator('#baby-patterns')).toContainText('Week comparison');
+    await app.captureStep('Weekly baby pattern rendered', 'The pattern panel opened from the baby menu with seven calendar lanes, interval cards, and statistics.');
+
+    await page.locator('#baby-patterns .pattern-toggle', { hasText: 'Milk' }).click();
+    await expect(page.locator('#baby-patterns')).toContainText('2 visible logs');
+    await expect(page.locator('#baby-patterns .pattern-marker.pattern-feeding_milk')).toHaveCount(0);
+    await app.captureStep('Filtered milk out of the pattern chart', 'The type toggle hides milk markers while preserving other rhythm cards.');
+
+    await page.locator('#pattern-period-days').selectOption('30');
+    await expect(page.locator('#baby-patterns')).toContainText('Monthly rhythm');
+    await page.locator('#pattern-stat-unit').selectOption('day');
+    await expect(page.locator('#baby-patterns')).toContainText('Day comparison');
+    await app.captureStep('Changed pattern period and statistics grouping', 'The same menu panel switches from weekly rhythm to monthly history and daily comparison bars.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
@@ -283,6 +400,7 @@ test.describe('Family Tracker core flows', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(config) });
     });
     await app.loginAsDevAdmin();
+    await expect(page.locator('#account-panel')).not.toHaveClass(/hidden/);
 
     await page.locator('#menu-toggle').click();
     await expect(page.locator('#menu-panel')).toBeVisible();

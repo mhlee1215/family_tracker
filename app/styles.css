@@ -545,6 +545,321 @@ input {
   background: var(--surface-pearl);
 }
 
+.baby-patterns {
+  display: grid;
+  gap: 22px;
+  border-top: 1px solid var(--hairline);
+  background: var(--canvas);
+  padding: 48px min(80px, 7vw);
+}
+
+.baby-patterns-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.baby-patterns-header h2 {
+  margin: 4px 0 6px;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 600;
+  line-height: 1.07;
+  letter-spacing: -0.28px;
+}
+
+.baby-patterns-header p,
+.pattern-status,
+.pattern-error {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.43;
+}
+
+.pattern-status {
+  white-space: nowrap;
+}
+
+.pattern-error {
+  color: #b00020;
+}
+
+.pattern-controls,
+.pattern-type-toggles,
+.pattern-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pattern-controls {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pattern-controls .compact-select-control {
+  min-width: min(210px, 100%);
+}
+
+.pattern-toggle {
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--ink-muted);
+  font-size: 14px;
+  padding: 8px 14px;
+}
+
+.pattern-toggle.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.pattern-chart-shell {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.pattern-time-axis {
+  position: relative;
+  min-height: 420px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-time-axis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.pattern-chart {
+  display: grid;
+  grid-template-columns: repeat(var(--pattern-day-count, 7), minmax(56px, 1fr));
+  gap: 8px;
+  min-width: min-content;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding-bottom: 4px;
+}
+
+.pattern-day {
+  display: grid;
+  gap: 8px;
+  min-width: 56px;
+}
+
+.pattern-day-lane {
+  position: relative;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(12.5% - 1px), var(--divider-soft) calc(12.5% - 1px), var(--divider-soft) 12.5%),
+    var(--canvas-parchment);
+}
+
+.pattern-day strong,
+.pattern-day span {
+  display: block;
+  text-align: center;
+}
+
+.pattern-day strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.pattern-day span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-marker {
+  position: absolute;
+  right: 8px;
+  left: 8px;
+  min-height: 4px;
+  border-radius: 9999px;
+  background: var(--pattern-color, var(--primary));
+  color: var(--on-primary);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+}
+
+.pattern-estimated {
+  opacity: 0.54;
+  outline: 1px dashed color-mix(in srgb, var(--pattern-color, var(--primary)) 70%, white);
+  outline-offset: 2px;
+}
+
+.pattern-sleep { --pattern-color: #6f6ee8; }
+.pattern-feeding_milk { --pattern-color: #f5b700; }
+.pattern-feeding_solid { --pattern-color: #3fc8bd; }
+.pattern-diaper { --pattern-color: #c58b5f; }
+.pattern-poop { --pattern-color: #9a6a3a; }
+
+.pattern-legend {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pattern-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--pattern-color, var(--primary));
+}
+
+.pattern-insights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+}
+
+.pattern-insight-card {
+  display: grid;
+  gap: 6px;
+  background: var(--canvas);
+  padding: 18px;
+}
+
+.pattern-insight-card span,
+.pattern-insight-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pattern-insight-card strong {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.pattern-statistics {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--surface-pearl);
+  padding: 18px;
+}
+
+.pattern-statistics-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.pattern-statistics-header h3 {
+  margin: 4px 0 6px;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.pattern-statistics-header p,
+.pattern-stat-averages span,
+.pattern-stat-row span,
+.pattern-stat-row em {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pattern-stat-averages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pattern-stat-averages span {
+  display: grid;
+  min-width: 82px;
+  border-radius: 12px;
+  background: var(--canvas);
+  padding: 8px 10px;
+}
+
+.pattern-stat-averages strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.pattern-stat-chart {
+  display: grid;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.pattern-stat-bucket {
+  display: grid;
+  grid-template-columns: minmax(72px, 116px) minmax(260px, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-width: 360px;
+}
+
+.pattern-stat-bucket > strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.pattern-stat-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.pattern-stat-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 58px;
+  gap: 8px;
+  align-items: center;
+}
+
+.pattern-stat-track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--canvas);
+}
+
+.pattern-stat-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pattern-stat-color, var(--primary));
+}
+
+.pattern-stat-logs { --pattern-stat-color: var(--primary); }
+.pattern-stat-milk { --pattern-stat-color: #f5b700; }
+.pattern-stat-sleep { --pattern-stat-color: #6f6ee8; }
+.pattern-stat-diapers { --pattern-stat-color: #c58b5f; }
+
 .sleep-status {
   display: flex;
   align-items: center;
@@ -1095,8 +1410,36 @@ label {
   }
 
   .summary-strip,
-  .today-context {
+  .today-context,
+  .pattern-insights {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pattern-statistics-header,
+  .pattern-stat-bucket {
+    grid-template-columns: 1fr;
+  }
+
+  .pattern-stat-averages {
+    justify-content: flex-start;
+  }
+
+  .baby-patterns {
+    padding: 48px 16px;
+  }
+
+  .baby-patterns-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pattern-chart-shell {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .pattern-time-axis,
+  .pattern-day-lane {
+    min-height: 360px;
   }
 
   .summary-item {
@@ -1743,6 +2086,7 @@ label {
 }
 
 .baby-settings-panel.app-floating-panel,
+.baby-patterns.app-floating-panel,
 .growth-summary.app-floating-panel,
 .task-overview.app-floating-panel,
 .task-composer.app-floating-panel {
@@ -1760,8 +2104,13 @@ label {
   padding: 0;
 }
 
+.baby-patterns.app-floating-panel,
 .growth-summary.app-floating-panel {
   border-top: 1px solid var(--hairline);
+}
+
+.baby-patterns.app-floating-panel {
+  width: min(960px, calc(100% - 32px));
 }
 
 .task-overview.app-floating-panel {
@@ -2036,4 +2385,144 @@ label {
 
 .llm-provider-model {
   margin: 0;
+}
+.feeding-guidance {
+  display: grid;
+  gap: 1px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--hairline);
+}
+
+.feeding-guidance-hero,
+.feeding-guidance-card,
+.feeding-guidance-notes {
+  background: var(--canvas);
+}
+
+.feeding-guidance-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px min(32px, 5vw);
+}
+
+.feeding-guidance-hero h2 {
+  margin: 4px 0 8px;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.feeding-guidance-hero p:not(.eyebrow) {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 17px;
+  line-height: 1.47;
+}
+
+.feeding-progress-ring {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--primary);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.feeding-guidance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.feeding-guidance-card {
+  display: grid;
+  gap: 8px;
+  min-height: 136px;
+  padding: 24px min(24px, 4vw);
+}
+
+.feeding-guidance-card span,
+.feeding-guidance-card small,
+.feeding-guidance-notes p,
+.feeding-guidance-notes li {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.43;
+}
+
+.feeding-guidance-card strong {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.feeding-progress-bar {
+  height: 8px;
+  overflow: hidden;
+  background: var(--surface-pearl);
+}
+
+.feeding-progress-bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 0 9999px 9999px 0;
+  background: var(--tracker-baby-milk);
+}
+
+.feeding-guidance-notes {
+  display: grid;
+  gap: 12px;
+  padding: 22px min(32px, 5vw) 28px;
+}
+
+.feeding-guidance-notes ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.feeding-guidance-notes p {
+  margin: 0;
+}
+
+.feeding-guidance-notes a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.feeding-guidance-notes a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+  .feeding-guidance-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .feeding-guidance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feeding-progress-ring {
+    width: 80px;
+    height: 80px;
+    font-size: 24px;
+  }
 }
