@@ -12,6 +12,7 @@
     "check:turso": "node scripts/check-turso.js",
     "seed:turso:tasks": "node scripts/reset-seed-tasks.js",
     "sync:build": "node scripts/sync-build-metadata.js",
+    "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "bump:build": "node scripts/bump-build.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
