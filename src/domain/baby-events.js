@@ -16,7 +16,10 @@ export function eventDisplayTitle(event) {
   }
   if (event.type === 'feeding_milk') return '수유';
   if (event.type === 'feeding_solid') return '이유식';
-  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? '응가' : '기저귀';
+  if (event.type === 'diaper') {
+    if (event.diaperKind?.value === 'mixed') return '똥/오줌';
+    return event.diaperKind?.value === 'dirty' ? '응가' : '기저귀';
+  }
   return '기록';
 }
 
