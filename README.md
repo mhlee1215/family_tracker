@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 066](https://img.shields.io/badge/build-066-0066cc)
+![Build 067](https://img.shields.io/badge/build-067-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -8,13 +8,23 @@ It supports three everyday workflows with low-friction logging and review:
 - **Baby tracking** (sleep, feeding, diaper, and timeline history)
 - **Task tracking** (household/family task capture and management)
 - **Meal tracking/planning** (meal ideas, meal state, and daily planning)
-- **Shared daily context** (Baby, Task, and Meal views stay on the same selected day)
+- **Home dashboard** (landing summary for today across Baby, Task, and Meal)
+- **Shared daily context** (Home, Baby, Task, and Meal views stay on the same selected day)
 
 Live app: <https://family-tracker-fex9.onrender.com/>
 
 ---
 
 ## Core Features
+
+### 0) Home Dashboard
+
+A landing dashboard at `/` summarizes the selected day before diving into a module.
+
+- Baby timeline markers for today
+- Due/open task attention chips plus completed-task rhythm
+- Breakfast/lunch/dinner planning dots
+- Deep links to `/baby`, `/tasks`, and `/meals` for detailed work
 
 ### 1) Baby Tracking
 

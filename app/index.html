@@ -13,7 +13,8 @@
       <div class="global-nav-inner">
         <span class="global-brand">Family Tracker</span>
         <nav class="module-tabs" aria-label="Trackers">
-          <button id="baby-tab" type="button" class="module-tab active" data-tab="baby">Baby</button>
+          <button id="home-tab" type="button" class="module-tab active" data-tab="home">Home</button>
+          <button id="baby-tab" type="button" class="module-tab" data-tab="baby">Baby</button>
           <button id="task-tab" type="button" class="module-tab" data-tab="task">Task</button>
           <button id="meal-tab" type="button" class="module-tab" data-tab="meal">Meal</button>
         </nav>
@@ -92,7 +93,29 @@
     </header>
 
     <main id="app" class="app-shell">
-      <section id="baby-view" class="module-view active">
+      <section id="home-view" class="module-view active">
+        <header class="top-bar home-hero">
+          <p class="eyebrow">Family dashboard</p>
+          <div class="home-heading">
+            <h1 id="home-day-label" class="day-label">Today</h1>
+            <p id="home-deck" class="home-deck">A quick read on baby logs, tasks, and meals.</p>
+          </div>
+        </header>
+
+        <section class="home-dashboard" aria-labelledby="home-dashboard-title">
+          <div class="home-dashboard-header">
+            <div>
+              <p class="eyebrow">Today summary</p>
+              <h2 id="home-dashboard-title">What needs attention</h2>
+            </div>
+            <span id="home-attention-count" class="home-attention-count">0 items</span>
+          </div>
+          <div id="home-attention-strip" class="home-attention-strip" aria-live="polite"></div>
+          <div id="home-summary-grid" class="home-summary-grid" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section id="baby-view" class="module-view">
         <header class="top-bar">
           <p class="eyebrow">Baby Tracker</p>
           <div class="date-heading">

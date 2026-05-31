@@ -2,22 +2,30 @@ import { test, expect } from '@playwright/test';
 import { AppHarness } from '../helpers/app-harness.js';
 
 test.describe('Family Tracker core flows', () => {
-  test('first screen renders and top-level navigation works', async ({ page }, testInfo) => {
+  test('home dashboard renders and top-level navigation works', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
-    await app.loginAsDevAdmin();
-    await app.captureStep('Logged in to baby home', 'Dev admin login completed and baby module opened.');
+    await app.loginAsDevAdmin('/');
+    await app.captureStep('Logged in to home dashboard', 'Dev admin login completed and the Home dashboard opened.');
 
+    await expect(page.locator('#home-view.active #home-day-label')).toHaveText('Today');
+    await expect(page.locator('#home-summary-grid .home-card')).toHaveCount(3);
+    await expect(page.locator('#home-summary-grid')).toContainText('Baby today');
+    await expect(page.locator('#home-summary-grid')).toContainText('Tasks today');
+    await expect(page.locator('#home-summary-grid')).toContainText('Meals today');
+
+    await page.locator('#baby-tab').click();
     await expect(page.locator('#baby-view.active #day-label')).toHaveText('Today');
     await expect(page.locator('#timeline')).toBeVisible();
+    await app.captureStep('Navigated to baby tab', 'Baby log form and timeline are visible.');
 
     await page.locator('#task-tab').click();
     await expect(page.locator('#task-view.active #task-day-label')).toHaveText('Today');
     await expect(page.locator('#task-list')).toBeVisible();
     await app.captureStep('Navigated to task tab', 'Task view rendered with today context and list.');
 
-    await page.locator('#baby-tab').click();
-    await expect(page.locator('#log-form')).toBeVisible();
-    await app.captureStep('Returned to baby tab', 'Baby log form is visible again.');
+    await page.locator('#home-tab').click();
+    await expect(page.locator('#home-view.active #home-summary-grid')).toBeVisible();
+    await app.captureStep('Returned to home dashboard', 'The dashboard cards are visible again.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
@@ -165,7 +173,7 @@ test.describe('Family Tracker core flows', () => {
 
     const addText = `undo baby add formula ${suffix}`;
     await createBabyRecord(page, addText);
-    await gotoAndSettle(page, '/');
+    await gotoAndSettle(page, '/baby');
     await expect(page.locator('#timeline')).toContainText(addText);
     await undoBabyAction(page, `added baby record "${addText}"`);
     await expect(page.locator('#timeline')).not.toContainText(addText);
@@ -176,7 +184,7 @@ test.describe('Family Tracker core flows', () => {
     const editedText = `undo baby edit updated ${suffix}`;
     const editable = await createBabyRecord(page, originalText);
     await patchBabyRecord(page, editable.rawLog.id, editedText);
-    await gotoAndSettle(page, '/');
+    await gotoAndSettle(page, '/baby');
     await expect(page.locator('#timeline')).toContainText(editedText);
     await undoBabyAction(page, `edited baby record "${editedText}"`);
     await expect(page.locator('#timeline')).toContainText(originalText);
@@ -186,7 +194,7 @@ test.describe('Family Tracker core flows', () => {
     const deletedText = `undo baby delete formula ${suffix}`;
     const deleted = await createBabyRecord(page, deletedText);
     await deleteBabyRecord(page, deleted.rawLog.id);
-    await gotoAndSettle(page, '/');
+    await gotoAndSettle(page, '/baby');
     await expect(page.locator('#timeline')).not.toContainText(deletedText);
     await undoBabyAction(page, `deleted baby record "${deletedText}"`);
     await expect(page.locator('#timeline')).toContainText(deletedText);
@@ -318,7 +326,7 @@ test.describe('Family Tracker core flows', () => {
 
     const loginResponse = await page.request.post('/api/auth/dev', { data: { id: 'admin' } });
     expect(loginResponse.ok()).toBeTruthy();
-    await page.goto('/?day=2026-05-30');
+    await page.goto('/baby?day=2026-05-30');
 
     await expect(page.locator('#baby-patterns')).toBeHidden();
     await page.locator('#open-baby-patterns').click();
@@ -551,7 +559,7 @@ test.describe('Family Tracker core flows', () => {
         body: JSON.stringify({ error: 'forced e2e failure' }),
       });
     });
-    await gotoAndSettle(page, '/');
+    await gotoAndSettle(page, '/baby');
     // TODO: once UI has explicit load-error banner, assert that message.
     await expect(page.locator('#timeline')).toBeVisible();
     await expect(page.locator('#timeline')).toContainText('No records for this date yet.');
