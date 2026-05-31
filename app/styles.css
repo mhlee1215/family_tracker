@@ -473,6 +473,38 @@ input {
   border-radius: 9999px;
 }
 
+.baby-status-range {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  border-top: 1px solid var(--hairline);
+  background: var(--canvas);
+  padding: 14px min(24px, 4vw);
+}
+
+.baby-status-range button {
+  border: 0;
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--ink-muted-80);
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: -0.224px;
+  cursor: pointer;
+}
+
+.baby-status-range button.active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.baby-status-range button:focus-visible {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
 .summary-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1502,6 +1534,7 @@ label {
     min-width: 86px;
   }
 
+  .baby-status-range,
   .summary-strip,
   .today-context,
   .pattern-insights {

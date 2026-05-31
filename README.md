@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 069](https://img.shields.io/badge/build-069-0066cc)
+![Build 070](https://img.shields.io/badge/build-070-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -36,7 +36,7 @@ Designed for very short natural-language input such as `낮잠`, `깸`, `분유 
 - Stores detailed baby profile fields including birth time, height, head size, weight, and Apgar
 - Saves dated growth records for birth, current, or custom dates and shows growth history summaries with an in-section trend chart
 - Marks inferred values separately from user-provided values
-- Shows Today Context for last milk, diaper, sleep state, and estimated fields
+- Shows Baby status for last milk, diaper, sleep state, and estimated fields with a Recent 24h/Today toggle
 - Adds a Baby menu Patterns panel with selectable day/week/month-style periods, 24-hour activity lanes, interval insight cards, and comparison statistics
 - Reuses successful natural-language logs as smart recent suggestions
 - Tracks staged LLM-first baby work in `docs/llm-first-baby-tracker-roadmap.md`
@@ -142,7 +142,8 @@ npm run seed:turso:tasks
 
 ```text
 GET  /api/config
-GET  /api/logs/today
+GET  /api/logs/today?day=YYYY-MM-DD&timezone=Area/City
+GET  /api/logs/today?range=recent24h&timezone=Area/City
 GET  /api/action-logs?module=baby|task
 POST /api/action-logs/:id/undo
 POST /api/logs

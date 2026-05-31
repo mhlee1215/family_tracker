@@ -226,8 +226,12 @@
           </form>
         </section>
 
-        <section id="summary" class="summary-strip" aria-label="Today summary"></section>
-        <section id="today-context" class="today-context" aria-label="Today context"></section>
+        <div id="baby-status-range" class="baby-status-range" role="group" aria-label="Baby status range">
+          <button type="button" data-status-range="recent24h" aria-pressed="true">Recent 24h</button>
+          <button type="button" data-status-range="today" aria-pressed="false">Today</button>
+        </div>
+        <section id="summary" class="summary-strip" aria-label="Baby status summary"></section>
+        <section id="today-context" class="today-context" aria-label="Baby status context"></section>
         <section id="feeding-guidance" class="feeding-guidance" aria-label="Feeding progress guidance"></section>
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
         <section id="baby-patterns" class="baby-patterns app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby patterns"></section>

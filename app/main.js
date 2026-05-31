@@ -1,4 +1,5 @@
 import { buildFeedingGuidance } from '../src/domain/feeding-guidance.js';
+import { buildTodayContext, buildTodaySummary, buildWindowSummary, filterEventsForWindow } from '../src/domain/summary-builder.js';
 import { babyActionIconColors, babySummaryLabelColors, colorForBabyEventType, mealSlotColors } from '../src/utils/tracker-colors.js';
 
 const BUILD_PLACEHOLDER = '---';
@@ -26,6 +27,7 @@ const storageKeys = {
   patternTypes: 'familyTracker.patternTypes',
   patternPeriodDays: 'familyTracker.patternPeriodDays',
   patternStatUnit: 'familyTracker.patternStatUnit',
+  babyStatusRange: 'familyTracker.babyStatusRange',
 };
 
 const copy = {
@@ -50,12 +52,20 @@ const copy = {
   ],
 };
 
+function normalizeBabyStatusRange(value) {
+  return value === 'today' ? 'today' : 'recent24h';
+}
+
 const state = {
   events: [],
   previousEvents: [],
   previousSummary: null,
   summary: null,
   todayContext: null,
+  recent24Events: [],
+  recent24Summary: null,
+  recent24Context: null,
+  babyStatusRange: normalizeBabyStatusRange(localStorage.getItem(storageKeys.babyStatusRange)),
   recentBabyLogs: loadRecentBabyLogs(),
   user: null,
   profile: null,
@@ -109,6 +119,7 @@ const elements = {
   timeline: $('#timeline'),
   summary: $('#summary'),
   todayContext: $('#today-context'),
+  babyStatusRange: $('#baby-status-range'),
   feedingGuidance: $('#feeding-guidance'),
   sleepStatus: $('#sleep-status'),
   babyPatterns: $('#baby-patterns'),
@@ -392,6 +403,11 @@ elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 
 elements.dayPicker.addEventListener('change', () => setSelectedDay(elements.dayPicker.value, { pushHistory: true }));
+elements.babyStatusRange?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-status-range]');
+  if (!button) return;
+  setBabyStatusRange(button.dataset.statusRange);
+});
 
 elements.summaryPeriod?.addEventListener('change', () => {
   syncUrlForTab(state.activeTab, { pushHistory: true });
@@ -531,18 +547,25 @@ function formatClarificationMessage(payload = {}) {
 
 async function loadToday() {
   const params = new URLSearchParams({ day: state.selectedDay, timezone: localTimezone() });
-  const [response, actionLogResponse] = await Promise.all([
+  const recentParams = new URLSearchParams({ range: 'recent24h', timezone: localTimezone() });
+  const [response, recentResponse, actionLogResponse] = await Promise.all([
     fetch(`/api/logs/today?${params.toString()}`),
+    fetch(`/api/logs/today?${recentParams.toString()}`),
     fetch('/api/action-logs?module=baby&limit=30'),
   ]);
   const payload = await response.json();
+  const recentPayload = await recentResponse.json().catch(() => ({}));
   const actionLogPayload = await actionLogResponse.json().catch(() => ({}));
   if (handleAuthFailure(response)) return;
   state.events = payload.events || [];
-  state.summary = payload.summary;
+  state.summary = payload.summary || buildTodaySummary(state.events);
   state.babyActionLog = actionLogResponse.ok ? actionLogPayload.logs || [] : [];
   state.todayContext = payload.context || buildClientTodayContext(state.events);
+  state.recent24Events = recentResponse.ok ? recentPayload.events || [] : [];
+  state.recent24Summary = recentResponse.ok ? recentPayload.summary || null : null;
+  state.recent24Context = recentResponse.ok ? recentPayload.context || null : null;
   await loadPreviousBabyDay();
+  hydrateRecent24StatusFallback();
   seedSelectedDayPattern();
   renderBaby();
   loadBabyPatterns();
@@ -1160,7 +1183,8 @@ function makeBabyActionButton(action, className) {
 }
 
 function renderSummary() {
-  const summary = state.summary || {};
+  renderBabyStatusRangeToggle();
+  const summary = selectedBabyStatus().summary || {};
   elements.summary.replaceChildren(
     summaryItem('Sleep', `${summary.sleepMinutes || 0} min`, babySummaryLabelColors.Sleep),
     summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`, babySummaryLabelColors.Milk),
@@ -1171,7 +1195,7 @@ function renderSummary() {
 
 function renderTodayContext() {
   if (!elements.todayContext) return;
-  const context = state.todayContext || buildClientTodayContext(state.events);
+  const context = selectedBabyStatus().context || buildClientTodayContext(selectedBabyStatus().events);
   const cards = [
     contextCard('Last milk', milkContextLabel(context.lastMilk), 'feeding_milk'),
     contextCard('Last diaper', diaperContextLabel(context.lastDiaper), 'diaper'),
@@ -1180,6 +1204,44 @@ function renderTodayContext() {
   ];
   elements.todayContext.replaceChildren(...cards);
 }
+
+function selectedBabyStatus() {
+  if (state.babyStatusRange === 'today') {
+    return { events: state.events, summary: state.summary || buildTodaySummary(state.events), context: state.todayContext || buildClientTodayContext(state.events) };
+  }
+  return {
+    events: state.recent24Events || [],
+    summary: state.recent24Summary || buildWindowSummary(state.recent24Events || []),
+    context: state.recent24Context || buildClientTodayContext(state.recent24Events || []),
+  };
+}
+
+function setBabyStatusRange(value) {
+  state.babyStatusRange = normalizeBabyStatusRange(value);
+  localStorage.setItem(storageKeys.babyStatusRange, state.babyStatusRange);
+  renderSummary();
+  renderTodayContext();
+}
+
+function renderBabyStatusRangeToggle() {
+  if (!elements.babyStatusRange) return;
+  elements.babyStatusRange.querySelectorAll('[data-status-range]').forEach((button) => {
+    const active = button.dataset.statusRange === state.babyStatusRange;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function hydrateRecent24StatusFallback() {
+  if (state.recent24Summary && state.recent24Context) return;
+  const now = new Date();
+  const start = new Date(now.getTime() - 24 * 60 * 60000);
+  const candidates = [...state.previousEvents, ...state.events];
+  state.recent24Events = filterEventsForWindow(candidates, { start, end: now });
+  state.recent24Summary = buildWindowSummary(candidates, { start, end: now });
+  state.recent24Context = buildTodayContext(state.recent24Events, { now, selectedDay: localDateKey(now), today: localDateKey(now) });
+}
+
 
 function renderFeedingGuidance() {
   if (!elements.feedingGuidance) return;
