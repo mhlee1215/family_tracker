@@ -598,7 +598,11 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(document.querySelector('#timeline .raw-text')?.textContent).toBe('formula'));
     const timeline = document.querySelector('#timeline');
-    expect(timeline.querySelector('.timeline-swipe .swipe-hint')?.textContent).toBe('Swipe left for actions');
+    expect(timeline.querySelector('.timeline-swipe .swipe-hint')).toBeNull();
+    expect(timeline.querySelector('.swipe-affordance')?.getAttribute('aria-label')).toContain('Swipe left');
+    fireEvent.click(timeline.querySelector('.timeline-detail-button'));
+    expect(timeline.querySelector('.timeline-detail-popover')?.hidden).toBe(false);
+    expect(timeline.querySelector('.timeline-detail-popover')?.textContent).toContain('Original text');
     expect(timeline.querySelectorAll('.swipe-action svg').length).toBeGreaterThanOrEqual(2);
     expect(swipedInit).toHaveBeenCalledWith(expect.objectContaining({
       query: expect.stringContaining('data-swipe-id'),
@@ -687,6 +691,8 @@ describe('app/main', () => {
       await vi.waitFor(() => expect(screen.getByText('Feeding progress')).toBeTruthy());
       const guidance = document.querySelector('#feeding-guidance');
       expect(guidance.textContent).toContain('Week 3 newborn');
+      expect(guidance.textContent).toContain('Progress at a glance');
+      expect([...guidance.querySelectorAll('.feeding-progress-row summary span')].map((node) => node.textContent)).toEqual(['Day elapsed', 'Milk pace']);
       expect(guidance.textContent).toContain('5x · 100ml');
       expect(guidance.textContent).toContain('4–6x · 120–180ml');
       expect(guidance.textContent).toContain('50ml less');

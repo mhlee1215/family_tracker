@@ -1,5 +1,5 @@
 import { buildFeedingGuidance } from '../src/domain/feeding-guidance.js';
-import { babyActionIconColors, babySummaryLabelColors, mealSlotColors } from '../src/utils/tracker-colors.js';
+import { babyActionIconColors, babySummaryLabelColors, colorForBabyEventType, mealSlotColors } from '../src/utils/tracker-colors.js';
 
 const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
@@ -7,6 +7,7 @@ const BUILD_CHECK_INTERVAL_MS = 60_000;
 const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
 const swipeState = { openItem: null, nextId: 0 };
+let openTimelineDetail = null;
 
 const patternEventTypes = [
   { type: 'sleep', label: 'Sleep' },
@@ -431,6 +432,7 @@ document.addEventListener('click', (event) => {
 document.addEventListener('pointerdown', (event) => {
   const target = event.target;
   if (swipeState.openItem && !swipeState.openItem.contains(target)) closeSwipeItem(swipeState.openItem);
+  if (openTimelineDetail && !openTimelineDetail.contains(target) && !target.closest?.('.timeline-row-actions')) closeTimelineDetail();
   closeFloatingSectionPanels(target);
   if (elements.mealLogPanel && !elements.mealLogPanel.classList.contains('hidden')) {
     const insideLog = elements.mealLogPanel.contains(target) || elements.toggleMealLog?.contains(target);
@@ -1126,7 +1128,7 @@ function renderSummary() {
   elements.summary.replaceChildren(
     summaryItem('Sleep', `${summary.sleepMinutes || 0} min`, babySummaryLabelColors.Sleep),
     summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`, babySummaryLabelColors.Milk),
-    summaryItem('Baby food', `${summary.solidCount || 0}x`),
+    summaryItem('Baby food', `${summary.solidCount || 0}x`, babySummaryLabelColors.Solids),
     summaryItem('Diaper', `${summary.diaperCount || 0}x`),
   );
 }
@@ -1158,6 +1160,9 @@ function renderFeedingGuidance() {
   const averageTarget = guideline?.amountPerFeedMl ? rangeLabel(guideline.amountPerFeedMl, 'ml') : 'Track baseline';
   const dayPercent = Math.round(guidance.dayProgress * 100);
   const amountPercent = comparison.amount?.max ? Math.min(100, Math.round((guidance.today.totalAmountMl / comparison.amount.max) * 100)) : 0;
+  const amountDetail = comparison.amount?.max
+    ? `${guidance.today.totalAmountMl}ml logged so far out of the upper expected pace of ${comparison.amount.max}ml for this time of day.`
+    : 'Add milk amounts to compare today against the expected pace.';
   const sources = guidance.sources.map((source) => `<a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.label)}</a>`).join(' · ');
   const suggestions = guidance.suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
   const yesterday = guidance.yesterdayComparison?.hasYesterday
@@ -1171,14 +1176,23 @@ function renderFeedingGuidance() {
         <h2>${escapeHtml(guidance.stageLabel)}</h2>
         <p>${escapeHtml(guidance.summary)}</p>
       </div>
-      <div class="feeding-progress-ring" aria-label="${dayPercent}% of day elapsed">${dayPercent}%</div>
     </div>
+    <section class="feeding-progress-panel" aria-label="Feeding progress explained">
+      <div class="feeding-progress-heading">
+        <div>
+          <span>Progress at a glance</span>
+          <strong>What the percentages mean</strong>
+        </div>
+        <small>Tap each row for detail.</small>
+      </div>
+      ${feedingProgressRow({ label: 'Day elapsed', value: dayPercent, detail: `${dayPercent}% of the selected day has passed in your local time. We use this to pace expected feeds for “by now” comparisons.` })}
+      ${feedingProgressRow({ label: 'Milk pace', value: amountPercent, detail: amountDetail })}
+    </section>
     <div class="feeding-guidance-grid">
       ${guidanceMetricCard('Today milk', `${guidance.today.feedCount}x · ${guidance.today.totalAmountMl}ml`, `Average ${guidance.today.averageAmountMl ?? 0}ml/feed`)}
       ${guidanceMetricCard('Expected by now', `${expectedCount} · ${expectedAmount}`, `Per feed target ${averageTarget}`)}
       ${guidanceMetricCard('Vs yesterday', yesterday, 'Same time-window comparison', true)}
     </div>
-    <div class="feeding-progress-bar" aria-label="Milk volume progress against upper expected pace"><span style="width: ${amountPercent}%"></span></div>
     <div class="feeding-guidance-notes">
       <ul>${suggestions}</ul>
       <p>Sources: ${sources}</p>
@@ -1189,6 +1203,20 @@ function renderFeedingGuidance() {
 function guidanceMetricCard(label, value, note, rawValue = false) {
   const valueMarkup = rawValue ? value : `<strong>${escapeHtml(value)}</strong>`;
   return `<article class="feeding-guidance-card"><span>${escapeHtml(label)}</span>${valueMarkup}<small>${escapeHtml(note)}</small></article>`;
+}
+
+function feedingProgressRow({ label, value, detail }) {
+  const normalized = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+  return `
+    <details class="feeding-progress-row">
+      <summary>
+        <span>${escapeHtml(label)}</span>
+        <strong>${normalized}%</strong>
+        <i aria-hidden="true"><b style="width: ${normalized}%"></b></i>
+      </summary>
+      <p>${escapeHtml(detail)}</p>
+    </details>
+  `;
 }
 
 function rangeLabel(range, unit) {
@@ -1951,6 +1979,7 @@ function actionIcon(name) {
     wet: '<path d="M12 3s5 5.2 5 9a5 5 0 0 1-10 0c0-3.8 5-9 5-9Z"/><path d="M10 14a2 2 0 0 0 4 0"/>',
     solids: '<path d="M5 4v8"/><path d="M9 4v8"/><path d="M7 4v17"/><path d="M15 4v17"/><path d="M15 4c3 2 4 6 1 9"/>',
     note: '<path d="M6 4h9l3 3v13H6Z"/><path d="M14 4v4h4"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
   };
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.edit}</svg>`;
 }
@@ -2129,6 +2158,7 @@ function makeSwipeItem(content, actions, className = '') {
     } else if (event.key === 'ArrowRight' || event.key === 'Escape') {
       event.preventDefault();
       closeSwipeItem(shell);
+      if (event.key === 'Escape') closeTimelineDetail();
     }
   });
 
@@ -2195,29 +2225,81 @@ function timestamp(value) {
 function renderEvent(event) {
   const item = document.createElement('article');
   item.className = 'timeline-item';
+  item.style.setProperty('--event-accent', colorForBabyEventType(event.type));
+
   const title = document.createElement('div');
   title.className = 'timeline-title';
-  title.textContent = eventTitle(event);
+  const titleText = document.createElement('span');
+  titleText.textContent = eventTitle(event);
+  const swipeAffordance = document.createElement('span');
+  swipeAffordance.className = 'swipe-affordance';
+  swipeAffordance.setAttribute('aria-label', 'Swipe left for edit and delete actions');
+  title.replaceChildren(titleText, swipeAffordance);
+
   const meta = document.createElement('div');
   meta.className = 'timeline-meta';
   meta.textContent = eventMeta(event);
   const raw = document.createElement('p');
   raw.className = 'raw-text';
   raw.textContent = event.rawText;
+  const main = document.createElement('div');
+  main.className = 'timeline-main';
+  main.replaceChildren(meta, raw);
+
   const badges = document.createElement('div');
   badges.className = 'badges';
   badges.replaceChildren(parserBadge(event), ...inferredBadges(event));
-  const hint = document.createElement('small');
-  hint.className = 'swipe-hint';
-  hint.textContent = 'Swipe left for actions';
-  const main = document.createElement('div');
-  main.className = 'timeline-main';
-  main.replaceChildren(meta, raw, hint);
-  item.replaceChildren(title, main, badges);
+
+  const detailButton = document.createElement('button');
+  detailButton.type = 'button';
+  detailButton.className = 'timeline-detail-button';
+  detailButton.setAttribute('aria-label', `Show details for ${eventTitle(event)}`);
+  detailButton.innerHTML = actionIcon('info');
+  const detailPanel = document.createElement('div');
+  detailPanel.className = 'timeline-detail-popover';
+  detailPanel.hidden = true;
+  detailPanel.innerHTML = timelineDetailMarkup(event);
+  detailButton.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation();
+    toggleTimelineDetail(detailPanel, detailButton);
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'timeline-row-actions';
+  actions.replaceChildren(badges, detailButton, detailPanel);
+
+  item.replaceChildren(title, main, actions);
   return makeSwipeItem(item, [
     makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editBabyLog(event) }),
     makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteBabyLog(event) }),
   ], 'timeline-swipe');
+}
+
+function timelineDetailMarkup(event) {
+  const details = [
+    ['Original text', event.rawText || 'Not recorded'],
+    ['Recorded time', eventMeta(event)],
+  ];
+  if (event.amountMl?.value != null) details.push(['Milk amount', `${event.amountMl.value}ml`]);
+  if (event.durationMinutes?.value != null) details.push(['Sleep duration', durationLabel(Number(event.durationMinutes.value) || 0)]);
+  if (event.diaperKind?.value) details.push(['Diaper type', event.diaperKind.value]);
+  return `<strong>Record details</strong>${details.map(([label, value]) => `<p><span>${escapeHtml(label)}</span>${escapeHtml(String(value))}</p>`).join('')}`;
+}
+
+function toggleTimelineDetail(panel, button) {
+  if (openTimelineDetail && openTimelineDetail !== panel) closeTimelineDetail();
+  const nextOpen = panel.hidden;
+  panel.hidden = !nextOpen;
+  button.setAttribute('aria-expanded', String(nextOpen));
+  openTimelineDetail = nextOpen ? panel : null;
+}
+
+function closeTimelineDetail() {
+  if (!openTimelineDetail) return;
+  const panel = openTimelineDetail;
+  panel.hidden = true;
+  panel.parentElement?.querySelector('.timeline-detail-button')?.setAttribute('aria-expanded', 'false');
+  openTimelineDetail = null;
 }
 
 function renderAssignees() {
