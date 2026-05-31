@@ -81,10 +81,67 @@ describe('app/main', () => {
     expect(likeButton.getAttribute('aria-label')).toBe('Thumbs up Egg toast');
     expect(likeButton.querySelector('svg')).toBeTruthy();
     expect(likeButton.querySelector('span').textContent).toBe('0');
+    expect([...document.querySelectorAll('#meal-breakfast .swipe-action span')].map((node) => node.textContent)).not.toContain('0');
+    expect([...document.querySelectorAll('#meal-breakfast .swipe-action span')].map((node) => node.textContent)).toContain('Save');
 
     fireEvent.click(likeButton);
 
     expect(document.querySelector('#meal-breakfast .meal-like-button span').textContent).toBe('1');
+  });
+
+
+  it('opens baby action log from the Baby Tracker menu', async () => {
+    await import('../../app/main.js?case=baby-action-log-panel');
+
+    const button = document.querySelector('#open-baby-action-log');
+    const panel = document.querySelector('#baby-action-log-panel');
+
+    expect(panel.parentElement.id).toBe('baby-view');
+    expect(panel.classList.contains('hidden')).toBe(true);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(button);
+
+    expect(panel.classList.contains('hidden')).toBe(false);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.click(button);
+
+    expect(panel.classList.contains('hidden')).toBe(true);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+
+
+  it('renders task swipe actions for open and completed tasks', async () => {
+    const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
+    window.Swiped = { init: swipedInit };
+
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.endsWith('/api/task-assignees')) return new Response(JSON.stringify({ assignees: [{ id: 'a1', name: 'Mom', color: '#0066cc' }] }), { status: 200 });
+      if (url.startsWith('/api/tasks/today')) {
+        return new Response(JSON.stringify({ tasks: [
+          { id: 't1', title: 'Wash bottles', status: 'open', assigneeId: 'a1', assigneeName: 'Mom', assigneeColor: '#0066cc', dueMode: 'on_date', dueDate: '2026-05-28' },
+          { id: 't2', title: 'Fold laundry', status: 'done', assigneeId: 'a1', assigneeName: 'Mom', assigneeColor: '#0066cc', dueMode: 'on_date', dueDate: '2026-05-28', completedAt: '2026-05-28T12:00:00.000Z' },
+        ] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=task-swipe-actions');
+    fireEvent.click(document.querySelector('#task-tab'));
+
+    await vi.waitFor(() => expect(document.querySelectorAll('#task-list .task-swipe').length).toBe(2));
+    expect([...document.querySelectorAll('#task-list .swipe-action span')].map((node) => node.textContent)).toEqual(expect.arrayContaining(['Complete', 'Reopen']));
+    expect(swipedInit).toHaveBeenCalledWith(expect.objectContaining({
+      query: expect.stringContaining('data-swipe-id'),
+      right: expect.any(Number),
+    }));
   });
 
 

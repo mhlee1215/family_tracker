@@ -2183,6 +2183,7 @@ label {
 .baby-settings-panel.app-floating-panel,
 .baby-patterns.app-floating-panel,
 .growth-summary.app-floating-panel,
+.baby-action-log-panel.app-floating-panel,
 .task-overview.app-floating-panel,
 .task-composer.app-floating-panel {
   padding: 20px;
@@ -2200,7 +2201,8 @@ label {
 }
 
 .baby-patterns.app-floating-panel,
-.growth-summary.app-floating-panel {
+.growth-summary.app-floating-panel,
+.baby-action-log-panel.app-floating-panel {
   border-top: 1px solid var(--hairline);
 }
 
@@ -2278,6 +2280,20 @@ label {
 
 .inline-action.danger {
   color: #b42318;
+}
+
+
+.task-swipe {
+  border-bottom: 1px solid var(--divider-soft);
+}
+
+.task-swipe .task-item {
+  border-bottom: 0;
+  background: var(--canvas);
+}
+
+.task-swipe .swipe-actions {
+  border-bottom: 0;
 }
 
 .completed-task-section {
