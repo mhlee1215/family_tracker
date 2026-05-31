@@ -899,7 +899,7 @@ input {
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 390px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
   background: var(--canvas);
@@ -924,7 +924,7 @@ input {
 
 .input-panel,
 .timeline-section,
-.tablet-board {
+.ask-panel {
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -938,15 +938,6 @@ input {
 .timeline-section {
   background: var(--canvas-parchment);
   padding: 64px min(80px, 7vw);
-}
-
-.tablet-board {
-  position: sticky;
-  top: 44px;
-  min-height: calc(100vh - 44px);
-  background: var(--surface-dark);
-  color: var(--on-dark);
-  padding: 80px 32px;
 }
 
 h1,
@@ -984,8 +975,7 @@ label {
   margin-top: 16px;
 }
 
-.quick-actions button,
-.tablet-actions button {
+.quick-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -998,7 +988,6 @@ label {
 }
 
 .quick-actions button svg,
-.tablet-actions button svg,
 .sleep-status-action svg {
   color: var(--tracker-accent, currentColor);
   width: 18px;
@@ -1008,7 +997,6 @@ label {
 
 .quick-actions button.sleep-active,
 .quick-actions button.suggested-action,
-.tablet-actions button.sleep-active,
 .sleep-status-action {
   color: var(--primary);
 }
@@ -1020,35 +1008,29 @@ label {
   gap: 8px;
 }
 
-.quick-actions button:hover,
-.tablet-actions button:hover {
+.quick-actions button:hover {
   background: var(--surface-pearl);
 }
 
-.tablet-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.tablet-actions button {
-  min-height: 88px;
-  border-radius: 18px;
-}
-
-.tablet-actions button.sleep-active {
-  color: var(--primary);
-}
-
 .ask-panel {
-  margin-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  padding-top: 24px;
+  background: var(--canvas);
+  padding: 48px min(80px, 7vw) 64px;
+}
+
+.ask-panel > label {
+  display: block;
+  margin-bottom: 18px;
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  line-height: 1.14;
+}
+
+.ask-panel .answer-text {
+  margin-bottom: 0;
 }
 
 .ask-panel input {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: var(--hairline);
 }
 
 .ask-panel button {
@@ -1058,7 +1040,7 @@ label {
 .answer-text {
   min-height: 44px;
   margin: 14px 0 0;
-  color: var(--primary-on-dark);
+  color: var(--primary);
   font-size: 17px;
   line-height: 1.47;
 }
@@ -1114,10 +1096,6 @@ label {
   font-size: 14px;
   line-height: 1.29;
   padding: 8px 34px 8px 14px;
-}
-
-.tablet-board .muted-count {
-  color: var(--body-muted-dark);
 }
 
 .timeline {
@@ -1346,21 +1324,6 @@ label {
   }
 }
 
-@media (max-width: 940px) {
-  .workspace-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .tablet-board {
-    position: static;
-    min-height: auto;
-  }
-
-  .tablet-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 680px) {
   .global-nav-inner {
     padding: 0 12px;
@@ -1449,7 +1412,7 @@ label {
 
   .input-panel,
   .timeline-section,
-  .tablet-board,
+  .ask-panel,
   .task-section {
     padding: 48px 16px;
   }
@@ -1471,10 +1434,6 @@ label {
 
   .quick-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .tablet-board {
-    display: none;
   }
 
   .timeline-header {

@@ -46,15 +46,6 @@ const copy = {
     { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
     { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
   ],
-  tabletActions: [
-    { label: 'Formula', value: 'formula', icon: 'formula' },
-    { label: 'Breast', value: 'breast milk', icon: 'breast' },
-    { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
-    { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
-    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
-    { label: 'Note', value: '', icon: 'note' },
-  ],
 };
 
 const state = {
@@ -116,7 +107,6 @@ const elements = {
   openBabySettings: $('#open-baby-settings'),
   openBabyLog: $('#open-baby-log'),
   quickActions: $('#quick-actions'),
-  tabletActions: $('#tablet-actions'),
   eventCount: $('#event-count'),
   timelineSort: $('#timeline-sort'),
   timelineFilter: $('#timeline-filter'),
@@ -252,7 +242,6 @@ await syncBuildMetadata();
 renderTabs();
 renderTimelineControls();
 renderQuickActions();
-renderTabletActions();
 if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
 await Promise.all([loadCurrentUser(), loadAppConfig()]);
 state.meals = loadMealsForUser(state.user);
@@ -997,7 +986,6 @@ function renderBaby() {
   renderSleepStatus();
   renderBabyPatterns();
   renderQuickActions();
-  renderTabletActions();
   renderGrowthSummary();
   renderBabyPanel();
   renderTimeline();
@@ -1037,13 +1025,6 @@ function renderQuickActions() {
   ));
   const suggestionButtons = state.recentBabyLogs.slice(0, 3).map(makeRecentSuggestionButton);
   elements.quickActions.replaceChildren(...baseButtons, ...suggestionButtons);
-}
-
-function renderTabletActions() {
-  const openSleep = currentOpenSleep();
-  elements.tabletActions.replaceChildren(...copy.tabletActions.map((action) => (
-    makeBabyActionButton(resolveSleepAction(action, openSleep), 'tablet-action-button')
-  )));
 }
 
 function resolveSleepAction(action, openSleep) {

@@ -305,10 +305,7 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(document.querySelector('#sleep-status')?.classList.contains('hidden')).toBe(false));
     const quickActions = Array.from(document.querySelectorAll('#quick-actions button'));
-    const tabletActions = Array.from(document.querySelectorAll('#tablet-actions button'));
-
     expect(quickActions.every((button) => button.querySelector('svg'))).toBe(true);
-    expect(tabletActions.every((button) => button.querySelector('svg'))).toBe(true);
     expect(quickActions.find((button) => button.textContent.includes('Formula')).style.getPropertyValue('--tracker-accent')).toBe('#0ea5e9');
     expect(quickActions.find((button) => button.textContent.includes('Wake')).style.getPropertyValue('--tracker-accent')).toBe('#6366f1');
     expect(quickActions.find((button) => button.textContent.includes('Diaper (poop)')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
@@ -321,11 +318,8 @@ describe('app/main', () => {
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Dirty');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Wet');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Solids');
-    expect(document.querySelector('#tablet-actions').textContent).toContain('Wake');
-    expect(document.querySelector('#tablet-actions').textContent).toContain('Diaper (poop)');
-    expect(document.querySelector('#tablet-actions').textContent).toContain('Diaper (pee)');
-    expect(document.querySelector('#tablet-actions').textContent).toContain('Baby food');
-    expect(document.querySelector('#tablet-actions').textContent).not.toContain('Nap start');
+    expect(document.querySelector('#tablet-actions')).toBeNull();
+    expect(screen.queryByText('Tablet board')).toBeNull();
     expect(document.querySelector('#sleep-status button')?.querySelector('svg')).toBeTruthy();
 
     fireEvent.click(screen.getAllByText('Wake')[0].closest('button'));
