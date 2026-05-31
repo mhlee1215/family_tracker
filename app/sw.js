@@ -12,6 +12,9 @@ self.addEventListener('install', (event) => {
       '/app/main.js',
       '/app/build.json',
       '/app/manifest.webmanifest',
+      '/app/icons/family-tracker-icon-180.png',
+      '/app/icons/family-tracker-icon-192.png',
+      '/app/icons/family-tracker-icon-512.png',
     ]);
   })());
 });

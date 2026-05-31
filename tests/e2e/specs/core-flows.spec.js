@@ -23,9 +23,9 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#task-list')).toBeVisible();
     await app.captureStep('Navigated to task tab', 'Task view rendered with today context and list.');
 
-    await page.locator('#home-tab').click();
+    await page.locator('#brand-home').click();
     await expect(page.locator('#home-view.active #home-summary-grid')).toBeVisible();
-    await app.captureStep('Returned to home dashboard', 'The dashboard cards are visible again.');
+    await app.captureStep('Returned to home dashboard from brand', 'The Family Tracker brand returns to the Home dashboard.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
@@ -304,8 +304,15 @@ test.describe('Family Tracker core flows', () => {
         }),
       });
     });
-    await app.loginAsDevAdmin();
+    await app.loginAsDevAdmin('/');
 
+    await expect(page.locator('#home-summary-grid .home-marker').first()).toBeVisible();
+    await page.locator('#home-summary-grid .home-marker').first().click();
+    await expect(page.locator('#home-summary-grid .home-marker').first()).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#home-summary-grid .home-tooltip').first()).toContainText('Formula');
+    await app.captureStep('Opened dashboard detail tooltip', 'Clicking a Home dashboard item opens a visible detail tooltip instead of relying on the browser title.');
+
+    await page.locator('#baby-tab').click();
     await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
     await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Diaper (pee)']);
     await expect(page.locator('#timeline .swipe-affordance')).toHaveCount(3);

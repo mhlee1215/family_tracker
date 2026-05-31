@@ -9,6 +9,7 @@ const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
 const swipeState = { openItem: null, nextId: 0 };
 let openTimelineDetail = null;
+let openHomeTooltip = null;
 
 const patternEventTypes = [
   { type: 'sleep', label: 'Sleep' },
@@ -110,6 +111,7 @@ const elements = {
   homeAttentionCount: $('#home-attention-count'),
   homeAttentionStrip: $('#home-attention-strip'),
   homeSummaryGrid: $('#home-summary-grid'),
+  brandHome: $('#brand-home'),
   settings: document.querySelectorAll('.module-settings'),
   logForm: $('#log-form'),
   logInput: $('#log-input'),
@@ -285,6 +287,14 @@ startBuildWatcher();
 elements.tabs.forEach((tab) => {
   tab.addEventListener('click', () => setActiveTab(tab.dataset.tab, { pushHistory: true }));
 });
+elements.brandHome?.addEventListener('click', () => setActiveTab('home', { pushHistory: true }));
+elements.homeSummaryGrid?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-home-tooltip-toggle]');
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  toggleHomeTooltip(button);
+});
 
 elements.logForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -455,6 +465,7 @@ document.addEventListener('pointerdown', (event) => {
   const target = event.target;
   if (swipeState.openItem && !swipeState.openItem.contains(target)) closeSwipeItem(swipeState.openItem);
   if (openTimelineDetail && !openTimelineDetail.contains(target) && !target.closest?.('.timeline-row-actions')) closeTimelineDetail();
+  if (openHomeTooltip && !openHomeTooltip.contains(target) && !target.closest?.('[data-home-tooltip-toggle]')) closeHomeTooltip();
   closeFloatingSectionPanels(target);
   if (elements.mealLogPanel && !elements.mealLogPanel.classList.contains('hidden')) {
     const insideLog = elements.mealLogPanel.contains(target) || elements.toggleMealLog?.contains(target);
@@ -474,6 +485,8 @@ document.addEventListener('keydown', (event) => {
   setTaskComposerOpen(false);
   setMealLogPanelOpen(false);
   setMealSummaryPanelOpen(false);
+  closeHomeTooltip();
+  closeTimelineDetail();
 });
 
 window.addEventListener('popstate', () => {
@@ -2391,6 +2404,8 @@ function toggleTimelineDetail(panel, button) {
   const nextOpen = panel.hidden;
   panel.hidden = !nextOpen;
   button.setAttribute('aria-expanded', String(nextOpen));
+  panel.closest('.timeline-item')?.classList.toggle('detail-open', nextOpen);
+  panel.closest('.timeline-swipe')?.classList.toggle('detail-open', nextOpen);
   openTimelineDetail = nextOpen ? panel : null;
 }
 
@@ -2398,6 +2413,8 @@ function closeTimelineDetail() {
   if (!openTimelineDetail) return;
   const panel = openTimelineDetail;
   panel.hidden = true;
+  panel.closest('.timeline-item')?.classList.remove('detail-open');
+  panel.closest('.timeline-swipe')?.classList.remove('detail-open');
   panel.parentElement?.querySelector('.timeline-detail-button')?.setAttribute('aria-expanded', 'false');
   openTimelineDetail = null;
 }
@@ -2495,7 +2512,11 @@ function homeBabyCard(events) {
 }
 
 function homeTaskCard(urgentTasks, completedTasks) {
-  const duePills = urgentTasks.slice(0, 3).map((task) => `<span class="task-due-pill ${task.dueMode === 'before_date' ? 'overdue' : ''}" title="${escapeHtml(task.title)}"><strong>${task.dueMode === 'before_date' ? 'Overdue' : 'Today'}</strong>${escapeHtml(task.title)}</span>`).join('');
+  const duePills = urgentTasks.slice(0, 3).map((task) => homeTooltipButton({
+    className: `task-due-pill ${task.dueMode === 'before_date' ? 'overdue' : ''}`,
+    label: `${task.dueMode === 'before_date' ? 'Overdue' : 'Due today'} · ${task.title} · ${task.assigneeName || 'Unassigned'}`,
+    content: `<strong>${task.dueMode === 'before_date' ? 'Overdue' : 'Today'}</strong>${escapeHtml(task.title)}`,
+  })).join('');
   const more = urgentTasks.length > 3 ? `<span class="task-due-pill muted">+${urgentTasks.length - 3} more</span>` : '';
   const doneMarkers = completedTasks.slice(0, 10).map((task, index) => homeTimelineMarker({
     className: 'home-marker task-marker',
@@ -2528,7 +2549,12 @@ function homeMealCard(slots) {
       <div class="home-meal-dots">
         ${slots.map((slot) => {
           const item = slot.items[0];
-          return `<div class="home-meal-dot-item ${item ? 'planned' : ''}"><span class="home-meal-dot" style="--meal-dot-color:${escapeHtml(slot.color)}"></span><strong>${escapeHtml(slot.label)}</strong><small>${escapeHtml(item?.name || 'Not planned')}</small></div>`;
+          const label = `${slot.label} · ${item?.name || 'Not planned'}`;
+          return homeTooltipButton({
+            className: `home-meal-dot-item ${item ? 'planned' : ''}`,
+            label,
+            content: `<span class="home-meal-dot" style="--meal-dot-color:${escapeHtml(slot.color)}"></span><strong>${escapeHtml(slot.label)}</strong><small>${escapeHtml(item?.name || 'Not planned')}</small>`,
+          });
         }).join('')}
       </div>
     </article>`;
@@ -2568,7 +2594,39 @@ function homeTimelineTicks() {
 function homeTimelineMarker({ className, value, index = 0, label, icon }) {
   const left = timelineDayPercent(value);
   const lane = index % 3;
-  return `<button type="button" class="${escapeHtml(className)} lane-${lane}" style="left:${left}%" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${icon}</button>`;
+  return homeTooltipButton({
+    className: `${className} lane-${lane}`,
+    label,
+    content: icon,
+    style: `left:${left}%`,
+  });
+}
+
+function homeTooltipButton({ className, label, content, style = '' }) {
+  const safeLabel = escapeHtml(label || 'Details');
+  const styleAttr = style ? ` style="${escapeHtml(style)}"` : '';
+  return `<button type="button" class="${escapeHtml(className)}"${styleAttr} aria-label="${safeLabel}" aria-expanded="false" data-home-tooltip-toggle>${content}<span class="home-tooltip" role="tooltip" hidden>${safeLabel}</span></button>`;
+}
+
+function toggleHomeTooltip(button) {
+  const tooltip = button.querySelector('.home-tooltip');
+  if (!tooltip) return;
+  if (openHomeTooltip && openHomeTooltip !== tooltip) closeHomeTooltip();
+  const nextOpen = tooltip.hidden;
+  tooltip.hidden = !nextOpen;
+  button.setAttribute('aria-expanded', String(nextOpen));
+  button.closest('.home-card')?.classList.toggle('tooltip-open', nextOpen);
+  openHomeTooltip = nextOpen ? tooltip : null;
+}
+
+function closeHomeTooltip() {
+  if (!openHomeTooltip) return;
+  const tooltip = openHomeTooltip;
+  tooltip.hidden = true;
+  const button = tooltip.closest('[data-home-tooltip-toggle]');
+  button?.setAttribute('aria-expanded', 'false');
+  button?.closest('.home-card')?.classList.remove('tooltip-open');
+  openHomeTooltip = null;
 }
 
 function homeNowMarker() {
