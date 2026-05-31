@@ -514,7 +514,6 @@ async function loadPreviousBabyDay() {
     state.previousSummary = null;
   }
 }
-}
 
 async function loadBabyProfile() {
   const response = await fetch('/api/profile');
