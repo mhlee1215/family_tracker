@@ -2656,3 +2656,354 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+.home-hero {
+  min-height: 240px;
+  background: var(--canvas);
+}
+
+.home-heading {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.home-deck {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 21px;
+  line-height: 1.35;
+}
+
+.home-dashboard {
+  display: grid;
+  gap: 24px;
+  background: var(--canvas-parchment);
+  padding: 56px min(80px, 7vw) 72px;
+}
+
+.home-dashboard-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.home-dashboard-header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.home-attention-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border-radius: 9999px;
+  background: var(--canvas);
+  color: var(--ink-muted);
+  font-size: 14px;
+  padding: 7px 14px;
+}
+
+.home-attention-strip,
+.home-due-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attention-pill,
+.task-due-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 8px;
+  min-height: 34px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--canvas));
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.2;
+  padding: 8px 13px;
+}
+
+.attention-pill strong,
+.task-due-pill strong {
+  color: var(--primary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.attention-pill.calm {
+  background: var(--canvas);
+  color: var(--muted);
+}
+
+.task-due-pill {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-due-pill.overdue {
+  background: #fff1f2;
+}
+
+.task-due-pill.overdue strong {
+  color: #be123c;
+}
+
+.task-due-pill.muted,
+.home-empty-inline {
+  background: var(--canvas);
+  color: var(--muted);
+}
+
+.home-empty-inline {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border-radius: 9999px;
+  font-size: 14px;
+  padding: 8px 13px;
+}
+
+.home-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.home-card {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-height: 300px;
+  border: 1px solid var(--hairline);
+  border-radius: 24px;
+  background: var(--canvas);
+  padding: 24px;
+}
+
+.home-card-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.home-card-header h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.14;
+}
+
+.home-card-link {
+  color: var(--primary);
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-card-link:hover {
+  color: var(--primary-focus);
+}
+
+.home-card-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.home-timeline {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-top: auto;
+}
+
+.home-timeline.compact {
+  margin-top: 12px;
+}
+
+.home-timeline-ticks {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.home-timeline-rail {
+  position: relative;
+  height: 76px;
+  border-radius: 18px;
+  background: var(--canvas-parchment);
+  overflow: hidden;
+}
+
+.home-timeline-rail::before {
+  content: '';
+  position: absolute;
+  right: 16px;
+  left: 16px;
+  top: 50%;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--hairline);
+}
+
+.home-marker {
+  position: absolute;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  min-height: 30px;
+  border-radius: 9999px;
+  background: var(--canvas);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  padding: 0;
+  transform: translateX(-50%);
+  font-size: 15px;
+}
+
+.home-marker:hover,
+.home-marker:focus-visible {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.home-marker.lane-0 { top: 12px; }
+.home-marker.lane-1 { top: 28px; }
+.home-marker.lane-2 { top: 44px; }
+
+.baby-marker.marker-sleep { box-shadow: inset 0 0 0 2px var(--tracker-baby-sleep); }
+.baby-marker.marker-feeding_milk { box-shadow: inset 0 0 0 2px var(--tracker-baby-milk); }
+.baby-marker.marker-feeding_solid { box-shadow: inset 0 0 0 2px var(--tracker-baby-solids); }
+.baby-marker.marker-diaper { box-shadow: inset 0 0 0 2px var(--tracker-baby-diaper); }
+
+.task-marker {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.home-now-marker {
+  position: absolute;
+  z-index: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+
+.home-marker-overflow {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  border-radius: 9999px;
+  background: var(--ink);
+  color: var(--on-dark);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.home-meal-dots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: auto;
+}
+
+.home-meal-dot-item {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-width: 0;
+  border-radius: 18px;
+  background: var(--canvas-parchment);
+  padding: 18px 10px;
+  text-align: center;
+}
+
+.home-meal-dot {
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--surface-chip-translucent);
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.home-meal-dot-item.planned .home-meal-dot {
+  border-color: var(--meal-dot-color);
+  background: var(--meal-dot-color);
+}
+
+.home-meal-dot-item strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.home-meal-dot-item small {
+  width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .home-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-card {
+    min-height: 240px;
+  }
+}
+
+@media (max-width: 680px) {
+  .home-hero {
+    min-height: 220px;
+  }
+
+  .home-deck {
+    font-size: 17px;
+  }
+
+  .home-dashboard {
+    padding: 40px 16px 56px;
+  }
+
+  .home-dashboard-header,
+  .home-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .home-dashboard-header h2 {
+    font-size: 34px;
+  }
+
+  .home-card {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .home-meal-dots {
+    grid-template-columns: 1fr;
+  }
+}

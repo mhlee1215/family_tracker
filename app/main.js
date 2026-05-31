@@ -95,6 +95,11 @@ const $ = (selector) => document.querySelector(selector);
 const elements = {
   tabs: document.querySelectorAll('.module-tab'),
   views: document.querySelectorAll('.module-view'),
+  homeDayLabel: $('#home-day-label'),
+  homeDeck: $('#home-deck'),
+  homeAttentionCount: $('#home-attention-count'),
+  homeAttentionStrip: $('#home-attention-strip'),
+  homeSummaryGrid: $('#home-summary-grid'),
   settings: document.querySelectorAll('.module-settings'),
   logForm: $('#log-form'),
   logInput: $('#log-input'),
@@ -365,6 +370,7 @@ elements.timelineSort?.addEventListener('change', () => {
   localStorage.setItem(storageKeys.timelineSort, state.timelineSort);
   renderTimeline();
   renderActionLog(elements.babyActionLog, state.babyActionLog, 'No baby actions yet.');
+  renderHomeDashboard();
 });
 elements.timelineFilter?.addEventListener('change', () => {
   state.timelineFilter = normalizeTimelineFilter(elements.timelineFilter.value);
@@ -946,7 +952,9 @@ function renderTabs() {
   elements.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === state.activeTab));
   elements.views.forEach((view) => view.classList.toggle('active', view.id === `${state.activeTab}-view`));
   elements.settings.forEach((panel) => panel.classList.toggle('hidden', panel.dataset.settings !== state.activeTab));
+  renderHomeDashboard();
 }
+
 
 function isPanelOpen(panel) {
   return panel && !panel.classList.contains('hidden');
@@ -2336,6 +2344,162 @@ function renderTaskComposerDueState() {
   if (!elements.taskDueDate.value) elements.taskDueDate.value = state.selectedDay;
 }
 
+
+function renderHomeDashboard() {
+  if (!elements.homeSummaryGrid) return;
+  const visibleBabyEvents = state.events.filter((event) => !event.hiddenFromTimeline);
+  const openTasks = state.tasks.filter((task) => task.status !== 'done');
+  const completedTasks = state.tasks.filter((task) => task.status === 'done');
+  const urgentTasks = homeUrgentTasks(openTasks);
+  const mealStatus = homeMealStatus();
+  const unplannedMeals = mealStatus.filter((slot) => !slot.items.length);
+  const attentionItems = [
+    ...urgentTasks.slice(0, 2).map((task) => ({ label: task.dueMode === 'before_date' ? 'Overdue task' : 'Task due', text: task.title })),
+    ...unplannedMeals.slice(0, Math.max(0, 3 - Math.min(urgentTasks.length, 2))).map((slot) => ({ label: 'Meal open', text: `${slot.label} not planned` })),
+  ].slice(0, 3);
+
+  if (elements.homeDayLabel) elements.homeDayLabel.textContent = dayHeading(state.selectedDay);
+  if (elements.homeDeck) {
+    elements.homeDeck.textContent = `${visibleBabyEvents.length} baby logs · ${completedTasks.length} tasks done · ${plannedMealCount(mealStatus)} meals planned`;
+  }
+  if (elements.homeAttentionCount) {
+    elements.homeAttentionCount.textContent = attentionItems.length === 1 ? '1 item' : `${attentionItems.length} items`;
+  }
+  if (elements.homeAttentionStrip) {
+    elements.homeAttentionStrip.innerHTML = attentionItems.length
+      ? attentionItems.map((item) => `<span class="attention-pill"><strong>${escapeHtml(item.label)}</strong>${escapeHtml(item.text)}</span>`).join('')
+      : '<span class="attention-pill calm"><strong>All clear</strong>Nothing urgent for this day</span>';
+  }
+
+  elements.homeSummaryGrid.innerHTML = [
+    homeBabyCard(visibleBabyEvents),
+    homeTaskCard(urgentTasks, completedTasks),
+    homeMealCard(mealStatus),
+  ].join('');
+}
+
+function homeBabyCard(events) {
+  const latest = latestClientEvent(events);
+  const markers = sortedTimelineEvents(events).slice(0, 18).map((event, index) => homeTimelineMarker({
+    className: `home-marker baby-marker marker-${event.type}`,
+    value: eventTimeValue(event),
+    index,
+    label: `${eventTitle(event)} · ${eventMeta(event)}`,
+    icon: babyEventIcon(event),
+  })).join('');
+  const overflow = events.length > 18 ? `<span class="home-marker-overflow">+${events.length - 18}</span>` : '';
+  return `
+    <article class="home-card home-card-baby">
+      <header class="home-card-header">
+        <div><p class="eyebrow">Baby today</p><h3>${events.length} logs</h3></div>
+        <a class="home-card-link" href="/baby?day=${encodeURIComponent(state.selectedDay)}">View Baby →</a>
+      </header>
+      <p class="home-card-copy">${latest ? `Last: ${escapeHtml(eventTitle(latest))} at ${escapeHtml(timeLabel({ value: eventTimeValue(latest) }))}` : 'No baby logs yet.'}</p>
+      <div class="home-timeline" aria-label="Baby event timeline">
+        ${homeTimelineTicks()}
+        <div class="home-timeline-rail">${markers}${overflow}${homeNowMarker()}</div>
+      </div>
+    </article>`;
+}
+
+function homeTaskCard(urgentTasks, completedTasks) {
+  const duePills = urgentTasks.slice(0, 3).map((task) => `<span class="task-due-pill ${task.dueMode === 'before_date' ? 'overdue' : ''}" title="${escapeHtml(task.title)}"><strong>${task.dueMode === 'before_date' ? 'Overdue' : 'Today'}</strong>${escapeHtml(task.title)}</span>`).join('');
+  const more = urgentTasks.length > 3 ? `<span class="task-due-pill muted">+${urgentTasks.length - 3} more</span>` : '';
+  const doneMarkers = completedTasks.slice(0, 10).map((task, index) => homeTimelineMarker({
+    className: 'home-marker task-marker',
+    value: task.completedAt || task.updatedAt || task.createdAt,
+    index,
+    label: `${task.title} · ${task.assigneeName || 'Unassigned'}`,
+    icon: '✓',
+  })).join('');
+  return `
+    <article class="home-card home-card-task">
+      <header class="home-card-header">
+        <div><p class="eyebrow">Tasks today</p><h3>${completedTasks.length} done · ${urgentTasks.length} due</h3></div>
+        <a class="home-card-link" href="/tasks?day=${encodeURIComponent(state.selectedDay)}">View Tasks →</a>
+      </header>
+      <div class="home-due-row">${duePills || '<span class="home-empty-inline">No open tasks due today.</span>'}${more}</div>
+      <div class="home-timeline compact" aria-label="Completed task timeline">
+        ${homeTimelineTicks()}
+        <div class="home-timeline-rail">${doneMarkers}${homeNowMarker()}</div>
+      </div>
+    </article>`;
+}
+
+function homeMealCard(slots) {
+  return `
+    <article class="home-card home-card-meal">
+      <header class="home-card-header">
+        <div><p class="eyebrow">Meals today</p><h3>${plannedMealCount(slots)} of 3 planned</h3></div>
+        <a class="home-card-link" href="/meals?day=${encodeURIComponent(state.selectedDay)}">View Meals →</a>
+      </header>
+      <div class="home-meal-dots">
+        ${slots.map((slot) => {
+          const item = slot.items[0];
+          return `<div class="home-meal-dot-item ${item ? 'planned' : ''}"><span class="home-meal-dot" style="--meal-dot-color:${escapeHtml(slot.color)}"></span><strong>${escapeHtml(slot.label)}</strong><small>${escapeHtml(item?.name || 'Not planned')}</small></div>`;
+        }).join('')}
+      </div>
+    </article>`;
+}
+
+function homeUrgentTasks(tasks) {
+  const today = state.selectedDay;
+  return [...tasks].filter((task) => {
+    if (task.dueMode === 'asap') return true;
+    if (task.dueMode === 'someday') return false;
+    if (!task.dueDate) return false;
+    if (task.dueMode === 'before_date') return task.dueDate <= today;
+    return task.dueDate === today;
+  }).sort((left, right) => {
+    const priority = (task) => task.dueMode === 'before_date' ? 0 : task.dueMode === 'asap' ? 1 : 2;
+    return priority(left) - priority(right) || String(left.dueDate || '').localeCompare(String(right.dueDate || '')) || String(left.title || '').localeCompare(String(right.title || ''));
+  });
+}
+
+function homeMealStatus() {
+  const plan = planForDay();
+  return [
+    { key: 'breakfast', label: 'Breakfast', color: mealSlotColors.breakfast, items: plan.breakfast || [] },
+    { key: 'lunch', label: 'Lunch', color: mealSlotColors.lunch, items: plan.lunch || [] },
+    { key: 'dinner', label: 'Dinner', color: mealSlotColors.dinner, items: plan.dinner || [] },
+  ];
+}
+
+function plannedMealCount(slots) {
+  return slots.filter((slot) => slot.items.length).length;
+}
+
+function homeTimelineTicks() {
+  return '<div class="home-timeline-ticks"><span>00</span><span>06</span><span>12</span><span>18</span><span>Now</span></div>';
+}
+
+function homeTimelineMarker({ className, value, index = 0, label, icon }) {
+  const left = timelineDayPercent(value);
+  const lane = index % 3;
+  return `<button type="button" class="${escapeHtml(className)} lane-${lane}" style="left:${left}%" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${icon}</button>`;
+}
+
+function homeNowMarker() {
+  if (state.selectedDay !== localDateKey(new Date())) return '';
+  return `<span class="home-now-marker" style="left:${timelineDayPercent(new Date().toISOString())}%" aria-hidden="true"></span>`;
+}
+
+function timelineDayPercent(value) {
+  if (!value) return 0;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  return Math.max(0, Math.min(100, (minutes / 1439) * 100));
+}
+
+function babyEventIcon(event) {
+  if (event.type === 'sleep') return '💤';
+  if (event.type === 'feeding_milk') return '🍼';
+  if (event.type === 'feeding_solid') return '🥣';
+  if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? '💩' : '💧';
+  return '•';
+}
+
 function taskDueText(task) {
   if (task.dueMode === 'asap' || task.dueMode === 'someday') return `${task.dueMode.toUpperCase()} · created ${relativeDateTime(task.createdAt)}`;
   if (task.dueMode === 'before_date') return `before ${dayHeading(task.dueDate).toLowerCase()}`;
@@ -2378,6 +2542,7 @@ function renderTasks() {
   renderEventSummary();
   renderActionLog(elements.taskActionLog, state.taskActionLog, 'No task actions yet.');
   renderMeals();
+  renderHomeDashboard();
 }
 
 
@@ -2706,7 +2871,12 @@ function loadRecentBabyLogs() {
 
 function refreshActiveTab() {
   if (!state.user) return;
-  if (state.activeTab === 'baby') {
+  if (state.activeTab === 'home') {
+    loadBabyProfile();
+    loadToday();
+    loadTaskData();
+    renderMeals();
+  } else if (state.activeTab === 'baby') {
     loadBabyProfile();
     loadToday();
   } else if (state.activeTab === 'meal') {
@@ -2824,14 +2994,15 @@ function normalizePatternStatUnit(value) {
 }
 
 function normalizeTab(value) {
-  return ['baby', 'task', 'meal'].includes(value) ? value : 'baby';
+  return ['home', 'baby', 'task', 'meal'].includes(value) ? value : 'home';
 }
 
 function tabFromLocation() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/') return 'home';
+  if (path === '/baby') return 'baby';
   if (path === '/tasks') return 'task';
   if (path === '/meals') return 'meal';
-  if (path === '/' || path === '/baby') return 'baby';
   return null;
 }
 
@@ -2840,7 +3011,7 @@ function getInitialTab() {
 }
 
 function syncUrlForTab(tab, { pushHistory = false } = {}) {
-  const targetPath = tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : '/';
+  const targetPath = tab === 'baby' ? '/baby' : tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : '/';
   const params = new URLSearchParams(window.location.search);
   params.set('day', state.selectedDay);
   params.delete('taskDay');
@@ -3071,6 +3242,7 @@ function renderMeals() {
   elements.mealCount.textContent = `${dayPlan.breakfast.length + dayPlan.lunch.length + dayPlan.dinner.length} menus`;
   renderMealDayControls();
   if (elements.mealSummaryPanel && !elements.mealSummaryPanel.classList.contains('hidden')) renderMealSummary();
+  renderHomeDashboard();
 }
 
 function renderMealItem(item, slot) {
