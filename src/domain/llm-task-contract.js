@@ -31,7 +31,18 @@ export const babyLogParseSchema = {
           amountMl: { type: 'number', description: 'Milk amount explicitly stated by the user.' },
           feedingKind: { type: 'string', enum: ['formula', 'breast'] },
           food: { type: 'string' },
-          diaperKind: { type: 'string', enum: ['dirty', 'wet_or_unspecified'] },
+          diaperKind: { type: 'string', enum: ['dirty', 'wet_or_unspecified', 'mixed'] },
+          relativeTime: {
+            type: 'object',
+            additionalProperties: false,
+            description: 'Use only when the user gives a clear offset from a recent logged event, such as latest formula feeding minus 10 minutes.',
+            properties: {
+              anchorEventType: { type: 'string', enum: ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'] },
+              anchorFeedingKind: { type: 'string', enum: ['formula', 'breast'] },
+              anchorSelector: { type: 'string', enum: ['latest'] },
+              offsetMinutes: { type: 'number' },
+            },
+          },
           action: { type: 'string', enum: ['start', 'end', 'session'] },
           status: { type: 'string', enum: ['completed', 'ongoing_or_predicted'] },
         },
@@ -49,6 +60,8 @@ export function instructionsForTask(task) {
       'Do not turn minute expressions such as 5mins, 5 min, or 5 minutes into amountMl.',
       'Only set amountMl when the user explicitly used a milk-volume unit such as ml.',
       'Only set occurredAt when the user explicitly supplied an absolute time or the timing can be unambiguously resolved from now and the text.',
+      'For clear phrases like latest/recent formula feeding 10 minutes before/after another activity, set relativeTime instead of calculating occurredAt yourself.',
+      'Use diaperKind mixed when the user mentions both poop/dirty and pee/wet in the same diaper.',
     ].join(' ');
   }
   return 'Answer family tracker questions using the provided structured data.';

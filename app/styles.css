@@ -484,6 +484,47 @@ input {
   border-radius: 9999px;
 }
 
+.tracker-preferences {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 14px;
+}
+
+.tracker-preferences legend {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+.tracker-preferences .settings-note {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
+}
+
+.tracker-preferences label {
+  align-items: center;
+  background: var(--surface-pearl);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.tracker-preferences input {
+  accent-color: var(--primary);
+}
+
 .baby-status-range {
   display: flex;
   justify-content: center;

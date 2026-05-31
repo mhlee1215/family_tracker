@@ -99,7 +99,7 @@
     <main id="app" class="app-shell">
       <section id="home-view" class="module-view active">
         <header class="top-bar home-hero">
-          <img class="home-hero-art" src="/app/assets/family-tracker-illustration.svg" alt="Family Tracker illustration with family, baby log, task, and meal symbols" width="380" height="310">
+          <img class="home-hero-art" src="/app/icons/family-tracker-icon-512.png" alt="Family Tracker app artwork with family, baby log, task, and meal symbols" width="512" height="512">
           <div class="home-heading">
             <p class="eyebrow">Family dashboard</p>
             <h1 id="home-day-label" class="day-label">Today</h1>
@@ -231,6 +231,14 @@
               <span>Default nap length, minutes</span>
               <input id="nap-duration" name="napDurationMinutesOverride" type="number" min="0" step="5" placeholder="60">
             </label>
+            <fieldset class="tracker-preferences" aria-label="Visible baby trackers">
+              <legend>Visible trackers</legend>
+              <p class="settings-note">Choose the cards and quick log buttons that match your baby’s current stage.</p>
+              <label><input type="checkbox" name="babyTrackerTypes" value="sleep" checked> <span>Sleep</span></label>
+              <label><input type="checkbox" name="babyTrackerTypes" value="feeding_milk" checked> <span>Milk</span></label>
+              <label><input type="checkbox" name="babyTrackerTypes" value="feeding_solid" checked> <span>Baby food</span></label>
+              <label><input type="checkbox" name="babyTrackerTypes" value="diaper" checked> <span>Diaper</span></label>
+            </fieldset>
             <button type="submit" class="menu-action">Save baby settings</button>
           </form>
         </section>

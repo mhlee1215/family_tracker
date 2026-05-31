@@ -38,6 +38,7 @@ export async function parseBabyLogForSave(text, context = {}, options = {}) {
     });
     return normalizeParsedBabyLogDecision(response, { ...context, rawText: text }, llmParserInfo(provider, model));
   } catch (error) {
+    if (error?.clarification) return error.clarification;
     const fallbackInfo = {
       ...heuristicParserInfo(),
       fallbackFrom: { provider, model, reason: error.message || 'LLM parse failed' },
@@ -73,6 +74,7 @@ export async function parseBabyLogWithProvider(text, context = {}, options = {})
     });
     return normalizeParsedBabyLogEvents(response, { ...context, rawText: text }, llmParserInfo(provider, model));
   } catch (error) {
+    if (error?.clarification) throw error;
     const fallbackInfo = {
       ...heuristicParserInfo(),
       fallbackFrom: { provider, model, reason: error.message || 'LLM parse failed' },
@@ -88,7 +90,10 @@ function summarizeRecentEvents(events) {
     occurredAt: event.occurredAt?.value,
     startAt: event.startAt?.value,
     endAt: event.endAt?.value,
+    id: event.id,
     amountMl: event.amountMl?.value,
+    feedingKind: event.feedingKind?.value,
+    diaperKind: event.diaperKind?.value,
     durationMinutes: event.durationMinutes?.value,
     status: event.status,
   }));

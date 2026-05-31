@@ -22,7 +22,7 @@ Each structured field must preserve provenance:
 
 ## Parser Provenance
 
-The provider response keeps formatting minimal for clear logs: `{ "status": "ok", "events": [...] }`, with one compact event object per baby activity. Ambiguous logs return `{ "status": "needs_clarification", "code": "...", "message": "...", "questions": [...], "suggestedInputs": [...], "events": [] }`. Provider event fields should be plain explicit values such as `amountMl: 12`, `occurredAt: "2026-05-23T13:10:00.000Z"`, or `diaperKind: "dirty"`; the server wraps those values in provenance fields before storage. Each stored structured event should include parser metadata for debugging:
+The provider response keeps formatting minimal for clear logs: `{ "status": "ok", "events": [...] }`, with one compact event object per baby activity. Ambiguous logs return `{ "status": "needs_clarification", "code": "...", "message": "...", "questions": [...], "suggestedInputs": [...], "events": [] }`. Provider event fields should be plain explicit values such as `amountMl: 12`, `occurredAt: "2026-05-23T13:10:00.000Z"`, or `diaperKind: "dirty"`; the server wraps those values in provenance fields before storage. For clear offsets from existing context, such as “10 minutes before the latest formula feeding,” provider events should return a `relativeTime` object instead of calculating the final timestamp itself. Each stored structured event should include parser metadata for debugging:
 
 ```json
 {
@@ -51,11 +51,11 @@ Provider output uses plain values, but stored structured events use provenance w
 }
 ```
 
-LLM-extracted fields are normalized to `source: "explicit"`; missing times that the server supplies remain `source: "system"`.
+LLM-extracted fields are normalized to `source: "explicit"`; missing times that the server supplies remain `source: "system"`. Times resolved deterministically from `relativeTime` plus recent-event context are stored as `source: "inferred"` with a basis that names the anchor and offset.
 
 ## Parsing Principle
 
-The LLM should extract intent and explicit values only, returning one event per activity when one input describes multiple activities. When the required meaning is missing or ambiguous, it should ask for clarification rather than inventing a record. Deterministic domain logic should fill missing quantities, durations, and session links whenever possible. Provider outputs are normalized, provenance-wrapped, and validated server-side before storage; invalid or unavailable provider output falls back to the local heuristic parser.
+The LLM should extract intent and explicit values only, returning one event per activity when one input describes multiple activities. When the required meaning is missing or ambiguous, it should ask for clarification rather than inventing a record. For clear relative-time references to recent context, the LLM should extract the relation and offset; deterministic domain logic resolves the final timestamp from recent events. Deterministic domain logic should fill missing quantities, durations, relative timestamps, and session links whenever possible. Provider outputs are normalized, provenance-wrapped, and validated server-side before storage; invalid or unavailable provider output falls back to the local heuristic parser.
 
 Examples:
 
@@ -64,12 +64,14 @@ Examples:
 ate formula 12 ml at 1:20 pm today -> feeding_milk, explicit time, explicit amount
 formula 12 ml and dirty diaper at 1:20 pm -> feeding_milk + diaper, shared explicit time
 poop diaper before feeding formula 5mins -> needs_clarification, because 5mins could be a relative timing offset or feeding duration
+최근에 포뮬라 먹기 10분 전에 똥/오줌 기저귀 바꿨어 -> diaper with diaperKind mixed and relativeTime latest formula feeding -10 minutes; server resolves from recentEvents or asks clarification if no anchor exists
 낮잠 -> sleep start, start from current time, remains open until a wake/end event or another awake-only activity closes it
 낮잠 잤음 -> sleep completed, end from current time, start inferred
 깸 -> closes open sleep session if one exists
 분유 먹음 / 고구마 먹음 / 응가 while sleep is open -> first auto-closes the open sleep session at the activity time
 고구마 먹음 -> feeding_solid, time from current time, amount inferred
 응가 -> diaper dirty, time from current time
+똥/오줌 기저귀 -> diaper mixed, time from current time
 ```
 
 
@@ -81,7 +83,8 @@ Information-deficient logs are not saved. The API returns a blocking clarificati
 Clarification is required when:
 
 - a number near milk feeding uses a minute unit (`5mins`, `5 min`, `5 minutes`) and could be mistaken for `amountMl`;
-- multiple baby activities are connected by relative timing (`before`, `after`) but the anchor, offset target, or duration meaning is ambiguous;
+- multiple baby activities are connected by relative timing (`before`, `after`, `전`, `후`) but the anchor, offset target, or duration meaning is ambiguous;
+- a clear relative-time relation references recent context, but no matching recent anchor event with a usable time exists;
 - the parser cannot determine a safe event set without inventing values.
 
 Minute expressions must never be converted to `amountMl`. Missing milk volume in otherwise clear feeding logs remains absent from the parser output and may be filled later by deterministic inference with `source: "inferred"`.
