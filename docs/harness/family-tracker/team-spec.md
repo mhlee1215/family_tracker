@@ -16,6 +16,21 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - 기존 제품 스킬: `skills/`
 
 
+
+
+## GitHub PR Environment Gate
+- PR 생성/제출/업데이트 요청은 환경변수 기반 GitHub 설정을 우선 사용한다.
+- `origin` remote가 비어 있으면 `GITHUB_REPO`를 읽어 `https://github.com/${GITHUB_REPO}.git` remote를 설정한다.
+- PR base는 `GITHUB_DEFAULT_BRANCH`가 있으면 해당 값을, 없으면 `main`을 사용한다.
+- `GITHUB_TOKEN` 또는 GitHub CLI 인증은 작업에 사용할 수 있지만, 토큰/secret 원문은 터미널 출력, 문서, 커밋, PR 설명에 남기지 않는다.
+- PR 전에 remote, branch, authentication, working tree 상태를 확인하고 필요한 push/PR 작업을 이어간다.
+
+## Planning Checklist Gate
+- 모든 비단순 작업은 코드/문서 변경 전에 작업 계획과 체크리스트를 먼저 작성한다.
+- 체크리스트는 최소한 범위 확인, 구현 항목, 테스트/검증, 문서/스킬 업데이트 필요 여부를 포함한다.
+- 작업 중 상태가 바뀌면 체크리스트를 갱신하고, 완료 전 실제 결과와 대조한다.
+- 새 기능 또는 정책 변경은 관련 문서/스킬에 체크리스트 또는 운영 규칙으로 남긴다.
+
 ## Third-party Discovery Gate
 - 구현 난이도가 높은 범용 상호작용(예: swipe actions, drag/drop, rich editor, date picker)은 직접 구현하기 전에 기존 의존성, 브라우저 표준, 검증된 서드파티 패키지를 먼저 조사한다.
 - 후보 평가는 공식 문서/npm/GitHub 같은 1차 출처를 우선하고, 라이선스·유지보수 상태·번들 영향·프레임워크 적합성·접근성·테스트 가능성을 함께 본다.

@@ -2345,3 +2345,143 @@ label {
 .llm-provider-model {
   margin: 0;
 }
+.feeding-guidance {
+  display: grid;
+  gap: 1px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--hairline);
+}
+
+.feeding-guidance-hero,
+.feeding-guidance-card,
+.feeding-guidance-notes {
+  background: var(--canvas);
+}
+
+.feeding-guidance-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px min(32px, 5vw);
+}
+
+.feeding-guidance-hero h2 {
+  margin: 4px 0 8px;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.feeding-guidance-hero p:not(.eyebrow) {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 17px;
+  line-height: 1.47;
+}
+
+.feeding-progress-ring {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--primary);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.feeding-guidance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.feeding-guidance-card {
+  display: grid;
+  gap: 8px;
+  min-height: 136px;
+  padding: 24px min(24px, 4vw);
+}
+
+.feeding-guidance-card span,
+.feeding-guidance-card small,
+.feeding-guidance-notes p,
+.feeding-guidance-notes li {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.43;
+}
+
+.feeding-guidance-card strong {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.feeding-progress-bar {
+  height: 8px;
+  overflow: hidden;
+  background: var(--surface-pearl);
+}
+
+.feeding-progress-bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 0 9999px 9999px 0;
+  background: var(--tracker-baby-milk);
+}
+
+.feeding-guidance-notes {
+  display: grid;
+  gap: 12px;
+  padding: 22px min(32px, 5vw) 28px;
+}
+
+.feeding-guidance-notes ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.feeding-guidance-notes p {
+  margin: 0;
+}
+
+.feeding-guidance-notes a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.feeding-guidance-notes a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+  .feeding-guidance-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .feeding-guidance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feeding-progress-ring {
+    width: 80px;
+    height: 80px;
+    font-size: 24px;
+  }
+}
