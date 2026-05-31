@@ -4,8 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f7f3ea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Family Tracker">
     <title>Family Tracker</title>
     <link rel="manifest" href="/app/manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="/app/icons/family-tracker-icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/app/icons/family-tracker-icon-180.png">
     <link rel="stylesheet" href="/app/styles.css">
   </head>
   <body>
@@ -95,8 +99,9 @@
     <main id="app" class="app-shell">
       <section id="home-view" class="module-view active">
         <header class="top-bar home-hero">
-          <p class="eyebrow">Family dashboard</p>
+          <img class="home-hero-art" src="/app/assets/family-tracker-illustration.svg" alt="Family Tracker illustration with family, baby log, task, and meal symbols" width="380" height="310">
           <div class="home-heading">
+            <p class="eyebrow">Family dashboard</p>
             <h1 id="home-day-label" class="day-label">Today</h1>
             <p id="home-deck" class="home-deck">A quick read on baby logs, tasks, and meals.</p>
           </div>
