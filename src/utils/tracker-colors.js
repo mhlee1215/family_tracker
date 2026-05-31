@@ -3,6 +3,7 @@ export const babyTrackerColors = Object.freeze({
   milk: '#0ea5e9',
   solids: '#f59e0b',
   diaper: '#22c55e',
+  milestone: '#af52de',
   fallback: '#9ca3af',
 });
 
@@ -11,6 +12,7 @@ export const babyEventTypeColors = Object.freeze({
   feeding_milk: babyTrackerColors.milk,
   feeding_solid: babyTrackerColors.solids,
   diaper: babyTrackerColors.diaper,
+  milestone: babyTrackerColors.milestone,
 });
 
 export const babyActionIconColors = Object.freeze({
@@ -21,6 +23,7 @@ export const babyActionIconColors = Object.freeze({
   solids: babyTrackerColors.solids,
   dirty: babyTrackerColors.diaper,
   wet: babyTrackerColors.diaper,
+  moment: babyTrackerColors.milestone,
 });
 
 export const babySummaryLabelColors = Object.freeze({

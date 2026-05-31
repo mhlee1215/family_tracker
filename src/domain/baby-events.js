@@ -1,4 +1,4 @@
-export const eventTypes = ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'];
+export const eventTypes = ['sleep', 'feeding_milk', 'feeding_solid', 'diaper', 'milestone'];
 
 export function createField(value, source, basis, confidence = 1) {
   return { value, source, basis, confidence };

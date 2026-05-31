@@ -13,6 +13,7 @@ test('baby calendar event colors match baby tracker accents', () => {
   assert.equal(colorForBabyEventType('feeding_milk'), babySummaryLabelColors.Milk);
   assert.equal(colorForBabyEventType('feeding_solid'), babyActionIconColors.solids);
   assert.equal(colorForBabyEventType('diaper'), babyActionIconColors.dirty);
+  assert.equal(colorForBabyEventType('milestone'), babyActionIconColors.moment);
 });
 
 test('meal calendar colors match planned meal slot accents', () => {

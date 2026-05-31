@@ -38,4 +38,7 @@ test('npm start uses the proxy-aware server launcher for Turso environments', ()
   assert.match(launcher, /--use-env-proxy/);
   assert.match(launcher, /--dns-result-order=ipv4first/);
   assert.match(launcher, /import\('\.\.\/server\.js'\)/);
+
+  const render = read('render.yaml');
+  assert.match(render, /startCommand: \"npm start\"/);
 });

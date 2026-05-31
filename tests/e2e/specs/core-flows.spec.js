@@ -154,6 +154,97 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+
+
+  test('baby moments flow saves an iPhone-style media thumbnail to the timeline', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin('/baby');
+    await app.captureStep('Opened baby tracker for moments', 'Starting from the Baby tracker before adding a growth moment.');
+
+    await page.locator('#quick-add-moment').click();
+    await expect(page.locator('#baby-moment-panel')).toBeVisible();
+    await page.locator('#moment-title').fill('처음으로 밖에 나감');
+    await page.locator('#moment-note').fill('유모차 타고 동네 한 바퀴');
+    await page.locator('#moment-file-input').setInputFiles({
+      name: 'first-outing.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAZElEQVR4nO3PQQ0AIBDAMMC/5+ONAvZoFSzZnplzzwO8G04EjAgYETAiYETACIGJgBECIwJGBAwJGBEwImBEwIiAEQEjAkYEjAgYETAiYETACIGJgBECIwJGBAwJGBEwImCEFy09AYNXbEXuAAAAAElFTkSuQmCC', 'base64'),
+    });
+    await expect(page.locator('#moment-preview-strip .moment-preview-card img')).toBeVisible();
+    await app.captureStep('Prepared moment media thumbnail', 'The selected photo appears as a local thumbnail before saving.');
+
+    await page.locator('#moment-form button[type="submit"]').click();
+    await expect(page.locator('#timeline')).toContainText('처음으로 밖에 나감');
+    await expect(page.locator('#timeline .moment-media-grid img').first()).toBeVisible();
+    await page.locator('#timeline-filter').selectOption('milestone');
+    await expect(page.locator('#event-count')).toContainText('of');
+    await expect(page.locator('#timeline')).toContainText('처음으로 밖에 나감');
+    await app.captureStep('Saved moment to timeline', 'The growth moment is saved and the timeline shows its thumbnail under the Moments filter.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
+
+  test('runtime config exposes media storage status without R2 secrets', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin('/baby');
+
+    const response = await page.request.get('/api/config');
+    expect(response.ok()).toBeTruthy();
+    const payload = await response.json();
+    expect(payload.mediaStorage).toMatchObject({
+      provider: 'local',
+      configured: true,
+      publicBaseUrlConfigured: false,
+      maxImageBytes: 10485760,
+      maxVideoBytes: 104857600,
+    });
+    expect(JSON.stringify(payload)).not.toContain('R2_SECRET_ACCESS_KEY');
+    expect(JSON.stringify(payload)).not.toContain('R2_ACCESS_KEY_ID');
+    expect(JSON.stringify(payload)).not.toContain('R2_ACCOUNT_ID');
+    await app.captureStep('Verified safe media runtime config', 'The deployed runtime config endpoint returns media storage status without exposing R2 credentials.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+  test('baby moments menu supports presets, reset, no-media save, and action log reflection', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin('/baby');
+    const title = `첫 이유식 ${Date.now()}`;
+
+    await page.locator('#open-baby-moments').click();
+    await expect(page.locator('#baby-moment-panel')).toBeVisible();
+    await page.locator('[data-moment-title="첫 이유식"]').click();
+    await expect(page.locator('#moment-title')).toHaveValue('첫 이유식');
+    await page.locator('#moment-reset').click();
+    await expect(page.locator('#moment-title')).toHaveValue('');
+    await expect(page.locator('#moment-is-first')).toBeChecked();
+    await app.captureStep('Opened and reset moment form', 'The Moments menu opens the same form, preset chips populate the title, and Reset clears it while keeping first-moment default.');
+
+    await page.locator('#moment-title').fill(title);
+    await page.locator('#moment-note').fill('사진 없이 먼저 저장해도 타임라인에 남아야 해');
+    await page.locator('#moment-form button[type="submit"]').click();
+    await expect(page.locator('#timeline')).toContainText(title);
+    await page.locator('#timeline-filter').selectOption('milestone');
+    await expect(page.locator('#timeline')).toContainText(title);
+    const savedMomentRow = page.locator('#timeline .timeline-swipe', { hasText: title }).first();
+    await expect(savedMomentRow.locator('.moment-media-grid')).toHaveCount(0);
+
+    await page.locator('#open-baby-action-log').click();
+    await expect(page.locator('#baby-action-log-panel')).toBeVisible();
+    await expect(page.locator('#baby-action-log')).toContainText(`added growth moment "${title}"`);
+    await app.captureStep('Saved no-media moment and verified action log', 'A text-only growth moment appears under the Moments filter and records an action-log entry.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('baby records and task changes appear in action logs', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();

@@ -9,6 +9,8 @@ The parser accepts short, incomplete baby activity text and returns event candid
 - `feeding_solid`
 - `diaper`
 
+Form-created growth moments use the stored event type `milestone`, but they are not part of the free-form LLM parser contract yet. The Moments UI creates them through `/api/moments` with `parserInfo.kind = "system"` and explicit form provenance for `occurredAt`.
+
 ## Field Sources
 
 Each structured field must preserve provenance:

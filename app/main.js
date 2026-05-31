@@ -92,6 +92,7 @@ const state = {
   llmConfig: { provider: 'mock', model: 'mock-local', providers: [] },
   timelineSort: normalizeTimelineSort(localStorage.getItem(storageKeys.timelineSort)),
   timelineFilter: normalizeTimelineFilter(localStorage.getItem(storageKeys.timelineFilter)),
+  momentAttachments: [],
   patternDays: [],
   patternLoading: false,
   patternError: '',
@@ -131,7 +132,22 @@ const elements = {
   openBabyPatterns: $('#open-baby-patterns'),
   openBabySettings: $('#open-baby-settings'),
   openBabyLog: $('#open-baby-log'),
+  openBabyMoments: $('#open-baby-moments'),
   openBabyActionLog: $('#open-baby-action-log'),
+  babyMomentPanel: $('#baby-moment-panel'),
+  momentForm: $('#moment-form'),
+  momentTitle: $('#moment-title'),
+  momentDate: $('#moment-date'),
+  momentNote: $('#moment-note'),
+  momentIsFirst: $('#moment-is-first'),
+  momentFileInput: $('#moment-file-input'),
+  momentCameraInput: $('#moment-camera-input'),
+  momentLibraryButton: $('#moment-library-button'),
+  momentCameraButton: $('#moment-camera-button'),
+  momentPreviewStrip: $('#moment-preview-strip'),
+  momentUploadStatus: $('#moment-upload-status'),
+  momentReset: $('#moment-reset'),
+  quickAddMoment: $('#quick-add-moment'),
   babyActionLogPanel: $('#baby-action-log-panel'),
   babyActionLog: $('#baby-action-log'),
   quickActions: $('#quick-actions'),
@@ -345,10 +361,24 @@ elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today')
 elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
 elements.openBabyPatterns?.addEventListener('click', () => toggleBabyPanel('patterns'));
 elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
+elements.openBabyMoments?.addEventListener('click', () => toggleBabyPanel('moments'));
 elements.openBabyActionLog?.addEventListener('click', () => toggleBabyPanel('actionLog'));
 elements.openBabyLog?.addEventListener('click', () => {
   setBabyPanel(null);
   elements.logInput?.focus();
+});
+elements.quickAddMoment?.addEventListener('click', () => toggleBabyPanel('moments'));
+elements.momentLibraryButton?.addEventListener('click', () => elements.momentFileInput?.click());
+elements.momentCameraButton?.addEventListener('click', () => elements.momentCameraInput?.click());
+elements.momentFileInput?.addEventListener('change', (event) => addMomentFiles(event.target.files));
+elements.momentCameraInput?.addEventListener('change', (event) => addMomentFiles(event.target.files));
+elements.momentReset?.addEventListener('click', resetMomentForm);
+elements.momentForm?.addEventListener('submit', submitMomentForm);
+elements.babyMomentPanel?.addEventListener('click', (event) => {
+  const preset = event.target.closest('[data-moment-title]');
+  if (!preset) return;
+  elements.momentTitle.value = preset.dataset.momentTitle || '';
+  elements.momentTitle.focus();
 });
 
 elements.babySettingsForm.addEventListener('submit', async (event) => {
@@ -1036,13 +1066,15 @@ function closeFloatingSectionPanels(target) {
   const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel
     : state.babyPanel === 'summary' ? elements.growthSummary
       : state.babyPanel === 'patterns' ? elements.babyPatterns
-        : state.babyPanel === 'actionLog' ? elements.babyActionLogPanel
-          : null;
+        : state.babyPanel === 'moments' ? elements.babyMomentPanel
+          : state.babyPanel === 'actionLog' ? elements.babyActionLogPanel
+            : null;
   const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings
     : state.babyPanel === 'summary' ? elements.openBabySummary
       : state.babyPanel === 'patterns' ? elements.openBabyPatterns
-        : state.babyPanel === 'actionLog' ? elements.openBabyActionLog
-          : null;
+        : state.babyPanel === 'moments' ? elements.openBabyMoments
+          : state.babyPanel === 'actionLog' ? elements.openBabyActionLog
+            : null;
   if (isPanelOpen(babyPanel) && !(babyPanel.contains(target) || babyToggle?.contains(target))) setBabyPanel(null);
 
   if (isPanelOpen(elements.taskSummaryPanel) && !(elements.taskSummaryPanel.contains(target) || elements.openTaskSummary?.contains(target))) setTaskPanel('today');
@@ -1062,7 +1094,8 @@ function toggleBabyPanel(panel) {
 }
 
 function setBabyPanel(panel) {
-  state.babyPanel = ['summary', 'settings', 'patterns', 'actionLog'].includes(panel) ? panel : null;
+  state.babyPanel = ['summary', 'settings', 'patterns', 'moments', 'actionLog'].includes(panel) ? panel : null;
+  if (state.babyPanel === 'moments') prepareMomentForm();
   renderBabyPanel();
 }
 
@@ -1070,6 +1103,7 @@ function renderBabyPanel() {
   const summaryOpen = state.babyPanel === 'summary';
   const settingsOpen = state.babyPanel === 'settings';
   const patternsOpen = state.babyPanel === 'patterns';
+  const momentsOpen = state.babyPanel === 'moments';
   const actionLogOpen = state.babyPanel === 'actionLog';
   elements.growthSummary?.classList.toggle('hidden', !summaryOpen);
   elements.growthSummary?.setAttribute('aria-hidden', String(!summaryOpen));
@@ -1077,16 +1111,20 @@ function renderBabyPanel() {
   elements.babyPatterns?.setAttribute('aria-hidden', String(!patternsOpen));
   elements.babySettingsPanel?.classList.toggle('hidden', !settingsOpen);
   elements.babySettingsPanel?.setAttribute('aria-hidden', String(!settingsOpen));
+  elements.babyMomentPanel?.classList.toggle('hidden', !momentsOpen);
+  elements.babyMomentPanel?.setAttribute('aria-hidden', String(!momentsOpen));
   elements.babyActionLogPanel?.classList.toggle('hidden', !actionLogOpen);
   elements.babyActionLogPanel?.setAttribute('aria-hidden', String(!actionLogOpen));
   elements.openBabySummary?.classList.toggle('active', summaryOpen);
   elements.openBabyPatterns?.classList.toggle('active', patternsOpen);
   elements.openBabySettings?.classList.toggle('active', settingsOpen);
+  elements.openBabyMoments?.classList.toggle('active', momentsOpen);
   elements.openBabyActionLog?.classList.toggle('active', actionLogOpen);
-  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen && !patternsOpen && !actionLogOpen);
+  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen && !patternsOpen && !momentsOpen && !actionLogOpen);
   elements.openBabySummary?.setAttribute('aria-expanded', String(summaryOpen));
   elements.openBabyPatterns?.setAttribute('aria-expanded', String(patternsOpen));
   elements.openBabySettings?.setAttribute('aria-expanded', String(settingsOpen));
+  elements.openBabyMoments?.setAttribute('aria-expanded', String(momentsOpen));
   elements.openBabyActionLog?.setAttribute('aria-expanded', String(actionLogOpen));
   if (settingsOpen) renderBabySettings();
 }
@@ -1193,6 +1231,199 @@ function makeBabyActionButton(action, className) {
     button.addEventListener('click', () => elements.logInput.focus());
   }
   return button;
+}
+
+
+function prepareMomentForm() {
+  if (!elements.momentDate) return;
+  if (!elements.momentDate.value) elements.momentDate.value = state.selectedDay || localDateKey(new Date());
+  renderMomentPreviews();
+}
+
+function resetMomentForm() {
+  elements.momentForm?.reset();
+  if (elements.momentDate) elements.momentDate.value = state.selectedDay || localDateKey(new Date());
+  if (elements.momentIsFirst) elements.momentIsFirst.checked = true;
+  state.momentAttachments = [];
+  renderMomentPreviews();
+}
+
+async function addMomentFiles(fileList) {
+  const files = Array.from(fileList || []).slice(0, 10 - state.momentAttachments.length);
+  for (const file of files) {
+    const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+    const attachment = {
+      id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      mediaType,
+      byteSize: file.size,
+      status: 'Preparing preview…',
+      thumbnailDataUrl: '',
+    };
+    state.momentAttachments.push(attachment);
+    renderMomentPreviews();
+    attachment.thumbnailDataUrl = mediaType === 'video'
+      ? await createVideoThumbnail(file)
+      : await createImageThumbnail(file);
+    attachment.status = 'Ready';
+    renderMomentPreviews();
+  }
+  if (elements.momentFileInput) elements.momentFileInput.value = '';
+  if (elements.momentCameraInput) elements.momentCameraInput.value = '';
+}
+
+function renderMomentPreviews() {
+  if (!elements.momentPreviewStrip) return;
+  if (!state.momentAttachments.length) {
+    elements.momentPreviewStrip.innerHTML = '<p class="empty">아직 첨부가 없어요. 사진이나 짧은 동영상을 추가해보세요.</p>';
+  } else {
+    elements.momentPreviewStrip.replaceChildren(...state.momentAttachments.map((attachment) => {
+      const card = document.createElement('article');
+      card.className = 'moment-preview-card';
+      const thumb = attachment.thumbnailDataUrl
+        ? `<img src="${escapeHtml(attachment.thumbnailDataUrl)}" alt="${escapeHtml(attachment.name)} thumbnail">`
+        : `<div class="moment-preview-placeholder">${attachment.mediaType === 'video' ? '▶' : '…'}</div>`;
+      card.innerHTML = `${thumb}<span>${escapeHtml(attachment.mediaType === 'video' ? 'Video' : 'Photo')}</span><small>${escapeHtml(attachment.status)}</small>`;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `Remove ${attachment.name}`);
+      remove.textContent = '×';
+      remove.addEventListener('click', () => {
+        state.momentAttachments = state.momentAttachments.filter((item) => item.id !== attachment.id);
+        renderMomentPreviews();
+      });
+      card.append(remove);
+      return card;
+    }));
+  }
+  if (elements.momentUploadStatus) {
+    const count = state.momentAttachments.length;
+    elements.momentUploadStatus.textContent = count ? `${count}개 준비됨` : '사진/동영상 먼저';
+  }
+}
+
+async function createImageThumbnail(file) {
+  const dataUrl = await readFileAsDataUrl(file);
+  return resizeImageDataUrl(dataUrl, 420, 0.78).catch(() => dataUrl);
+}
+
+async function createVideoThumbnail(file) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = reject;
+      video.src = objectUrl;
+    });
+    video.currentTime = Math.min(0.5, Math.max(0, (video.duration || 1) / 10));
+    await new Promise((resolve) => {
+      video.onseeked = resolve;
+      setTimeout(resolve, 1000);
+    });
+    const canvas = document.createElement('canvas');
+    const width = video.videoWidth || 420;
+    const height = video.videoHeight || 420;
+    const scale = Math.min(1, 420 / Math.max(width, height));
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.76);
+  } catch {
+    return videoPlaceholderDataUrl();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function resizeImageDataUrl(dataUrl, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(image.naturalWidth || maxSize, image.naturalHeight || maxSize));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round((image.naturalWidth || maxSize) * scale));
+      canvas.height = Math.max(1, Math.round((image.naturalHeight || maxSize) * scale));
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+}
+
+function videoPlaceholderDataUrl() {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420"><rect width="420" height="420" rx="48" fill="#1d1d1f"/><polygon points="170,135 170,285 290,210" fill="#fff"/></svg>';
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
+async function submitMomentForm(event) {
+  event.preventDefault();
+  const title = elements.momentTitle.value.trim();
+  if (!title) return;
+  const date = elements.momentDate.value || state.selectedDay || localDateKey(new Date());
+  const occurredAt = new Date(`${date}T12:00:00`).toISOString();
+  const attachments = state.momentAttachments.map((item, index) => ({
+    id: item.id,
+    name: item.name,
+    mediaType: item.mediaType,
+    mimeType: item.mimeType,
+    byteSize: item.byteSize,
+    thumbnailDataUrl: item.thumbnailDataUrl,
+    status: 'uploaded',
+    sortOrder: index,
+  }));
+  elements.momentUploadStatus.textContent = 'Saving…';
+  const response = await fetch('/api/moments', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      title,
+      note: elements.momentNote.value.trim(),
+      occurredAt,
+      isFirst: Boolean(elements.momentIsFirst.checked),
+      attachments,
+      timezone: localTimezone(),
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    elements.momentUploadStatus.textContent = payload.error || copy.saveFailed;
+    return;
+  }
+  await loadToday();
+  setBabyPanel(null);
+  resetMomentForm();
+  elements.timeline?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderMomentMediaGrid(event) {
+  const attachments = (event.attachments || []).filter((item) => item.thumbnailDataUrl).slice(0, 4);
+  if (!attachments.length) return null;
+  const grid = document.createElement('div');
+  grid.className = `moment-media-grid count-${Math.min(attachments.length, 3)}`;
+  attachments.forEach((attachment, index) => {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'moment-media-tile';
+    if (index === 0) tile.classList.add('primary');
+    tile.innerHTML = `<img src="${escapeHtml(attachment.thumbnailDataUrl)}" alt="${escapeHtml(attachment.name || 'Moment media')}">${attachment.mediaType === 'video' ? '<span class="play-badge">▶</span>' : ''}`;
+    grid.append(tile);
+  });
+  return grid;
 }
 
 function renderSummary() {
@@ -2091,6 +2322,7 @@ function actionIcon(name) {
     solids: '<path d="M5 4v8"/><path d="M9 4v8"/><path d="M7 4v17"/><path d="M15 4v17"/><path d="M15 4c3 2 4 6 1 9"/>',
     note: '<path d="M6 4h9l3 3v13H6Z"/><path d="M14 4v4h4"/><path d="M9 13h6"/><path d="M9 17h4"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
+    moment: '<path d="M12 4.5 14.2 9l5 .7-3.6 3.5.9 5-4.5-2.3-4.5 2.3.9-5L4.8 9.7l5-.7Z"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
     reopen: '<path d="M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18.5 5.8V2.5"/><path d="M18.5 5.8h-3.3"/><path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M5.5 18.2v3.3"/><path d="M5.5 18.2h3.3"/>',
   };
@@ -2357,7 +2589,9 @@ function renderEvent(event) {
   raw.textContent = event.rawText;
   const main = document.createElement('div');
   main.className = 'timeline-main';
-  main.replaceChildren(meta, raw);
+  const media = event.type === 'milestone' ? renderMomentMediaGrid(event) : null;
+  main.replaceChildren(meta, raw, ...(media ? [media] : []));
+  if (event.type === 'milestone') item.classList.add('moment-timeline-item');
 
   const badges = document.createElement('div');
   badges.className = 'badges';
@@ -2382,10 +2616,13 @@ function renderEvent(event) {
   actions.replaceChildren(badges, detailButton, detailPanel);
 
   item.replaceChildren(title, main, actions);
-  return makeSwipeItem(item, [
-    makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editBabyLog(event) }),
-    makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteBabyLog(event) }),
-  ], 'timeline-swipe');
+  const rowActions = event.type === 'milestone'
+    ? [makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteBabyLog(event) })]
+    : [
+      makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editBabyLog(event) }),
+      makeSwipeAction({ label: 'Delete', icon: 'delete', tone: 'danger', onClick: () => deleteBabyLog(event) }),
+    ];
+  return makeSwipeItem(item, rowActions, 'timeline-swipe');
 }
 
 function timelineDetailMarkup(event) {
@@ -2393,6 +2630,10 @@ function timelineDetailMarkup(event) {
     ['Original text', event.rawText || 'Not recorded'],
     ['Recorded time', eventMeta(event)],
   ];
+  if (event.type === 'milestone') {
+    details.push(['Moment note', event.note || 'No note']);
+    details.push(['Attachments', `${(event.attachments || []).length} item(s)`]);
+  }
   if (event.amountMl?.value != null) details.push(['Milk amount', `${event.amountMl.value}ml`]);
   if (event.durationMinutes?.value != null) details.push(['Sleep duration', durationLabel(Number(event.durationMinutes.value) || 0)]);
   if (event.diaperKind?.value) details.push(['Diaper type', event.diaperKind.value]);
@@ -2647,6 +2888,7 @@ function babyEventIcon(event) {
   if (event.type === 'feeding_milk') return '🍼';
   if (event.type === 'feeding_solid') return '🥣';
   if (event.type === 'diaper') return event.diaperKind?.value === 'dirty' ? '💩' : '💧';
+  if (event.type === 'milestone') return '🌱';
   return '•';
 }
 
@@ -2952,6 +3194,7 @@ function eventTitle(event) {
   if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? 'Breast milk' : 'Formula';
   if (event.type === 'feeding_solid') return event.food?.value || 'Baby food';
   if (event.type === 'diaper') return diaperTitle(event);
+  if (event.type === 'milestone') return event.title || '성장 순간';
   return 'Log';
 }
 
@@ -2969,6 +3212,12 @@ function eventMeta(event) {
   if (event.type === 'sleep') return `${timeLabel(event.startAt)} to ${timeLabel(event.endAt)} · ${event.durationMinutes?.value || 0} min`;
   if (event.type === 'feeding_milk') return `${timeLabel(event.occurredAt)} · ${event.amountMl?.value || 0}ml`;
   if (event.type === 'feeding_solid') return `${timeLabel(event.occurredAt)} · ${event.amount?.value || ''}`;
+  if (event.type === 'milestone') {
+    const count = (event.attachments || []).length;
+    const mediaText = count ? ` · ${count} media` : '';
+    const firstText = event.isFirst ? ' · first' : '';
+    return `${timeLabel(event.occurredAt)}${mediaText}${firstText}`;
+  }
   return timeLabel(event.occurredAt);
 }
 
@@ -3132,7 +3381,7 @@ function normalizeTimelineSort(value) {
 }
 
 function normalizeTimelineFilter(value) {
-  return ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'].includes(value) ? value : 'all';
+  return ['sleep', 'feeding_milk', 'feeding_solid', 'diaper', 'milestone'].includes(value) ? value : 'all';
 }
 
 function normalizePatternTypes(value) {
