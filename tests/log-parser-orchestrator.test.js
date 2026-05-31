@@ -115,3 +115,93 @@ test('returns clarification decisions without falling back to heuristic saves', 
   assert.equal(result.code, 'llm_ambiguous_minutes');
   assert.equal(result.events, undefined);
 });
+
+
+test('resolves LLM relative diaper time from the latest recent formula feeding', async () => {
+  let llmInput;
+  const recentFormula = {
+    id: 'event-formula-1',
+    type: 'feeding_milk',
+    occurredAt: { value: '2026-05-28T19:30:00.000Z' },
+    amountMl: { value: 120 },
+    feedingKind: { value: 'formula' },
+  };
+
+  const result = await parseBabyLogForSave('최근에 포뮬라 먹기 10분 전에 똥/오줌 기저귀 바꿨어', {
+    now,
+    recentEvents: [recentFormula],
+  }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    callTask: async (_task, input) => {
+      llmInput = input;
+      return {
+        output_text: JSON.stringify({
+          status: 'ok',
+          events: [{
+            type: 'diaper',
+            diaperKind: 'mixed',
+            relativeTime: {
+              anchorEventType: 'feeding_milk',
+              anchorFeedingKind: 'formula',
+              anchorSelector: 'latest',
+              offsetMinutes: -10,
+            },
+          }],
+        }),
+      };
+    },
+  });
+
+  assert.equal(llmInput.recentEvents[0].feedingKind, 'formula');
+  assert.equal(result.status, 'ok');
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].type, 'diaper');
+  assert.equal(result.events[0].diaperKind.value, 'mixed');
+  assert.equal(result.events[0].diaperKind.source, 'explicit');
+  assert.equal(result.events[0].occurredAt.value, '2026-05-28T19:20:00.000Z');
+  assert.equal(result.events[0].occurredAt.source, 'inferred');
+  assert.equal(result.events[0].occurredAt.basis, 'latest_feeding_milk_formula_minus_10_minutes');
+  assert.deepEqual(result.events[0].timeAnchor, {
+    eventId: 'event-formula-1',
+    eventType: 'feeding_milk',
+    feedingKind: 'formula',
+    offsetMinutes: -10,
+  });
+});
+
+test('asks for clarification when LLM relative time has no recent formula anchor', async () => {
+  const result = await parseBabyLogForSave('최근에 포뮬라 먹기 10분 전에 똥/오줌 기저귀 바꿨어', {
+    now,
+    recentEvents: [{
+      id: 'event-breast-1',
+      type: 'feeding_milk',
+      occurredAt: { value: '2026-05-28T19:30:00.000Z' },
+      feedingKind: { value: 'breast' },
+    }],
+  }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    callTask: async () => ({
+      output_text: JSON.stringify({
+        status: 'ok',
+        events: [{
+          type: 'diaper',
+          diaperKind: 'mixed',
+          relativeTime: {
+            anchorEventType: 'feeding_milk',
+            anchorFeedingKind: 'formula',
+            anchorSelector: 'latest',
+            offsetMinutes: -10,
+          },
+        }],
+      }),
+    }),
+  });
+
+  assert.equal(result.status, 'needs_clarification');
+  assert.equal(result.code, 'missing_relative_time_anchor');
+  assert.match(result.questions[0], /recent formula feeding/i);
+});

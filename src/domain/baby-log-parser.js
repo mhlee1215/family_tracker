@@ -201,6 +201,7 @@ function normalizeEventCandidate(candidate, context, parserInfo) {
   if (event.food) event.food = normalizeExplicitField(event.food, 'llm_extracted_food');
   if (event.feedingKind) event.feedingKind = normalizeExplicitField(event.feedingKind, 'llm_extracted_feeding_kind');
   if (event.diaperKind) event.diaperKind = normalizeExplicitField(event.diaperKind, 'llm_extracted_diaper_kind');
+  resolveRelativeTime(event, context);
   if (event.action) event.action = normalizeExplicitField(event.action, 'llm_extracted_action');
   if (event.durationMinutes !== undefined) {
     event.durationMinutes = normalizeExplicitField(event.durationMinutes, 'llm_extracted_duration');
@@ -213,6 +214,90 @@ function normalizeEventCandidate(candidate, context, parserInfo) {
   }
   fillMissingSystemTimes(event, context);
   return event;
+}
+
+
+function resolveRelativeTime(event, context) {
+  if (!event.relativeTime) return;
+  const relation = event.relativeTime;
+  const offsetMinutes = Number(relation.offsetMinutes);
+  if (!Number.isFinite(offsetMinutes)) throw new Error('Invalid relativeTime.offsetMinutes from LLM parser.');
+
+  const anchorSelector = relation.anchorSelector || 'latest';
+  if (anchorSelector !== 'latest') throw new Error(`Unsupported relativeTime.anchorSelector from LLM parser: ${anchorSelector}`);
+
+  const anchorEventType = relation.anchorEventType;
+  if (!eventTypes.includes(anchorEventType)) throw new Error(`Unsupported relativeTime.anchorEventType from LLM parser: ${anchorEventType}`);
+
+  const anchor = findRelativeTimeAnchor(context.recentEvents || [], relation);
+  if (!anchor) throwRelativeTimeClarification(relation);
+
+  const anchorTime = eventTimeValue(anchor);
+  event.occurredAt = createField(
+    addMinutes(anchorTime, offsetMinutes),
+    'inferred',
+    relativeTimeBasis(relation, offsetMinutes),
+    0.82,
+  );
+  event.timeAnchor = compactObject({
+    eventId: anchor.id || null,
+    eventType: anchor.type,
+    feedingKind: fieldValue(anchor.feedingKind) || relation.anchorFeedingKind,
+    offsetMinutes,
+  });
+  delete event.relativeTime;
+}
+
+function findRelativeTimeAnchor(events, relation) {
+  const candidates = events
+    .filter((candidate) => candidate?.type === relation.anchorEventType)
+    .filter((candidate) => !relation.anchorFeedingKind || fieldValue(candidate.feedingKind) === relation.anchorFeedingKind)
+    .map((candidate) => ({ candidate, time: eventTimeValue(candidate) }))
+    .filter(({ time }) => time && Number.isFinite(new Date(time).getTime()))
+    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  return candidates[0]?.candidate || null;
+}
+
+function eventTimeValue(event) {
+  return fieldValue(event?.occurredAt) || fieldValue(event?.startAt) || fieldValue(event?.endAt) || '';
+}
+
+function fieldValue(field) {
+  if (field && typeof field === 'object' && 'value' in field) return field.value;
+  return field;
+}
+
+function addMinutes(dateValue, minutes) {
+  const date = new Date(dateValue);
+  date.setMinutes(date.getMinutes() + minutes);
+  return date.toISOString();
+}
+
+function relativeTimeBasis(relation, offsetMinutes) {
+  const eventName = relation.anchorEventType || 'event';
+  const kind = relation.anchorFeedingKind ? `_${relation.anchorFeedingKind}` : '';
+  const direction = offsetMinutes < 0 ? 'minus' : 'plus';
+  return `latest_${eventName}${kind}_${direction}_${Math.abs(offsetMinutes)}_minutes`;
+}
+
+function throwRelativeTimeClarification(relation) {
+  const anchorLabel = relation.anchorFeedingKind
+    ? `${relation.anchorFeedingKind} feeding`
+    : String(relation.anchorEventType || 'anchor event').replace(/_/g, ' ');
+  const error = new Error(`Missing recent ${anchorLabel} for relative time.`);
+  error.clarification = createClarification({
+    code: 'missing_relative_time_anchor',
+    message: `The log refers to a recent ${anchorLabel}, but no matching recent record with a usable time was found.`,
+    questions: [`When was the recent ${anchorLabel}?`],
+    suggestedInputs: [
+      `Add the ${anchorLabel} time first, then say what happened ${Math.abs(Number(relation.offsetMinutes) || 0)} minutes before or after it.`,
+    ],
+  });
+  throw error;
+}
+
+function compactObject(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null && entry !== ''));
 }
 
 function fillMissingSystemTimes(event, context) {
@@ -235,7 +320,7 @@ function validateProviderEvent(event) {
   if (event.amountMl && !Number.isFinite(Number(event.amountMl.value))) throw new Error('Invalid amountMl from LLM parser.');
   if (event.durationMinutes && !Number.isFinite(Number(event.durationMinutes.value))) throw new Error('Invalid durationMinutes from LLM parser.');
   assertEnumField(event.feedingKind, ['formula', 'breast'], 'feedingKind');
-  assertEnumField(event.diaperKind, ['dirty', 'wet_or_unspecified'], 'diaperKind');
+  assertEnumField(event.diaperKind, ['dirty', 'wet_or_unspecified', 'mixed'], 'diaperKind');
   assertEnumField(event.action, ['start', 'end', 'session'], 'action');
   if (event.status && !['completed', 'ongoing_or_predicted'].includes(event.status)) throw new Error(`Invalid status from LLM parser: ${event.status}`);
 }

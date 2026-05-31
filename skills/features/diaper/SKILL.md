@@ -11,7 +11,7 @@ Changes to diaper wet/dirty/mixed parsing and inference (`응가`, `쉬`, 기저
 
 ## Rules
 - Diaper + feeding relative-time phrases should be clarified when timing cannot be represented safely.
-- Preserve dirty/wet distinction.
+- Preserve dirty/wet/mixed distinction.
 - Do not let LLM invent unmentioned diaper details.
 - Prefer deterministic fallback or clarification-friendly representation for ambiguity.
 - Add tests when diaper parsing changes.
