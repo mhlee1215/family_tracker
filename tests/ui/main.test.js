@@ -36,6 +36,48 @@ describe('app/main', () => {
   });
 
 
+  it('opens dashboard item tooltips and sends the brand back home', async () => {
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [{
+            id: 'event-1',
+            type: 'feeding_milk',
+            rawText: 'formula',
+            occurredAt: { value: '2026-05-28T10:00:00.000Z' },
+            amountMl: { value: 120 },
+          }],
+          summary: {},
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=home-tooltip-brand');
+
+    const marker = document.querySelector('#home-summary-grid .home-marker');
+    expect(marker).toBeTruthy();
+    expect(marker.getAttribute('title')).toBeNull();
+    expect(marker.querySelector('.home-tooltip').hidden).toBe(true);
+
+    fireEvent.click(marker);
+
+    expect(marker.getAttribute('aria-expanded')).toBe('true');
+    expect(marker.querySelector('.home-tooltip').hidden).toBe(false);
+    expect(marker.querySelector('.home-tooltip').textContent).toContain('Formula');
+
+    fireEvent.click(document.querySelector('#baby-tab'));
+    expect(document.querySelector('#baby-view').classList.contains('active')).toBe(true);
+
+    fireEvent.click(document.querySelector('#brand-home'));
+    expect(document.querySelector('#home-view').classList.contains('active')).toBe(true);
+  });
+
+
   it('opens meal log as overlay without collapsing meal columns', async () => {
     await import('../../app/main.js?case=meal-log');
 
