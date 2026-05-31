@@ -124,14 +124,35 @@ export class SQLiteBabyStore {
         FOREIGN KEY (assignee_id) REFERENCES task_assignees(id)
       );
 
+      CREATE TABLE IF NOT EXISTS action_logs (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        module TEXT NOT NULL,
+        baby_id TEXT NOT NULL DEFAULT '',
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        actor_id TEXT NOT NULL DEFAULT '',
+        message TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        undone_at TEXT,
+        undone_by TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE INDEX IF NOT EXISTS idx_growth_records_family_baby ON growth_records(family_id, baby_id, occurred_date);
       CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at);
       CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at);
       CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_task_assignees_family ON task_assignees(family_id, name);
       CREATE INDEX IF NOT EXISTS idx_task_items_family_day ON task_items(family_id, due_date, status);
+      CREATE INDEX IF NOT EXISTS idx_action_logs_family_module ON action_logs(family_id, module, created_at);
     `);
     try { this.db.exec(`ALTER TABLE task_items ADD COLUMN due_mode TEXT NOT NULL DEFAULT 'on_date';`); } catch {}
+    try { this.db.exec(`ALTER TABLE action_logs ADD COLUMN baby_id TEXT NOT NULL DEFAULT '';`); } catch {}
+    try { this.db.exec(`ALTER TABLE action_logs ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}';`); } catch {}
+    try { this.db.exec(`ALTER TABLE action_logs ADD COLUMN undone_at TEXT;`); } catch {}
+    try { this.db.exec(`ALTER TABLE action_logs ADD COLUMN undone_by TEXT;`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN birth_time TEXT NOT NULL DEFAULT '';`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN height_cm REAL;`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN head_cm REAL;`); } catch {}
@@ -476,6 +497,58 @@ export class SQLiteBabyStore {
       .map(rowToEvent);
   }
 
+
+  appendActionLog(entry) {
+    const now = entry.createdAt || new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO action_logs (id, family_id, module, baby_id, entity_type, entity_id, action, actor_id, message, metadata_json, undone_at, undone_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      entry.id,
+      entry.familyId || defaultFamilyId,
+      entry.module,
+      entry.babyId || '',
+      entry.entityType,
+      entry.entityId,
+      entry.action,
+      entry.actorId || '',
+      entry.message,
+      JSON.stringify(entry.metadata || {}),
+      entry.undoneAt || null,
+      entry.undoneBy || null,
+      now,
+    );
+    return this.getActionLog(entry.id, { familyId: entry.familyId || defaultFamilyId });
+  }
+
+  getActionLog(id, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const row = this.db.prepare('SELECT * FROM action_logs WHERE id = ? AND family_id = ?').get(id, familyId);
+    return row ? rowToActionLog(row) : null;
+  }
+
+
+  markActionLogUndone(id, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const undoneAt = options.undoneAt || new Date().toISOString();
+    const undoneBy = options.undoneBy || '';
+    this.db.prepare('UPDATE action_logs SET undone_at = ?, undone_by = ? WHERE id = ? AND family_id = ? AND undone_at IS NULL')
+      .run(undoneAt, undoneBy, id, familyId);
+    return this.getActionLog(id, { familyId });
+  }
+
+  listActionLogs(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const module = options.module || 'baby';
+    const limit = Number.isInteger(options.limit) ? options.limit : 30;
+    return this.db.prepare(`
+      SELECT * FROM action_logs
+      WHERE family_id = ? AND module = ? AND (? != 'baby' OR baby_id = ?)
+      ORDER BY created_at DESC, rowid DESC
+      LIMIT ?
+    `).all(familyId, module, module, options.babyId || defaultBabyId, limit).map(rowToActionLog);
+  }
+
   ensureDefaultTaskAssignees(familyId = defaultFamilyId) {
     const existing = this.listTaskAssignees({ familyId });
     if (existing.length) return existing;
@@ -564,11 +637,11 @@ export class SQLiteBabyStore {
       SET title = ?, assignee_id = ?, status = ?, due_date = ?, due_mode = ?, updated_at = ?, completed_at = ?, completed_by = ?
       WHERE id = ? AND family_id = ?
     `).run(
-      patch.title || existing.title,
-      patch.assigneeId || existing.assigneeId,
+      Object.hasOwn(patch, 'title') && patch.title ? patch.title : existing.title,
+      Object.hasOwn(patch, 'assigneeId') && patch.assigneeId ? patch.assigneeId : existing.assigneeId,
       status,
-      patch.dueDate || existing.dueDate,
-      patch.dueMode || existing.dueMode || 'on_date',
+      Object.hasOwn(patch, 'dueDate') && patch.dueDate !== undefined ? patch.dueDate : existing.dueDate,
+      Object.hasOwn(patch, 'dueMode') && patch.dueMode !== undefined ? patch.dueMode : existing.dueMode || 'on_date',
       now,
       completedAt,
       completedBy,
@@ -576,6 +649,15 @@ export class SQLiteBabyStore {
       familyId,
     );
     return this.getTask(taskId, { familyId });
+  }
+
+
+  deleteTask(taskId, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const existing = this.getTask(taskId, { familyId });
+    if (!existing) return false;
+    this.db.prepare('DELETE FROM task_items WHERE id = ? AND family_id = ?').run(taskId, familyId);
+    return true;
   }
 
   listTasksForDay(day, options = {}) {
@@ -637,6 +719,34 @@ export class SQLiteBabyStore {
       LIMIT ?
     `).all(familyId, today, limit).map(rowToTask);
   }
+}
+
+
+function parseJson(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function rowToActionLog(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    module: row.module,
+    babyId: row.baby_id || '',
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    action: row.action,
+    actorId: row.actor_id,
+    message: row.message,
+    metadata: parseJson(row.metadata_json, {}),
+    undoneAt: row.undone_at,
+    undoneBy: row.undone_by,
+    canUndo: !row.undone_at && row.action !== 'undo',
+    createdAt: row.created_at,
+  };
 }
 
 function rowToGrowthRecord(row) {

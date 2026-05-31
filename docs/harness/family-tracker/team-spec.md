@@ -43,6 +43,7 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - 시나리오는 최소한 기능 진입점, 주요 사용자 액션, 성공 상태/데이터 반영을 검증한다.
 - UI가 없는 기능은 E2E 대신 통합/도메인 시나리오 테스트를 추가하고, 대체한 이유와 커버한 흐름을 PR 설명에 적는다.
 - 새 시나리오를 만들지 않고 기존 시나리오를 확장한 경우, 확장된 assertion/step을 PR 설명과 최종 보고에 명시한다.
+- Action log/undo 기능은 undo 가능한 각 트랜잭션 타입(add/edit/delete/complete/reopen 등)을 시나리오 테스트에 포함한다. 직접 UI 편집 진입점이 없는 타입은 API로 상태를 준비한 뒤 UI action log에서 Undo를 실행하고 데이터 반영을 검증한다.
 
 ## Validation Gate (PR 전 필수)
 - 코드 변경이 있으면 로컬에서 아래를 모두 통과해야 한다.

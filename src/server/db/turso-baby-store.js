@@ -117,14 +117,31 @@ export class TursoBabyStore {
         completed_by TEXT,
         FOREIGN KEY (assignee_id) REFERENCES task_assignees(id)
       )`,
+      `CREATE TABLE IF NOT EXISTS action_logs (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        module TEXT NOT NULL,
+        baby_id TEXT NOT NULL DEFAULT '',
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        actor_id TEXT NOT NULL DEFAULT '',
+        message TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        undone_at TEXT,
+        undone_by TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
       'CREATE INDEX IF NOT EXISTS idx_growth_records_family_baby ON growth_records(family_id, baby_id, occurred_date)',
       'CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at)',
       'CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at)',
       'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)',
       'CREATE INDEX IF NOT EXISTS idx_task_assignees_family ON task_assignees(family_id, name)',
       'CREATE INDEX IF NOT EXISTS idx_task_items_family_day ON task_items(family_id, due_date, status)',
+      'CREATE INDEX IF NOT EXISTS idx_action_logs_family_module ON action_logs(family_id, module, created_at)',
     ], 'write');
     await this.ensureTaskDueModeColumn();
+    await this.ensureActionLogColumns();
     await this.ensureProfileBirthDetailColumns();
   }
 
@@ -134,6 +151,23 @@ export class TursoBabyStore {
     } catch (error) {
       const message = String(error?.message || '');
       if (!message.includes('duplicate column name') && !message.includes('already exists')) throw error;
+    }
+  }
+
+  async ensureActionLogColumns() {
+    const columns = [
+      "ALTER TABLE action_logs ADD COLUMN baby_id TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE action_logs ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'",
+      'ALTER TABLE action_logs ADD COLUMN undone_at TEXT',
+      'ALTER TABLE action_logs ADD COLUMN undone_by TEXT',
+    ];
+    for (const sql of columns) {
+      try {
+        await this.client.execute(sql);
+      } catch (error) {
+        const message = String(error?.message || '');
+        if (!message.includes('duplicate column name') && !message.includes('already exists')) throw error;
+      }
     }
   }
 
@@ -482,6 +516,45 @@ export class TursoBabyStore {
     return result.rows.map(rowToTaskAssignee);
   }
 
+
+  async appendActionLog(entry) {
+    const now = entry.createdAt || new Date().toISOString();
+    await this.client.execute({
+      sql: 'INSERT INTO action_logs (id, family_id, module, baby_id, entity_type, entity_id, action, actor_id, message, metadata_json, undone_at, undone_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [entry.id, entry.familyId || defaultFamilyId, entry.module, entry.babyId || '', entry.entityType, entry.entityId, entry.action, entry.actorId || '', entry.message, JSON.stringify(entry.metadata || {}), entry.undoneAt || null, entry.undoneBy || null, now],
+    });
+    return this.getActionLog(entry.id, { familyId: entry.familyId || defaultFamilyId });
+  }
+
+  async getActionLog(id, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const result = await this.client.execute({ sql: 'SELECT * FROM action_logs WHERE id = ? AND family_id = ?', args: [id, familyId] });
+    return result.rows[0] ? rowToActionLog(result.rows[0]) : null;
+  }
+
+
+  async markActionLogUndone(id, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const undoneAt = options.undoneAt || new Date().toISOString();
+    const undoneBy = options.undoneBy || '';
+    await this.client.execute({
+      sql: 'UPDATE action_logs SET undone_at = ?, undone_by = ? WHERE id = ? AND family_id = ? AND undone_at IS NULL',
+      args: [undoneAt, undoneBy, id, familyId],
+    });
+    return this.getActionLog(id, { familyId });
+  }
+
+  async listActionLogs(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const module = options.module || 'baby';
+    const limit = Number.isInteger(options.limit) ? options.limit : 30;
+    const result = await this.client.execute({
+      sql: "SELECT * FROM action_logs WHERE family_id = ? AND module = ? AND (? != 'baby' OR baby_id = ?) ORDER BY created_at DESC, rowid DESC LIMIT ?",
+      args: [familyId, module, module, options.babyId || defaultBabyId, limit],
+    });
+    return result.rows.map(rowToActionLog);
+  }
+
   async createTaskAssignee(assignee) {
     const now = new Date().toISOString();
     await this.client.execute({
@@ -549,11 +622,11 @@ export class TursoBabyStore {
         SET title = ?, assignee_id = ?, status = ?, due_date = ?, due_mode = ?, updated_at = ?, completed_at = ?, completed_by = ?
         WHERE id = ? AND family_id = ?`,
       args: [
-        patch.title || existing.title,
-        patch.assigneeId || existing.assigneeId,
+        Object.hasOwn(patch, 'title') && patch.title ? patch.title : existing.title,
+        Object.hasOwn(patch, 'assigneeId') && patch.assigneeId ? patch.assigneeId : existing.assigneeId,
         status,
-        patch.dueDate || existing.dueDate,
-        patch.dueMode || existing.dueMode || 'on_date',
+        Object.hasOwn(patch, 'dueDate') && patch.dueDate !== undefined ? patch.dueDate : existing.dueDate,
+        Object.hasOwn(patch, 'dueMode') && patch.dueMode !== undefined ? patch.dueMode : existing.dueMode || 'on_date',
         now,
         completedAt,
         completedBy,
@@ -562,6 +635,15 @@ export class TursoBabyStore {
       ],
     });
     return this.getTask(taskId, { familyId });
+  }
+
+
+  async deleteTask(taskId, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const existing = await this.getTask(taskId, { familyId });
+    if (!existing) return false;
+    await this.client.execute({ sql: 'DELETE FROM task_items WHERE id = ? AND family_id = ?', args: [taskId, familyId] });
+    return true;
   }
 
   async listTasksForDay(day, options = {}) {
@@ -654,6 +736,34 @@ function rowToProfile(row) {
     solidAmountOverride: row.solid_amount_override,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+
+function parseJson(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function rowToActionLog(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    module: row.module,
+    babyId: row.baby_id || '',
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    action: row.action,
+    actorId: row.actor_id,
+    message: row.message,
+    metadata: parseJson(row.metadata_json, {}),
+    undoneAt: row.undone_at,
+    undoneBy: row.undone_by,
+    canUndo: !row.undone_at && row.action !== 'undo',
+    createdAt: row.created_at,
   };
 }
 

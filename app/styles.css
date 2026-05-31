@@ -1277,6 +1277,17 @@ label {
   font-size: 14px;
 }
 
+
+.action-log-entry {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.action-log-entry.undone {
+  opacity: 0.62;
+}
+
+
 .build-badge {
   position: fixed;
   display: inline-flex;
