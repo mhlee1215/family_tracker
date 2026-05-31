@@ -7,11 +7,14 @@ test('builds Mistral baby log request with chat messages and JSON schema respons
 
   assert.equal(request.model, 'mistral-test');
   assert.deepEqual(request.messages.map((message) => message.role), ['system', 'user']);
-  assert.equal(request.messages[0].content, 'Return JSON matching the supplied schema.');
+  assert.match(request.messages[0].content, /Return JSON matching the supplied schema/);
+  assert.match(request.messages[0].content, /needs_clarification/);
+  assert.match(request.messages[0].content, /Do not turn minute expressions/);
   assert.equal(request.messages[1].content, JSON.stringify({ text: '분유 먹고 응가' }));
   assert.equal(request.response_format.type, 'json_schema');
   assert.equal(request.response_format.json_schema.name, 'baby_log_parse');
   assert.equal(request.response_format.json_schema.schema.required[0], 'events');
+  assert.equal(request.response_format.json_schema.schema.properties.status.enum[1], 'needs_clarification');
   assert.deepEqual(request.response_format.json_schema.schema.properties.events.items.properties.type.enum, ['sleep', 'feeding_milk', 'feeding_solid', 'diaper']);
 });
 

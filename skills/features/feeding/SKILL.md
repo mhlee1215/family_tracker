@@ -11,6 +11,7 @@ Changes to milk/solid feeding parsing, amount inference, and food name extractio
 - `tests/inference-engine.test.js`
 
 ## Rules
+- Minute units near feeding text are durations/timing notes, never milk `amountMl`; ask for clarification when meaning is ambiguous.
 - `분유 먹음` maps to `feeding_milk`.
 - Food names like `고구마 먹음` map to `feeding_solid`.
 - If amount is not explicit, use deterministic default/inference and do not mark `explicit`.

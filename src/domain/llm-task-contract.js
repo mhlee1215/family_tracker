@@ -8,10 +8,15 @@ export const babyLogParseSchema = {
   additionalProperties: false,
   required: ['events'],
   properties: {
+    status: { type: 'string', enum: ['ok', 'needs_clarification'], description: 'Use needs_clarification when the text is too ambiguous to save safely.' },
+    code: { type: 'string' },
+    message: { type: 'string' },
+    questions: { type: 'array', items: { type: 'string' } },
+    suggestedInputs: { type: 'array', items: { type: 'string' } },
     events: {
       type: 'array',
-      minItems: 1,
-      description: 'One event per baby activity described in the input text.',
+      minItems: 0,
+      description: 'One event per baby activity described in the input text. Leave empty only when status is needs_clarification.',
       items: {
         type: 'object',
         additionalProperties: false,
@@ -37,7 +42,14 @@ export const babyLogParseSchema = {
 
 export function instructionsForTask(task) {
   if (task === 'parse_baby_log') {
-    return 'Return JSON matching the supplied schema.';
+    return [
+      'Return JSON matching the supplied schema.',
+      'Return one event per clear baby activity.',
+      'If required meaning is ambiguous, return status "needs_clarification" with code, message, questions, suggestedInputs, and no events instead of guessing.',
+      'Do not turn minute expressions such as 5mins, 5 min, or 5 minutes into amountMl.',
+      'Only set amountMl when the user explicitly used a milk-volume unit such as ml.',
+      'Only set occurredAt when the user explicitly supplied an absolute time or the timing can be unambiguously resolved from now and the text.',
+    ].join(' ');
   }
   return 'Answer family tracker questions using the provided structured data.';
 }

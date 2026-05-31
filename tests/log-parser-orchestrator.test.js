@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBabyLogWithProvider } from '../src/domain/log-parser-orchestrator.js';
+import { parseBabyLogForSave, parseBabyLogWithProvider } from '../src/domain/log-parser-orchestrator.js';
 
 const now = new Date('2026-05-28T20:00:00.000Z');
 
@@ -86,4 +86,32 @@ test('uses heuristic parser when shortcut buttons request it even with configure
   assert.equal(callCount, 0);
   assert.equal(events[0].type, 'feeding_milk');
   assert.equal(events[0].parserInfo.kind, 'heuristic');
+});
+
+
+test('returns clarification decisions without falling back to heuristic saves', async () => {
+  let callCount = 0;
+  const result = await parseBabyLogForSave('fed 5mins', { now }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    callTask: async () => {
+      callCount += 1;
+      return {
+        output_text: JSON.stringify({
+          status: 'needs_clarification',
+          code: 'llm_ambiguous_minutes',
+          message: '5mins could be a feeding duration or timing note.',
+          questions: ['Was formula feeding 5 minutes long?'],
+          suggestedInputs: ['formula for 5 minutes'],
+          events: [],
+        }),
+      };
+    },
+  });
+
+  assert.equal(callCount, 1);
+  assert.equal(result.status, 'needs_clarification');
+  assert.equal(result.code, 'llm_ambiguous_minutes');
+  assert.equal(result.events, undefined);
 });

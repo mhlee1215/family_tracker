@@ -12,6 +12,7 @@ Changes to natural-language parsing, provider abstraction, prompt/contract/schem
 - `tests/baby-log-parser.test.js`
 
 ## Rules
+- Information-deficient logs must return a clarification decision instead of falling back to guessed events.
 - LLM extracts intent and explicit values only.
 - Deterministic domain logic fills missing values.
 - Provider calls must remain server-side.

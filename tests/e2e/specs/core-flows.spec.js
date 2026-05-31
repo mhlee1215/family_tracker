@@ -395,6 +395,56 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('ambiguous baby logs show clarification guidance instead of saving', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let postCount = 0;
+
+    await page.route('**/api/logs/today**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: [], summary: {}, context: { lastMilk: null, lastDiaper: null, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 } }),
+      });
+    });
+    await page.route('**/api/logs', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      postCount += 1;
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'needs_clarification',
+          code: 'needs_clarification',
+          error: '입력 내용을 정확히 기록하려면 추가 정보가 필요해요.',
+          message: '5mins could mean diaper timing or feeding duration.',
+          questions: ['Did the poop diaper happen 5 minutes before formula feeding?'],
+          suggestedInputs: ['formula now, poop diaper 5 minutes before'],
+        }),
+      });
+    });
+
+    page.on('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('추가 정보가 필요');
+      await dialog.accept();
+    });
+
+    await app.loginAsDevAdmin();
+    await page.locator('#log-input').fill('poop diaper before feeding formula 5mins');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await expect(page.locator('#answer')).toContainText('추가 정보가 필요');
+    await expect(page.locator('#answer')).toContainText('formula now, poop diaper 5 minutes before');
+    await expect(page.locator('#log-input')).toHaveValue('poop diaper before feeding formula 5mins');
+    await expect(page.locator('#timeline')).not.toContainText('poop diaper before feeding formula 5mins');
+    expect(postCount).toBe(1);
+    await app.captureStep('Ambiguous baby log blocked', 'The app warns that more information is needed, keeps the original input, and avoids adding a timeline record.');
+
+    // A 422 clarification response is expected and browsers report it as a console resource error.
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('baby nap shortcut toggles to Wake while using heuristic button parsing', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let hasOpenSleep = false;
