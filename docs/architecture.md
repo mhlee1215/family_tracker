@@ -12,7 +12,7 @@ src/domain/
   Baby log parsing, field inference, sleep-session linking, summaries, and LLM provider boundaries.
 
 src/server/db/
-  SQLite-backed local persistence for profiles, raw logs, and structured events.
+  SQLite-backed local persistence for profiles, raw records, structured events, and module action logs.
 
 tests/
   Unit tests for product logic and persistence hydration.
@@ -30,6 +30,8 @@ postgres-baby-store.js later
 ```
 
 ## Cloud Path
+
+Action logs store add/edit/delete/complete transactions separately from baby records and task records so user-facing records remain distinct from provenance/audit history. Undoable actions keep server-side before/after snapshots so an action can be reversed without exposing snapshot payloads to browser clients.
 
 Profile records store baby identity, current newborn measurements, and feeding/sleep defaults. Dated growth records preserve each changed height/head/weight/Apgar entry for birth, current, or custom dates so summaries can show growth over time.
 

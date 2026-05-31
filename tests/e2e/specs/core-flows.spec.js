@@ -111,6 +111,139 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+  test('baby records and task changes appear in action logs', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+    const suffix = Date.now();
+    const recordText = `action log formula ${suffix}`;
+
+    await page.locator('#log-input').fill(recordText);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#timeline')).toContainText(recordText);
+    await page.locator('#open-baby-action-log').click();
+    await expect(page.locator('#baby-action-log-panel')).toBeVisible();
+    await expect(page.locator('#baby-action-log')).toContainText(`added baby record "${recordText}"`);
+    await page.locator('#baby-action-log').getByRole('button', { name: 'Undo' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Undo this action?' })).toBeVisible();
+    await confirmUndoAndWaitForRefresh(page, 'baby');
+    await expect(page.locator('#timeline')).not.toContainText(recordText);
+    await expect(page.locator('#baby-action-log')).toContainText(`undid added baby record "${recordText}"`);
+    await app.captureStep('Baby action log records and undoes add transaction', 'The baby action log records the new record separately and Undo removes it from the timeline.');
+
+    await page.locator('#task-tab').click();
+    await page.locator('#open-task-composer').click();
+    await page.locator('#task-assignee').selectOption({ index: 0 });
+    const taskTitle = `Action log task ${suffix}`;
+    await page.locator('#task-title').fill(taskTitle);
+    await page.locator('#task-form button[type="submit"]').click();
+    await expect(page.locator('#task-list')).toContainText(taskTitle);
+    await page.locator('#open-task-action-log').click();
+    await expect(page.locator('#task-action-log-panel')).toBeVisible();
+    await expect(page.locator('#task-action-log')).toContainText(`added task "${taskTitle}"`);
+    await page.locator('#task-action-log').getByRole('button', { name: 'Undo' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Undo this action?' })).toBeVisible();
+    await confirmUndoAndWaitForRefresh(page, 'task');
+    await expect(page.locator('#task-list')).not.toContainText(taskTitle);
+    await expect(page.locator('#task-action-log')).toContainText(`undid added task "${taskTitle}"`);
+    await app.captureStep('Task action log records and undoes add transaction', 'Task create appears in the action log, and Undo removes the newly added task.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
+  test('baby action log undo restores add, edit, and delete transactions', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+    await page.waitForLoadState('networkidle');
+    const suffix = Date.now();
+
+    const addText = `undo baby add formula ${suffix}`;
+    await createBabyRecord(page, addText);
+    await gotoAndSettle(page, '/');
+    await expect(page.locator('#timeline')).toContainText(addText);
+    await undoBabyAction(page, `added baby record "${addText}"`);
+    await expect(page.locator('#timeline')).not.toContainText(addText);
+    await expect(page.locator('#baby-action-log')).toContainText(`undid added baby record "${addText}"`);
+    await app.captureStep('Undid baby record add', 'Undoing an add transaction removes the baby record from the timeline.');
+
+    const originalText = `undo baby edit original ${suffix}`;
+    const editedText = `undo baby edit updated ${suffix}`;
+    const editable = await createBabyRecord(page, originalText);
+    await patchBabyRecord(page, editable.rawLog.id, editedText);
+    await gotoAndSettle(page, '/');
+    await expect(page.locator('#timeline')).toContainText(editedText);
+    await undoBabyAction(page, `edited baby record "${editedText}"`);
+    await expect(page.locator('#timeline')).toContainText(originalText);
+    await expect(page.locator('#timeline')).not.toContainText(editedText);
+    await app.captureStep('Undid baby record edit', 'Undoing an edit restores the original baby record text.');
+
+    const deletedText = `undo baby delete formula ${suffix}`;
+    const deleted = await createBabyRecord(page, deletedText);
+    await deleteBabyRecord(page, deleted.rawLog.id);
+    await gotoAndSettle(page, '/');
+    await expect(page.locator('#timeline')).not.toContainText(deletedText);
+    await undoBabyAction(page, `deleted baby record "${deletedText}"`);
+    await expect(page.locator('#timeline')).toContainText(deletedText);
+    await app.captureStep('Undid baby record delete', 'Undoing a delete restores the baby record to the timeline.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+  test('task action log undo restores add, edit, complete, and reopen transactions', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin();
+    await page.waitForLoadState('networkidle');
+    const suffix = Date.now();
+
+    const addTitle = `Undo task add ${suffix}`;
+    await createTaskViaApi(page, addTitle);
+    await gotoAndSettle(page, '/tasks');
+    await expect(page.locator('#task-list')).toContainText(addTitle);
+    await undoTaskAction(page, `added task "${addTitle}"`);
+    await expect(page.locator('#task-list')).not.toContainText(addTitle);
+    await expect(page.locator('#task-action-log')).toContainText(`undid added task "${addTitle}"`);
+    await app.captureStep('Undid task add', 'Undoing a task add removes the task from the task list.');
+
+    const originalTitle = `Undo task edit original ${suffix}`;
+    const editedTitle = `Undo task edit updated ${suffix}`;
+    const editable = await createTaskViaApi(page, originalTitle);
+    await patchTaskViaApi(page, editable.id, { title: editedTitle });
+    await gotoAndSettle(page, '/tasks');
+    await expect(page.locator('#task-list')).toContainText(editedTitle);
+    await undoTaskAction(page, `edited task "${editedTitle}"`);
+    await expect(page.locator('#task-list')).toContainText(originalTitle);
+    await expect(page.locator('#task-list')).not.toContainText(editedTitle);
+    await app.captureStep('Undid task edit', 'Undoing a task edit restores the original task title.');
+
+    const completeTitle = `Undo task complete ${suffix}`;
+    const completable = await createTaskViaApi(page, completeTitle);
+    await patchTaskViaApi(page, completable.id, { status: 'done' });
+    await gotoAndSettle(page, '/tasks');
+    await expect(page.locator('.task-item', { hasText: completeTitle }).first().getByRole('checkbox')).toBeChecked();
+    await undoTaskAction(page, `completed task "${completeTitle}"`);
+    await expect(page.locator('.task-item', { hasText: completeTitle }).first().getByRole('checkbox')).not.toBeChecked();
+    await app.captureStep('Undid task complete', 'Undoing a complete transaction reopens the task.');
+
+    const reopenTitle = `Undo task reopen ${suffix}`;
+    const reopenable = await createTaskViaApi(page, reopenTitle);
+    await patchTaskViaApi(page, reopenable.id, { status: 'done' });
+    await patchTaskViaApi(page, reopenable.id, { status: 'open' });
+    await gotoAndSettle(page, '/tasks');
+    await expect(page.locator('.task-item', { hasText: reopenTitle }).first().getByRole('checkbox')).not.toBeChecked();
+    await undoTaskAction(page, `reopened task "${reopenTitle}"`);
+    await expect(page.locator('.task-item', { hasText: reopenTitle }).first().getByRole('checkbox')).toBeChecked();
+    await app.captureStep('Undid task reopen', 'Undoing a reopen transaction restores the task to completed state.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('baby timeline sort and filter controls reorder visible logs', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
 
@@ -334,7 +467,7 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Revealed swipe action rail', 'A real desktop mouse drag opened the action rail.');
 
     await row.getByRole('button', { name: /Delete/ }).click();
-    await expect(page.getByRole('heading', { name: 'Delete baby log?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Delete baby record?' })).toBeVisible();
     await page.locator('#action-dialog-confirm').click();
     await expect(page.locator('#timeline')).not.toContainText(rawText);
     await app.captureStep('Deleted from revealed swipe action', 'The Delete action from the revealed rail removed the log.');
@@ -350,7 +483,7 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Opened app for error-state flow', 'Preparing to validate empty and fallback states.');
 
     await page.request.post('/api/dev/clear-tasks');
-    await page.goto('/?tab=task');
+    await gotoAndSettle(page, '/tasks');
     await expect(page.locator('#task-list')).toContainText('No tasks for this day.');
     await app.captureStep('Empty task state', 'Task tab shows empty-state message for selected day.');
 
@@ -361,10 +494,10 @@ test.describe('Family Tracker core flows', () => {
         body: JSON.stringify({ error: 'forced e2e failure' }),
       });
     });
-    await page.goto('/?tab=baby');
+    await gotoAndSettle(page, '/');
     // TODO: once UI has explicit load-error banner, assert that message.
     await expect(page.locator('#timeline')).toBeVisible();
-    await expect(page.locator('#timeline')).toContainText('No logs for this date yet.');
+    await expect(page.locator('#timeline')).toContainText('No records for this date yet.');
     await app.captureStep('API fallback state', 'Timeline stays stable and renders fallback empty text after API error.');
 
     app.assertCapturedFailures();
@@ -483,3 +616,85 @@ test.describe('Family Tracker core flows', () => {
   });
 
 });
+
+async function createBabyRecord(page, text) {
+  const response = await page.request.post('/api/logs', {
+    data: { text, timezone: 'UTC', parserMode: 'heuristic', inputSource: 'e2e' },
+  });
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
+
+async function patchBabyRecord(page, rawLogId, text) {
+  const response = await page.request.patch(`/api/logs/${encodeURIComponent(rawLogId)}`, {
+    data: { text, timezone: 'UTC' },
+  });
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
+
+async function deleteBabyRecord(page, rawLogId) {
+  const response = await page.request.delete(`/api/logs/${encodeURIComponent(rawLogId)}`);
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
+
+async function undoBabyAction(page, message) {
+  await page.locator('#open-baby-action-log').click();
+  await expect(page.locator('#baby-action-log-panel')).toBeVisible();
+  const row = page.locator('#baby-action-log .action-log-entry', { hasText: message }).first();
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('heading', { name: 'Undo this action?' })).toBeVisible();
+  await confirmUndoAndWaitForRefresh(page, 'baby');
+}
+
+async function createTaskViaApi(page, title) {
+  const assigneesResponse = await page.request.get('/api/task-assignees');
+  expect(assigneesResponse.ok()).toBeTruthy();
+  const { assignees } = await assigneesResponse.json();
+  const response = await page.request.post('/api/tasks', {
+    data: {
+      title,
+      assigneeId: assignees[0].id,
+      dueMode: 'on_date',
+      dueDate: new Date().toISOString().slice(0, 10),
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json();
+  return payload.task;
+}
+
+async function patchTaskViaApi(page, taskId, patch) {
+  const response = await page.request.patch(`/api/tasks/${encodeURIComponent(taskId)}`, { data: patch });
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json();
+  return payload.task;
+}
+
+async function undoTaskAction(page, message) {
+  await page.locator('#open-task-action-log').click();
+  await expect(page.locator('#task-action-log-panel')).toBeVisible();
+  const row = page.locator('#task-action-log .action-log-entry', { hasText: message }).first();
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('heading', { name: 'Undo this action?' })).toBeVisible();
+  await confirmUndoAndWaitForRefresh(page, 'task');
+}
+
+async function confirmUndoAndWaitForRefresh(page, module) {
+  const refreshPath = module === 'task' ? '/api/tasks/today' : '/api/logs/today';
+  const [undoResponse, refreshResponse] = await Promise.all([
+    page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/api/action-logs/') && response.url().endsWith('/undo')),
+    page.waitForResponse((response) => response.request().method() === 'GET' && response.url().includes(refreshPath)),
+    page.locator('#action-dialog-confirm').click(),
+  ]);
+  expect(undoResponse.ok()).toBeTruthy();
+  expect(refreshResponse.ok()).toBeTruthy();
+}
+
+async function gotoAndSettle(page, url) {
+  await page.goto(url);
+  await page.waitForLoadState('networkidle');
+}

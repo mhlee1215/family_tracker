@@ -71,6 +71,7 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - 시나리오 테스트는 단순 렌더링이 아니라 사용자가 기능을 발견/입력/실행/검증하는 핵심 흐름과 성공 결과를 검증해야 한다.
 - 기능이 서버/API/도메인 전용이라 UI E2E가 부적합하면, 가장 가까운 통합/도메인 시나리오 테스트를 추가하고 PR/최종 보고에 왜 E2E가 아닌지 명시한다.
 - 기존 시나리오로 충분히 커버되는 경우에도 새 기능과 연결되는 assertion 또는 step을 추가하고, 어떤 시나리오가 커버하는지 최종 보고에 남긴다.
+- Action log/undo처럼 여러 트랜잭션 타입을 제공하는 기능은 각 undoable action type(add/edit/delete/complete/reopen 등)을 E2E 또는 가장 가까운 통합 시나리오에서 명시적으로 검증한다. UI 진입점이 없는 타입은 API로 상태를 만들고 UI action log에서 Undo를 실행해 결과 상태를 확인한다.
 
 ## Required Post-change Test Routine
 코드 변경 후 에이전트가 반드시 확인할 테스트 순서:

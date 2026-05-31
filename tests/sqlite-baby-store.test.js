@@ -357,3 +357,66 @@ test('SQLiteBabyStore keeps due completed tasks on their selected day', () => {
   assert.equal(selectedDayTasks[0].status, 'done');
   store.close();
 });
+
+test('SQLiteBabyStore records module-scoped action logs', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+
+  store.appendActionLog({
+    id: 'action-baby-add',
+    familyId: 'family-admin',
+    module: 'baby',
+    babyId: 'local-baby',
+    entityType: 'record',
+    entityId: 'rawlog-1',
+    action: 'add',
+    actorId: 'user-admin',
+    message: 'added baby record "formula"',
+    metadata: { after: { rawLogId: 'rawlog-1' } },
+    createdAt: '2026-05-24T10:00:00.000Z',
+  });
+  store.appendActionLog({
+    id: 'action-task-complete',
+    familyId: 'family-admin',
+    module: 'task',
+    entityType: 'task',
+    entityId: 'task-1',
+    action: 'complete',
+    actorId: 'user-admin',
+    message: 'completed task "Wash bottles"',
+    createdAt: '2026-05-24T11:00:00.000Z',
+  });
+
+  const babyActions = store.listActionLogs({ familyId: 'family-admin', module: 'baby' });
+  const taskActions = store.listActionLogs({ familyId: 'family-admin', module: 'task' });
+  const marked = store.markActionLogUndone('action-baby-add', { familyId: 'family-admin', undoneAt: '2026-05-24T12:00:00.000Z', undoneBy: 'user-admin' });
+  store.close();
+
+  assert.equal(babyActions.length, 1);
+  assert.equal(babyActions[0].action, 'add');
+  assert.equal(babyActions[0].message, 'added baby record "formula"');
+  assert.equal(babyActions[0].metadata.after.rawLogId, 'rawlog-1');
+  assert.equal(babyActions[0].canUndo, true);
+  assert.equal(marked.canUndo, false);
+  assert.equal(marked.undoneBy, 'user-admin');
+  assert.equal(taskActions.length, 1);
+  assert.equal(taskActions[0].action, 'complete');
+});
+
+
+test('SQLiteBabyStore deletes tasks for undoing task add transactions', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const [mom] = store.ensureDefaultTaskAssignees('family-admin');
+  const task = store.createTask({
+    id: 'task-undo-add',
+    familyId: 'family-admin',
+    title: 'Undo me',
+    assigneeId: mom.id,
+    dueDate: '2026-05-24',
+  });
+
+  assert.equal(store.deleteTask(task.id, { familyId: 'family-admin' }), true);
+  assert.equal(store.getTask(task.id, { familyId: 'family-admin' }), null);
+  store.close();
+});

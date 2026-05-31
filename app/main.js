@@ -35,8 +35,8 @@ const copy = {
   saveFailed: 'Could not save.',
   logPlaceholder: 'Try: 분유 120 먹고 응가했어',
   askPlaceholder: 'How much sleep today?',
-  emptyTimeline: 'No logs for this date yet.',
-  emptyFilteredTimeline: 'No logs match this filter.',
+  emptyTimeline: 'No records for this date yet.',
+  emptyFilteredTimeline: 'No records match this filter.',
   emptyTasks: 'No tasks for this day.',
   emptyOverview: 'No completed tasks yet.',
   quickActions: [
@@ -61,6 +61,8 @@ const state = {
   growthRecords: [],
   tasks: [],
   taskOverview: [],
+  babyActionLog: [],
+  taskActionLog: [],
   eventSummary: null,
   assignees: [],
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
@@ -110,6 +112,9 @@ const elements = {
   openBabyPatterns: $('#open-baby-patterns'),
   openBabySettings: $('#open-baby-settings'),
   openBabyLog: $('#open-baby-log'),
+  openBabyActionLog: $('#open-baby-action-log'),
+  babyActionLogPanel: $('#baby-action-log-panel'),
+  babyActionLog: $('#baby-action-log'),
   quickActions: $('#quick-actions'),
   eventCount: $('#event-count'),
   timelineSort: $('#timeline-sort'),
@@ -176,6 +181,9 @@ const elements = {
   taskForm: $('#task-form'),
   openTaskSummary: $('#open-task-summary'),
   openTaskLog: $('#open-task-log'),
+  openTaskActionLog: $('#open-task-action-log'),
+  taskActionLogPanel: $('#task-action-log-panel'),
+  taskActionLog: $('#task-action-log'),
   backToTodayTasks: $('#back-to-today-tasks'),
   taskTodayPanel: $('#task-today-panel'),
   taskSummaryPanel: $('#task-summary-panel'),
@@ -305,10 +313,12 @@ elements.openTaskLog?.addEventListener('click', () => {
   setTaskPanel('today');
   setTaskComposerOpen(false);
 });
+elements.openTaskActionLog?.addEventListener('click', () => setTaskPanel(state.taskPanel === 'actionLog' ? 'today' : 'actionLog'));
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
 elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
 elements.openBabyPatterns?.addEventListener('click', () => toggleBabyPanel('patterns'));
 elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
+elements.openBabyActionLog?.addEventListener('click', () => toggleBabyPanel('actionLog'));
 elements.openBabyLog?.addEventListener('click', () => {
   setBabyPanel(null);
   elements.logInput?.focus();
@@ -353,6 +363,7 @@ elements.timelineSort?.addEventListener('change', () => {
   state.timelineSort = normalizeTimelineSort(elements.timelineSort.value);
   localStorage.setItem(storageKeys.timelineSort, state.timelineSort);
   renderTimeline();
+  renderActionLog(elements.babyActionLog, state.babyActionLog, 'No baby actions yet.');
 });
 elements.timelineFilter?.addEventListener('change', () => {
   state.timelineFilter = normalizeTimelineFilter(elements.timelineFilter.value);
@@ -488,11 +499,16 @@ async function saveLog(text, options = {}) {
 
 async function loadToday() {
   const params = new URLSearchParams({ day: state.selectedDay, timezone: localTimezone() });
-  const response = await fetch(`/api/logs/today?${params.toString()}`);
+  const [response, actionLogResponse] = await Promise.all([
+    fetch(`/api/logs/today?${params.toString()}`),
+    fetch('/api/action-logs?module=baby&limit=30'),
+  ]);
   const payload = await response.json();
+  const actionLogPayload = await actionLogResponse.json().catch(() => ({}));
   if (handleAuthFailure(response)) return;
   state.events = payload.events || [];
   state.summary = payload.summary;
+  state.babyActionLog = actionLogResponse.ok ? actionLogPayload.logs || [] : [];
   state.todayContext = payload.context || buildClientTodayContext(state.events);
   await loadPreviousBabyDay();
   seedSelectedDayPattern();
@@ -559,18 +575,21 @@ async function loadTaskData() {
   await loadAssignees();
   const params = new URLSearchParams({ day: state.selectedDay });
   const period = elements.summaryPeriod?.value || 'week';
-  const [todayResponse, overviewResponse, summaryResponse] = await Promise.all([
+  const [todayResponse, overviewResponse, summaryResponse, actionLogResponse] = await Promise.all([
     fetch(`/api/tasks/today?${params.toString()}`),
     fetch('/api/tasks/overview'),
     fetch(`/api/events/summary?period=${encodeURIComponent(period)}&day=${encodeURIComponent(state.selectedDay)}`),
+    fetch('/api/action-logs?module=task&limit=30'),
   ]);
   const todayPayload = await todayResponse.json();
   const overviewPayload = await overviewResponse.json();
   const summaryPayload = await summaryResponse.json();
+  const actionLogPayload = await actionLogResponse.json().catch(() => ({}));
   if (handleAuthFailure(todayResponse)) return;
   state.tasks = todayPayload.tasks || [];
   state.taskOverview = overviewPayload.tasks || [];
   state.eventSummary = summaryPayload.summary || null;
+  state.taskActionLog = actionLogResponse.ok ? actionLogPayload.logs || [] : [];
   if (!state.taskCalendarMonth) state.taskCalendarMonth = state.selectedDay.slice(0, 7);
   await loadTaskCalendarDots(state.taskCalendarMonth);
   renderTasks();
@@ -697,9 +716,9 @@ function closeFloatingAction(result) {
 async function editBabyLog(event) {
   if (!event.rawLogId) return;
   const nextText = await openFloatingAction({
-    kicker: 'Baby log',
-    title: 'Edit baby log',
-    description: 'Update the original note and Family Tracker will re-parse the timeline item.',
+    kicker: 'Baby record',
+    title: 'Edit baby record',
+    description: 'Update the original note and Family Tracker will re-parse the timeline record.',
     input: true,
     inputLabel: 'Original note',
     value: event.rawText || '',
@@ -725,8 +744,8 @@ async function editBabyLog(event) {
 async function deleteBabyLog(event) {
   if (!event.rawLogId) return;
   const ok = await openFloatingAction({
-    kicker: 'Baby log',
-    title: 'Delete baby log?',
+    kicker: 'Baby record',
+    title: 'Delete baby record?',
     description: event.rawText || eventTitle(event),
     confirmLabel: 'Delete',
   });
@@ -870,6 +889,8 @@ async function logout() {
   state.summary = null;
   state.tasks = [];
   state.taskOverview = [];
+  state.babyActionLog = [];
+  state.taskActionLog = [];
   state.taskPanel = 'today';
   state.babyPanel = null;
   renderAuthState();
@@ -938,11 +959,21 @@ function closeModuleFloatingPanels() {
 }
 
 function closeFloatingSectionPanels(target) {
-  const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel : state.babyPanel === 'summary' ? elements.growthSummary : state.babyPanel === 'patterns' ? elements.babyPatterns : null;
-  const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings : state.babyPanel === 'summary' ? elements.openBabySummary : state.babyPanel === 'patterns' ? elements.openBabyPatterns : null;
+  const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel
+    : state.babyPanel === 'summary' ? elements.growthSummary
+      : state.babyPanel === 'patterns' ? elements.babyPatterns
+        : state.babyPanel === 'actionLog' ? elements.babyActionLogPanel
+          : null;
+  const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings
+    : state.babyPanel === 'summary' ? elements.openBabySummary
+      : state.babyPanel === 'patterns' ? elements.openBabyPatterns
+        : state.babyPanel === 'actionLog' ? elements.openBabyActionLog
+          : null;
   if (isPanelOpen(babyPanel) && !(babyPanel.contains(target) || babyToggle?.contains(target))) setBabyPanel(null);
 
   if (isPanelOpen(elements.taskSummaryPanel) && !(elements.taskSummaryPanel.contains(target) || elements.openTaskSummary?.contains(target))) setTaskPanel('today');
+
+  if (isPanelOpen(elements.taskActionLogPanel) && !(elements.taskActionLogPanel.contains(target) || elements.openTaskActionLog?.contains(target))) setTaskPanel('today');
 
   if (isPanelOpen(elements.taskForm) && !(elements.taskForm.contains(target) || elements.openTaskComposer?.contains(target))) setTaskComposerOpen(false);
 }
@@ -957,7 +988,7 @@ function toggleBabyPanel(panel) {
 }
 
 function setBabyPanel(panel) {
-  state.babyPanel = ['summary', 'settings', 'patterns'].includes(panel) ? panel : null;
+  state.babyPanel = ['summary', 'settings', 'patterns', 'actionLog'].includes(panel) ? panel : null;
   renderBabyPanel();
 }
 
@@ -965,19 +996,24 @@ function renderBabyPanel() {
   const summaryOpen = state.babyPanel === 'summary';
   const settingsOpen = state.babyPanel === 'settings';
   const patternsOpen = state.babyPanel === 'patterns';
+  const actionLogOpen = state.babyPanel === 'actionLog';
   elements.growthSummary?.classList.toggle('hidden', !summaryOpen);
   elements.growthSummary?.setAttribute('aria-hidden', String(!summaryOpen));
   elements.babyPatterns?.classList.toggle('hidden', !patternsOpen);
   elements.babyPatterns?.setAttribute('aria-hidden', String(!patternsOpen));
   elements.babySettingsPanel?.classList.toggle('hidden', !settingsOpen);
   elements.babySettingsPanel?.setAttribute('aria-hidden', String(!settingsOpen));
+  elements.babyActionLogPanel?.classList.toggle('hidden', !actionLogOpen);
+  elements.babyActionLogPanel?.setAttribute('aria-hidden', String(!actionLogOpen));
   elements.openBabySummary?.classList.toggle('active', summaryOpen);
   elements.openBabyPatterns?.classList.toggle('active', patternsOpen);
   elements.openBabySettings?.classList.toggle('active', settingsOpen);
-  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen && !patternsOpen);
+  elements.openBabyActionLog?.classList.toggle('active', actionLogOpen);
+  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen && !patternsOpen && !actionLogOpen);
   elements.openBabySummary?.setAttribute('aria-expanded', String(summaryOpen));
   elements.openBabyPatterns?.setAttribute('aria-expanded', String(patternsOpen));
   elements.openBabySettings?.setAttribute('aria-expanded', String(settingsOpen));
+  elements.openBabyActionLog?.setAttribute('aria-expanded', String(actionLogOpen));
   if (settingsOpen) renderBabySettings();
 }
 
@@ -1010,6 +1046,7 @@ function renderBaby() {
   renderGrowthSummary();
   renderBabyPanel();
   renderTimeline();
+  renderActionLog(elements.babyActionLog, state.babyActionLog, 'No baby actions yet.');
 }
 
 function renderDayControls() {
@@ -1829,6 +1866,54 @@ function currentOpenSleep() {
   ));
 }
 
+
+
+async function undoActionLog(entry) {
+  if (!entry?.id || !entry.canUndo) return;
+  const ok = await openFloatingAction({
+    kicker: 'Action log',
+    title: 'Undo this action?',
+    description: entry.message || entry.action,
+    confirmLabel: 'Undo',
+  });
+  if (!ok) return;
+  const response = await fetch(`/api/action-logs/${encodeURIComponent(entry.id)}/undo`, { method: 'POST' });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    elements.answer.textContent = payload.error || copy.saveFailed;
+    return;
+  }
+  if (entry.module === 'task') await loadTaskData();
+  else await loadToday();
+}
+
+function renderActionLog(container, entries, emptyText = 'No actions yet.') {
+  if (!container) return;
+  if (!entries.length) {
+    container.innerHTML = `<p class="empty">${escapeHtml(emptyText)}</p>`;
+    return;
+  }
+  container.replaceChildren(...entries.map((entry) => {
+    const node = document.createElement('article');
+    node.className = `overview-item action-log-entry ${entry.undoneAt ? 'undone' : ''}`;
+    const actor = entry.actorName || entry.actorId || 'Family member';
+    const detail = document.createElement('div');
+    const status = entry.undoneAt ? ` · undone ${relativeDateTime(entry.undoneAt)}` : '';
+    detail.innerHTML = `<strong>${escapeHtml(actor)}</strong><span>${escapeHtml(entry.message || entry.action)} · ${escapeHtml(relativeDateTime(entry.createdAt))}${escapeHtml(status)}</span>`;
+    if (entry.canUndo) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'compact-button';
+      button.textContent = 'Undo';
+      button.addEventListener('click', () => undoActionLog(entry));
+      node.replaceChildren(detail, button);
+    } else {
+      node.replaceChildren(detail);
+    }
+    return node;
+  }));
+}
+
 function renderSleepStatus() {
   const openSleep = currentOpenSleep();
   if (!openSleep) {
@@ -2209,6 +2294,7 @@ function renderTasks() {
     elements.taskOverviewList.replaceChildren(...state.taskOverview.map(renderOverviewTask));
   }
   renderEventSummary();
+  renderActionLog(elements.taskActionLog, state.taskActionLog, 'No task actions yet.');
   renderMeals();
 }
 
@@ -2256,21 +2342,26 @@ function renderTaskDayControls() {
 
 
 function setTaskPanel(panel) {
-  state.taskPanel = panel === 'summary' ? 'summary' : 'today';
+  state.taskPanel = panel === 'summary' || panel === 'actionLog' ? panel : 'today';
   renderTaskPanel();
 }
 
 function renderTaskPanel() {
   if (!elements.taskSummaryPanel || !elements.openTaskSummary || !elements.taskTodayPanel) return;
   const summaryOpen = state.taskPanel === 'summary';
+  const actionLogOpen = state.taskPanel === 'actionLog';
   elements.taskSummaryPanel.classList.toggle('hidden', !summaryOpen);
   elements.taskSummaryPanel.setAttribute('aria-hidden', String(!summaryOpen));
   elements.openTaskSummary.classList.toggle('active', summaryOpen);
   elements.openTaskSummary.setAttribute('aria-expanded', String(summaryOpen));
+  elements.taskActionLogPanel?.classList.toggle('hidden', !actionLogOpen);
+  elements.taskActionLogPanel?.setAttribute('aria-hidden', String(!actionLogOpen));
+  elements.openTaskActionLog?.classList.toggle('active', actionLogOpen);
+  elements.openTaskActionLog?.setAttribute('aria-expanded', String(actionLogOpen));
   const composerOpen = elements.taskForm && !elements.taskForm.classList.contains('hidden');
-  elements.openTaskLog?.classList.toggle('active', !summaryOpen && !composerOpen);
-  elements.openTaskLog?.setAttribute('aria-expanded', String(!summaryOpen && !composerOpen));
-  if (elements.taskForm && summaryOpen && composerOpen) setTaskComposerOpen(false);
+  elements.openTaskLog?.classList.toggle('active', !summaryOpen && !actionLogOpen && !composerOpen);
+  elements.openTaskLog?.setAttribute('aria-expanded', String(!summaryOpen && !actionLogOpen && !composerOpen));
+  if (elements.taskForm && (summaryOpen || actionLogOpen) && composerOpen) setTaskComposerOpen(false);
 }
 
 function setTaskCalendarOpen(open) {
