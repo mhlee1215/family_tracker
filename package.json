@@ -10,6 +10,7 @@
     "start": "npm run sync:build && node scripts/start-server.js",
     "test": "npm run test:node",
     "check:turso": "node scripts/check-turso.js",
+    "check:r2": "node scripts/check-r2-config.js",
     "seed:turso:tasks": "node scripts/reset-seed-tasks.js",
     "sync:build": "node scripts/sync-build-metadata.js",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",

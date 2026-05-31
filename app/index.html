@@ -165,6 +165,10 @@
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6Z"></path><path d="M14 4v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
             <span>Record</span>
           </button>
+          <button id="open-baby-moments" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-moment-panel">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4.5 14.2 9l5 .7-3.6 3.5.9 5-4.5-2.3-4.5 2.3.9-5L4.8 9.7l5-.7Z"></path></svg>
+            <span>Moments</span>
+          </button>
           <button id="open-baby-action-log" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-action-log-panel">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h12v16H6Z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
             <span>Action log</span>
@@ -249,6 +253,35 @@
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
         <section id="baby-patterns" class="baby-patterns app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby patterns"></section>
         <section id="growth-summary" class="growth-summary app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth summary"></section>
+        <section id="baby-moment-panel" class="baby-moment-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Add growth moment">
+          <form id="moment-form" class="moment-form" autocomplete="off">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Moments</p>
+                <h3>성장 순간</h3>
+              </div>
+              <span id="moment-upload-status" class="muted-count">사진/동영상 먼저</span>
+            </div>
+            <div class="moment-media-picker">
+              <input id="moment-file-input" class="hidden" type="file" accept="image/*,video/*" multiple>
+              <input id="moment-camera-input" class="hidden" type="file" accept="image/*" capture="environment">
+              <button id="moment-library-button" type="button" class="moment-add-media">+ 사진/동영상 추가</button>
+              <button id="moment-camera-button" type="button" class="ghost-button">카메라로 찍기</button>
+            </div>
+            <div id="moment-preview-strip" class="moment-preview-strip" aria-live="polite"></div>
+            <div class="moment-presets" aria-label="Moment title presets">
+              <button type="button" data-moment-title="처음으로 밖에 나감">처음 외출</button>
+              <button type="button" data-moment-title="처음으로 뒤집기 성공">뒤집기</button>
+              <button type="button" data-moment-title="처음으로 크게 웃음">첫 웃음</button>
+              <button type="button" data-moment-title="첫 이유식">첫 이유식</button>
+            </div>
+            <label class="floating-field"><span>제목</span><input id="moment-title" type="text" placeholder="처음으로 밖에 나감" required></label>
+            <label class="floating-field"><span>날짜</span><input id="moment-date" type="date" required></label>
+            <label class="floating-field"><span>메모</span><textarea id="moment-note" rows="3" placeholder="유모차 타고 동네 한 바퀴"></textarea></label>
+            <label class="moment-first-check"><input id="moment-is-first" type="checkbox" checked> <span>처음 한 일이에요</span></label>
+            <menu class="floating-window-actions"><button id="moment-reset" type="button" class="ghost-button">Reset</button><button type="submit">저장</button></menu>
+          </form>
+        </section>
         <aside id="baby-action-log-panel" class="baby-action-log-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby action log">
           <div class="section-header"><h3>Action log</h3></div>
           <div id="baby-action-log" class="task-overview-list"></div>
@@ -263,6 +296,7 @@
                 <button type="submit">Save</button>
               </div>
               <div id="quick-actions" class="quick-actions" aria-label="Suggested logs"></div>
+              <button id="quick-add-moment" type="button" class="moment-quick-entry">+ 성장 순간</button>
             </form>
 
             <section class="timeline-section">
@@ -287,6 +321,7 @@
                       <option value="feeding_milk">Milk</option>
                       <option value="feeding_solid">Baby food</option>
                       <option value="diaper">Diaper</option>
+                      <option value="milestone">Moments</option>
                     </select>
                   </label>
                 </div>

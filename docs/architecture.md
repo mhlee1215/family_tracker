@@ -35,6 +35,8 @@ Action logs store add/edit/delete/complete transactions separately from baby rec
 
 Profile records store baby identity, current newborn measurements, and feeding/sleep defaults. Dated growth records preserve each changed height/head/weight/Apgar entry for birth, current, or custom dates so summaries can show growth over time.
 
+Growth moments are stored as structured `milestone` baby events linked to a raw log. The local-first MVP keeps small generated thumbnail previews in event JSON for immediate timeline display, while production original media should live in private object storage such as Cloudflare R2 with only provider/object metadata persisted in the app database.
+
 Schema objects already include family/user-friendly boundaries:
 
 - `family_id`
