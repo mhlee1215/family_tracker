@@ -71,6 +71,7 @@ export class AppHarness {
     const response = await this.page.request.post('/api/auth/dev', { data: { id: 'admin' } });
     expect(response.ok()).toBeTruthy();
     await this.page.goto('/');
+    await this.page.waitForLoadState('networkidle');
   }
 
   async attachDiagnostics() {
