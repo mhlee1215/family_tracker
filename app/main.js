@@ -2016,6 +2016,8 @@ function actionIcon(name) {
     solids: '<path d="M5 4v8"/><path d="M9 4v8"/><path d="M7 4v17"/><path d="M15 4v17"/><path d="M15 4c3 2 4 6 1 9"/>',
     note: '<path d="M6 4h9l3 3v13H6Z"/><path d="M14 4v4h4"/><path d="M9 13h6"/><path d="M9 17h4"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    reopen: '<path d="M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18.5 5.8V2.5"/><path d="M18.5 5.8h-3.3"/><path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M5.5 18.2v3.3"/><path d="M5.5 18.2h3.3"/>',
   };
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.edit}</svg>`;
 }
@@ -2797,6 +2799,8 @@ function renderTask(task) {
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.checked = task.status === 'done';
+  checkbox.setAttribute('aria-label', `${task.status === 'done' ? 'Reopen' : 'Complete'} ${task.title}`);
+  checkbox.addEventListener('click', (event) => event.stopPropagation());
   checkbox.addEventListener('change', () => toggleTask(task));
   const marker = document.createElement('span');
   marker.className = 'assignee-marker';
@@ -2805,7 +2809,12 @@ function renderTask(task) {
   text.className = 'task-text';
   text.innerHTML = `<strong>${escapeHtml(task.title)}</strong><span>${escapeHtml(task.assigneeName || 'Unassigned')} · ${escapeHtml(taskDueText(task))}</span>`;
   row.replaceChildren(checkbox, marker, text);
-  return row;
+  const statusAction = task.status === 'done'
+    ? { label: 'Reopen', icon: 'reopen' }
+    : { label: 'Complete', icon: 'check' };
+  return makeSwipeItem(row, [
+    makeSwipeAction({ ...statusAction, onClick: () => toggleTask(task) }),
+  ], 'task-swipe');
 }
 
 function renderOverviewTask(task) {
@@ -3344,7 +3353,6 @@ function renderMealItem(item, slot) {
 
   const actions = [];
   if (slot !== 'wish') {
-    actions.push(makeSwipeAction({ label: `${item.likes || 0}`, icon: 'like', onClick: () => likeMeal(item.id) }));
     actions.push(makeSwipeAction({ label: 'Save', icon: 'save', onClick: () => moveMeal(item.id, 'wish') }));
   } else {
     for (const mealSlot of ['breakfast', 'lunch', 'dinner']) {
