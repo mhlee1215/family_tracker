@@ -487,6 +487,11 @@ async function saveLog(text, options = {}) {
   const payload = await response.json();
   elements.logInput.placeholder = copy.logPlaceholder;
   if (!response.ok) {
+    if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
+      elements.logInput.value = cleanText;
+      showClarificationWarning(payload);
+      return;
+    }
     elements.answer.textContent = payload.error || copy.saveFailed;
     return;
   }
@@ -495,6 +500,25 @@ async function saveLog(text, options = {}) {
   elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
   state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
   await loadToday();
+}
+
+
+function showClarificationWarning(payload) {
+  const message = formatClarificationMessage(payload);
+  elements.answer.textContent = message;
+  if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+    window.alert(message);
+  }
+}
+
+function formatClarificationMessage(payload = {}) {
+  const parts = [payload.error || '입력 내용을 정확히 기록하려면 추가 정보가 필요해요.'];
+  if (payload.message) parts.push(payload.message);
+  const questions = Array.isArray(payload.questions) ? payload.questions.filter(Boolean) : [];
+  if (questions.length) parts.push(`확인할 점: ${questions.join(' ')}`);
+  const suggestions = Array.isArray(payload.suggestedInputs) ? payload.suggestedInputs.filter(Boolean) : [];
+  if (suggestions.length) parts.push(`다시 입력 예: ${suggestions.join(' / ')}`);
+  return parts.join('\n');
 }
 
 async function loadToday() {
@@ -734,6 +758,10 @@ async function editBabyLog(event) {
   });
   const payload = await response.json();
   if (!response.ok) {
+    if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
+      showClarificationWarning(payload);
+      return;
+    }
     elements.answer.textContent = payload.error || copy.saveFailed;
     return;
   }

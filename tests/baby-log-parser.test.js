@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBabyLogText } from '../src/domain/baby-log-parser.js';
+import { getBabyLogClarification, parseBabyLogText } from '../src/domain/baby-log-parser.js';
 
 const now = new Date('2026-05-23T14:00:00.000Z');
 
@@ -102,4 +102,21 @@ test('heuristic parser returns multiple events from one mixed natural-language l
   assert.equal(events[0].amountMl.source, 'explicit');
   assert.equal(events[1].diaperKind.value, 'dirty');
   assert.equal(events[1].diaperKind.source, 'explicit');
+});
+
+
+test('flags ambiguous relative diaper and formula minute logs instead of saving guesses', () => {
+  const clarification = getBabyLogClarification('poop diaper before feeding formula 5mins');
+
+  assert.equal(clarification.status, 'needs_clarification');
+  assert.equal(clarification.code, 'ambiguous_relative_timing');
+  assert.match(clarification.questions[0], /5 minutes/);
+  assert.ok(clarification.suggestedInputs.some((input) => input.includes('5 minutes before')));
+});
+
+test('does not treat minute expressions near formula as milk amount', () => {
+  const [event] = parseBabyLogText('formula 5mins', { now });
+
+  assert.equal(event.type, 'feeding_milk');
+  assert.equal(event.amountMl, undefined);
 });

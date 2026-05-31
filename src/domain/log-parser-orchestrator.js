@@ -1,11 +1,51 @@
 import { callLLMTask } from './llm-provider.js';
 import {
   applyParserInfo,
+  getBabyLogClarification,
   heuristicParserInfo,
   llmParserInfo,
+  normalizeParsedBabyLogDecision,
   normalizeParsedBabyLogEvents,
   parseBabyLogText,
 } from './baby-log-parser.js';
+
+export async function parseBabyLogForSave(text, context = {}, options = {}) {
+  const clarification = getBabyLogClarification(text);
+  if (clarification) return clarification;
+
+  const provider = options.provider || 'mock';
+  const model = options.model || 'mock-local';
+  const apiKey = options.apiKey || '';
+  const forceHeuristic = options.parserMode === 'heuristic';
+  const canUseLLM = !forceHeuristic && provider !== 'mock' && Boolean(apiKey);
+
+  if (!canUseLLM) {
+    return { status: 'ok', events: applyParserInfo(parseBabyLogText(text, context), heuristicParserInfo()) };
+  }
+
+  try {
+    const response = await (options.callTask || callLLMTask)('parse_baby_log', {
+      text,
+      now: toIso(context.now),
+      timezone: context.timezone || 'UTC',
+      profile: context.profile || null,
+      recentEvents: summarizeRecentEvents(context.recentEvents || []),
+    }, {
+      provider,
+      model,
+      apiKey,
+      context,
+    });
+    return normalizeParsedBabyLogDecision(response, { ...context, rawText: text }, llmParserInfo(provider, model));
+  } catch (error) {
+    const fallbackInfo = {
+      ...heuristicParserInfo(),
+      fallbackFrom: { provider, model, reason: error.message || 'LLM parse failed' },
+      label: `Heuristic · rule-based-mvp (fallback from ${provider} · ${model})`,
+    };
+    return { status: 'ok', events: applyParserInfo(parseBabyLogText(text, context), fallbackInfo) };
+  }
+}
 
 export async function parseBabyLogWithProvider(text, context = {}, options = {}) {
   const provider = options.provider || 'mock';

@@ -1,5 +1,42 @@
 import { createField, eventTypes } from './baby-events.js';
 
+export function getBabyLogClarification(text) {
+  const rawText = String(text || '').trim();
+  if (!rawText) return null;
+  const normalized = rawText.replace(/\s+/g, ' ');
+  const lower = normalized.toLowerCase();
+  const minutePattern = /\b\d+(?:\.\d+)?\s*(?:m|min|mins|minute|minutes)\b/i;
+  const hasRelativeTiming = /\b(before|after)\b/i.test(normalized);
+
+  if (looksLikeMilk(lower) && looksLikeDiaper(lower) && hasRelativeTiming && minutePattern.test(normalized)) {
+    return createClarification({
+      code: 'ambiguous_relative_timing',
+      message: 'The log mentions a diaper, formula feeding, and a minute offset, but the exact timing relationship is ambiguous.',
+      questions: ['Did the poop diaper happen 5 minutes before formula feeding, or was formula feeding 5 minutes long?'],
+      suggestedInputs: [
+        'poop diaper 5 minutes before formula',
+        'formula now, poop diaper 5 minutes before',
+        'formula for 5 minutes after poop diaper',
+      ],
+    });
+  }
+
+  if (looksLikeMilk(lower) && /(?:formula|milk|feeding|feed|fed|분유|수유|모유)\D{0,16}\d+(?:\.\d+)?\s*(?:m|min|mins|minute|minutes)\b/i.test(normalized)) {
+    return createClarification({
+      code: 'ambiguous_feeding_minutes',
+      message: 'The log includes minutes near a milk feeding, but it is unclear whether that means feeding duration or timing relative to another event.',
+      questions: ['Please say whether the number is a feeding duration or when the feeding happened.'],
+      suggestedInputs: [
+        'formula for 5 minutes',
+        'formula 120ml',
+        'formula now',
+      ],
+    });
+  }
+
+  return null;
+}
+
 export function parseBabyLogText(text, context = {}) {
   const rawText = String(text || '').trim();
   if (!rawText) throw new Error('Log text is required.');
@@ -96,8 +133,26 @@ export function parseBabyLogText(text, context = {}) {
   }];
 }
 
+export function normalizeParsedBabyLogDecision(value, context = {}, parserInfo = heuristicParserInfo()) {
+  const payload = extractJsonPayload(value);
+  if (payload?.status === 'needs_clarification' || payload?.needsClarification === true) {
+    return createClarification({
+      code: String(payload.code || 'llm_needs_clarification'),
+      message: String(payload.message || payload.reason || 'The log is missing information needed for a reliable record.'),
+      questions: Array.isArray(payload.questions) ? payload.questions.map(String) : [],
+      suggestedInputs: Array.isArray(payload.suggestedInputs) ? payload.suggestedInputs.map(String) : [],
+    });
+  }
+
+  return { status: 'ok', events: normalizeParsedBabyLogEventsFromPayload(payload, context, parserInfo) };
+}
+
 export function normalizeParsedBabyLogEvents(value, context = {}, parserInfo = heuristicParserInfo()) {
   const payload = extractJsonPayload(value);
+  return normalizeParsedBabyLogEventsFromPayload(payload, context, parserInfo);
+}
+
+function normalizeParsedBabyLogEventsFromPayload(payload, context, parserInfo) {
   const events = Array.isArray(payload) ? payload : payload?.events;
   if (!Array.isArray(events) || !events.length) throw new Error('LLM parser returned no events.');
 
@@ -203,6 +258,18 @@ function extractResponseText(value) {
   if (typeof value?.output_text === 'string') return value.output_text;
   const chunks = value?.output?.flatMap((item) => item.content || []) || [];
   return chunks.map((chunk) => chunk.text || '').filter(Boolean).join('\n');
+}
+
+function createClarification({ code, message, questions = [], suggestedInputs = [] }) {
+  return {
+    status: 'needs_clarification',
+    code,
+    error: '입력 내용을 정확히 기록하려면 추가 정보가 필요해요.',
+    message,
+    issues: [{ code, message }],
+    questions,
+    suggestedInputs,
+  };
 }
 
 function baseEvent(rawText, context) {
@@ -314,8 +381,11 @@ function sleepEndScore(text) {
 }
 
 function extractAmountMl(text) {
-  const match = text.match(/(\d{1,3}(?:\.\d+)?)\s?(ml|미리|밀리)\b/i) || text.match(/(?:분유|수유|모유|milk|formula)\D{0,12}(\d{1,3}(?:\.\d+)?)/i);
-  return match ? Number(match[1]) : null;
+  const explicitUnit = text.match(/(\d{1,3}(?:\.\d+)?)\s?(ml|미리|밀리)\b/i);
+  if (explicitUnit) return Number(explicitUnit[1]);
+
+  const nearbyNumber = text.match(/(?:분유|수유|모유|milk|formula)\D{0,12}(\d{1,3}(?:\.\d+)?)(?!\s*(?:m|min|mins|minute|minutes)\b)/i);
+  return nearbyNumber ? Number(nearbyNumber[1]) : null;
 }
 
 function extractFood(text) {

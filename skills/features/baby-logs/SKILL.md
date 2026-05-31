@@ -12,6 +12,7 @@ Changes to log creation, log history, today's logs, raw text storage, or structu
 - `README.md`
 
 ## Rules
+- Do not persist raw logs, structured events, or action logs when parsing returns a blocking clarification decision.
 - Preserve raw user text as first-class data.
 - Do not break raw-log ↔ structured-events linkage.
 - Never mark non-user-entered values as `explicit`.

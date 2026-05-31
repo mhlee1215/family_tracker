@@ -562,6 +562,39 @@ describe('app/main', () => {
     expect([...document.querySelectorAll('#quick-actions .suggested-action span')].map((node) => node.textContent)).toContain('분유 120 먹고 응가했어');
   });
 
+
+  it('warns and keeps baby log text when a record needs clarification', async () => {
+    window.alert = vi.fn();
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      if (url === '/api/logs' && init.method === 'POST') {
+        return new Response(JSON.stringify({
+          status: 'needs_clarification',
+          code: 'needs_clarification',
+          error: '입력 내용을 정확히 기록하려면 추가 정보가 필요해요.',
+          message: '5mins could mean diaper timing or feeding duration.',
+          questions: ['Did the poop diaper happen 5 minutes before formula feeding?'],
+          suggestedInputs: ['formula now, poop diaper 5 minutes before'],
+        }), { status: 422 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-clarification');
+
+    fireEvent.input(document.querySelector('#log-input'), { target: { value: 'poop diaper before feeding formula 5mins' } });
+    fireEvent.submit(document.querySelector('#log-form'));
+
+    await vi.waitFor(() => expect(document.querySelector('#answer').textContent).toContain('추가 정보가 필요'));
+    expect(document.querySelector('#answer').textContent).toContain('5 minutes before');
+    expect(document.querySelector('#log-input').value).toBe('poop diaper before feeding formula 5mins');
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('formula now, poop diaper 5 minutes before'));
+  });
+
   it('sends edit and delete requests for baby timeline logs', async () => {
     global.prompt = vi.fn(() => 'updated formula');
     global.confirm = vi.fn(() => true);

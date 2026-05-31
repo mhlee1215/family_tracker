@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
-import { parseBabyLogWithProvider } from './src/domain/log-parser-orchestrator.js';
+import { parseBabyLogForSave } from './src/domain/log-parser-orchestrator.js';
 import { applyInferences } from './src/domain/inference-engine.js';
 import { getProviderModelOptions, normalizeLLMProvider } from './src/domain/llm-provider.js';
 import { completedOpenSleepUpdate, createAutoWakeEvents, findOpenSleep, linkSleepSessions } from './src/domain/sleep-session.js';
@@ -363,11 +363,16 @@ async function handleApi(request, response) {
         inputSource: body.inputSource || 'text',
         parserMode: body.parserMode || 'auto',
       };
-      const { events, openSleep } = await buildEventsForRawLog(rawLog, {
+      const result = await buildEventsForRawLog(rawLog, {
         now,
         scope,
         authorId: session.user.id || defaultAuthorId,
       });
+      if (result.status === 'needs_clarification') {
+        sendJson(response, 422, result);
+        return;
+      }
+      const { events, openSleep } = result;
       const saved = await store.saveLogWithEvents(rawLog, events);
       await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLog.id, action: 'add', actorId: session.user.id || defaultAuthorId, message: `added baby record "${summarizeActionText(rawText)}"`, metadata: { after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
@@ -403,12 +408,17 @@ async function handleApi(request, response) {
         timezone: body.timezone || existing.timezone || 'UTC',
       };
       const now = new Date(existing.inputAt);
-      const { events, openSleep } = await buildEventsForRawLog(rawLog, {
+      const result = await buildEventsForRawLog(rawLog, {
         now,
         scope,
         authorId: session.user.id || defaultAuthorId,
         excludeRawLogId: rawLogId,
       });
+      if (result.status === 'needs_clarification') {
+        sendJson(response, 422, result);
+        return;
+      }
+      const { events, openSleep } = result;
       const saved = await store.replaceRawLogWithEvents(rawLogId, { rawText, timezone: rawLog.timezone }, events, scope);
       await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLogId, action: 'edit', actorId: session.user.id || defaultAuthorId, message: `edited baby record "${summarizeActionText(rawText)}"`, metadata: { before: { rawLog: existing }, after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
@@ -743,7 +753,7 @@ async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLo
   const recentEvents = (await store.listEvents({ ...scope, limit: 100 }))
     .filter((event) => event.rawLogId !== excludeRawLogId)
     .reverse();
-  const parsed = await parseBabyLogWithProvider(rawLog.rawText, {
+  const parsedResult = await parseBabyLogForSave(rawLog.rawText, {
     now,
     profile,
     recentEvents,
@@ -757,6 +767,8 @@ async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLo
     apiKey: getProviderKey(getLLMProvider()),
     parserMode: rawLog.inputSource === 'button' || rawLog.parserMode === 'heuristic' ? 'heuristic' : 'auto',
   });
+  if (parsedResult.status === 'needs_clarification') return parsedResult;
+  const parsed = parsedResult.events;
   const autoWakeEvents = createAutoWakeEvents(parsed, recentEvents, {
     now: now.toISOString(),
     authorId,
