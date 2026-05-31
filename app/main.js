@@ -11,12 +11,16 @@ const swipeState = { openItem: null, nextId: 0 };
 let openTimelineDetail = null;
 let openHomeTooltip = null;
 
-const patternEventTypes = [
+const babyTrackerTypes = [
   { type: 'sleep', label: 'Sleep' },
   { type: 'feeding_milk', label: 'Milk' },
   { type: 'feeding_solid', label: 'Baby food' },
   { type: 'diaper', label: 'Diaper' },
 ];
+
+const babyTrackerTypeSet = new Set(babyTrackerTypes.map((item) => item.type));
+
+const patternEventTypes = babyTrackerTypes.map(({ type, label }) => ({ type, label }));
 
 const storageKeys = {
   theme: 'familyTracker.theme',
@@ -29,6 +33,7 @@ const storageKeys = {
   patternPeriodDays: 'familyTracker.patternPeriodDays',
   patternStatUnit: 'familyTracker.patternStatUnit',
   babyStatusRange: 'familyTracker.babyStatusRange',
+  activeBabyTrackers: 'familyTracker.activeBabyTrackers',
 };
 
 const copy = {
@@ -44,12 +49,12 @@ const copy = {
   emptyTasks: 'No tasks for this day.',
   emptyOverview: 'No completed tasks yet.',
   quickActions: [
-    { label: 'Formula', value: 'formula', icon: 'formula' },
-    { label: 'Breast', value: 'breast milk', icon: 'breast' },
-    { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake' },
-    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty' },
-    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet' },
-    { label: 'Baby food', value: 'baby food eaten', icon: 'solids' },
+    { label: 'Formula', value: 'formula', icon: 'formula', trackerType: 'feeding_milk' },
+    { label: 'Breast', value: 'breast milk', icon: 'breast', trackerType: 'feeding_milk' },
+    { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake', trackerType: 'sleep' },
+    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty', trackerType: 'diaper' },
+    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet', trackerType: 'diaper' },
+    { label: 'Baby food', value: 'baby food eaten', icon: 'solids', trackerType: 'feeding_solid' },
   ],
 };
 
@@ -67,6 +72,7 @@ const state = {
   recent24Summary: null,
   recent24Context: null,
   babyStatusRange: normalizeBabyStatusRange(localStorage.getItem(storageKeys.babyStatusRange)),
+  activeBabyTrackers: normalizeActiveBabyTrackers(localStorage.getItem(storageKeys.activeBabyTrackers)),
   recentBabyLogs: loadRecentBabyLogs(),
   user: null,
   profile: null,
@@ -195,6 +201,7 @@ const elements = {
   growthRecordTime: $('#growth-record-time'),
   milkAmount: $('#milk-amount'),
   napDuration: $('#nap-duration'),
+  babyTrackerToggles: document.querySelectorAll('[name="babyTrackerTypes"]'),
   assigneeForm: $('#assignee-form'),
   assigneeName: $('#assignee-name'),
   taskForm: $('#task-form'),
@@ -610,6 +617,7 @@ async function loadBabyProfile() {
 }
 
 async function saveBabyProfile() {
+  saveActiveBabyTrackerSettings();
   const profile = {
     ...state.profile,
     babyName: elements.babyName.value.trim(),
@@ -635,7 +643,7 @@ async function saveBabyProfile() {
   state.profile = payload.profile;
   state.growthRecords = payload.growthRecords || state.growthRecords;
   renderBabySettings();
-  renderGrowthSummary();
+  renderBaby();
   setBabyPanel(null);
 }
 
@@ -1148,11 +1156,30 @@ function renderBabySettings() {
   renderGrowthRecordDateControls();
   elements.milkAmount.value = profile.milkAmountMlOverride ?? '';
   elements.napDuration.value = profile.napDurationMinutesOverride ?? '';
+  elements.babyTrackerToggles.forEach((input) => {
+    input.checked = isBabyTrackerActive(input.value);
+  });
+}
+
+function saveActiveBabyTrackerSettings() {
+  const selected = Array.from(elements.babyTrackerToggles)
+    .filter((input) => input.checked)
+    .map((input) => input.value);
+  state.activeBabyTrackers = normalizeActiveBabyTrackers(selected.join(','));
+  localStorage.setItem(storageKeys.activeBabyTrackers, state.activeBabyTrackers.join(','));
+  if (!state.activeBabyTrackers.includes(state.timelineFilter)) {
+    state.timelineFilter = 'all';
+    localStorage.setItem(storageKeys.timelineFilter, state.timelineFilter);
+  }
+}
+
+function isBabyTrackerActive(type) {
+  return !type || state.activeBabyTrackers.includes(type);
 }
 
 function renderQuickActions() {
   const openSleep = currentOpenSleep();
-  const baseButtons = copy.quickActions.map((action) => (
+  const baseButtons = copy.quickActions.filter((action) => isBabyTrackerActive(action.trackerType)).map((action) => (
     makeBabyActionButton(resolveSleepAction(action, openSleep), 'quick-action-button')
   ));
   const suggestionButtons = state.recentBabyLogs.slice(0, 3).map(makeRecentSuggestionButton);
@@ -1198,23 +1225,25 @@ function makeBabyActionButton(action, className) {
 function renderSummary() {
   renderBabyStatusRangeToggle();
   const summary = selectedBabyStatus().summary || {};
-  elements.summary.replaceChildren(
-    summaryItem('Sleep', `${summary.sleepMinutes || 0} min`, babySummaryLabelColors.Sleep),
-    summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`, babySummaryLabelColors.Milk),
-    summaryItem('Baby food', `${summary.solidCount || 0}x`, babySummaryLabelColors.Solids),
-    summaryItem('Diaper', `${summary.diaperCount || 0}x`),
-  );
+  const items = [
+    isBabyTrackerActive('sleep') ? summaryItem('Sleep', `${summary.sleepMinutes || 0} min`, babySummaryLabelColors.Sleep) : null,
+    isBabyTrackerActive('feeding_milk') ? summaryItem('Milk', `${summary.milkCount || 0}x · ${summary.milkAmountMl || 0}ml`, babySummaryLabelColors.Milk) : null,
+    isBabyTrackerActive('feeding_solid') ? summaryItem('Baby food', `${summary.solidCount || 0}x`, babySummaryLabelColors.Solids) : null,
+    isBabyTrackerActive('diaper') ? summaryItem('Diaper', `${summary.diaperCount || 0}x`, babySummaryLabelColors.Diaper) : null,
+  ].filter(Boolean);
+  elements.summary.replaceChildren(...items);
+  renderTimelineControls();
 }
 
 function renderTodayContext() {
   if (!elements.todayContext) return;
   const context = selectedBabyStatus().context || buildClientTodayContext(selectedBabyStatus().events);
   const cards = [
-    contextCard('Last milk', milkContextLabel(context.lastMilk), 'feeding_milk'),
-    contextCard('Last diaper', diaperContextLabel(context.lastDiaper), 'diaper'),
-    contextCard('Sleep', sleepContextLabel(context.sleep), 'sleep'),
+    isBabyTrackerActive('feeding_milk') ? contextCard('Last milk', milkContextLabel(context.lastMilk), 'feeding_milk') : null,
+    isBabyTrackerActive('diaper') ? contextCard('Last diaper', diaperContextLabel(context.lastDiaper), 'diaper') : null,
+    isBabyTrackerActive('sleep') ? contextCard('Sleep', sleepContextLabel(context.sleep), 'sleep') : null,
     contextCard('AI checks', estimateContextLabel(context), 'all'),
-  ];
+  ].filter(Boolean);
   elements.todayContext.replaceChildren(...cards);
 }
 
@@ -1258,6 +1287,11 @@ function hydrateRecent24StatusFallback() {
 
 function renderFeedingGuidance() {
   if (!elements.feedingGuidance) return;
+  elements.feedingGuidance.classList.toggle('hidden', !isBabyTrackerActive('feeding_milk'));
+  if (!isBabyTrackerActive('feeding_milk')) {
+    elements.feedingGuidance.innerHTML = '';
+    return;
+  }
   const guidance = buildFeedingGuidance({
     profile: state.profile || {},
     events: state.events,
@@ -2301,7 +2335,14 @@ function renderTimeline() {
 
 function renderTimelineControls() {
   if (elements.timelineSort) elements.timelineSort.value = state.timelineSort;
-  if (elements.timelineFilter) elements.timelineFilter.value = state.timelineFilter;
+  if (elements.timelineFilter) {
+    Array.from(elements.timelineFilter.options).forEach((option) => {
+      option.hidden = option.value !== 'all' && !isBabyTrackerActive(option.value);
+      option.disabled = option.hidden;
+    });
+    if (!state.activeBabyTrackers.includes(state.timelineFilter)) state.timelineFilter = 'all';
+    elements.timelineFilter.value = state.timelineFilter;
+  }
 }
 
 function sortedTimelineEvents(events) {
@@ -3133,6 +3174,11 @@ function normalizeTimelineSort(value) {
 
 function normalizeTimelineFilter(value) {
   return ['sleep', 'feeding_milk', 'feeding_solid', 'diaper'].includes(value) ? value : 'all';
+}
+
+function normalizeActiveBabyTrackers(value) {
+  const selected = String(value || '').split(',').filter((item) => babyTrackerTypeSet.has(item));
+  return selected.length ? [...new Set(selected)] : babyTrackerTypes.map((item) => item.type);
 }
 
 function normalizePatternTypes(value) {

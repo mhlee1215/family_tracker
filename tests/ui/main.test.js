@@ -553,6 +553,50 @@ describe('app/main', () => {
     localStorage.removeItem('familyTracker.patternStatUnit');
   });
 
+
+  it('lets parents choose visible baby trackers for the current stage', async () => {
+    localStorage.removeItem('familyTracker.activeBabyTrackers');
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile') && (!init.method || init.method === 'GET')) {
+        return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      }
+      if (url.endsWith('/api/profile') && init.method === 'POST') {
+        return new Response(JSON.stringify({ profile: JSON.parse(init.body).profile, growthRecords: [] }), { status: 200 });
+      }
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [],
+          summary: { sleepMinutes: 40, milkCount: 2, milkAmountMl: 180, solidCount: 1, diaperCount: 3 },
+          context: { lastMilk: null, lastDiaper: null, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 },
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-tracker-preferences');
+
+    await vi.waitFor(() => expect([...document.querySelectorAll('#summary .summary-item span')].map((node) => node.textContent)).toEqual(['Sleep', 'Milk', 'Baby food', 'Diaper']));
+    expect(document.querySelector('#summary .summary-item:last-child').getAttribute('style')).toContain('--tracker-accent: #22c55e');
+
+    fireEvent.click(document.querySelector('#open-baby-settings'));
+    document.querySelector('[name="babyTrackerTypes"][value="feeding_milk"]').checked = false;
+    document.querySelector('[name="babyTrackerTypes"][value="feeding_solid"]').checked = false;
+    fireEvent.submit(document.querySelector('#baby-settings-form'));
+
+    await vi.waitFor(() => expect(localStorage.getItem('familyTracker.activeBabyTrackers')).toBe('sleep,diaper'));
+    await vi.waitFor(() => expect([...document.querySelectorAll('#summary .summary-item span')].map((node) => node.textContent)).toEqual(['Sleep', 'Diaper']));
+    expect([...document.querySelectorAll('#quick-actions .quick-action-button span')].map((node) => node.textContent)).toEqual(['Nap start', 'Diaper (poop)', 'Diaper (pee)']);
+    expect(document.querySelector('#today-context').textContent).toContain('Last diaper');
+    expect(document.querySelector('#today-context').textContent).not.toContain('Last milk');
+    expect(document.querySelector('#timeline-filter option[value="feeding_milk"]').disabled).toBe(true);
+    expect(document.querySelector('#feeding-guidance').classList.contains('hidden')).toBe(true);
+
+    localStorage.removeItem('familyTracker.activeBabyTrackers');
+  });
+
   it('sorts the baby timeline by event time and filters by log type', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
