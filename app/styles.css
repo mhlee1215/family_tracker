@@ -14,6 +14,7 @@
   --surface-dark: #272729;
   --surface-dark-2: #2a2a2c;
   --surface-black: #000000;
+  --surface-chip-translucent: #d2d2d7;
   --hairline: #e0e0e0;
   --divider-soft: #f0f0f0;
   --on-primary: #ffffff;
@@ -2737,14 +2738,24 @@ label {
 }
 
 .home-hero {
-  min-height: clamp(104px, 20dvh, 220px);
+  grid-template-columns: minmax(180px, 0.55fr) minmax(280px, 1fr);
+  min-height: clamp(180px, 28dvh, 310px);
+  gap: clamp(24px, 5vw, 80px);
   background: var(--canvas);
-  padding-block: clamp(22px, 5dvh, 56px);
+  padding: clamp(28px, 5dvh, 62px) min(76px, 7vw);
+  text-align: left;
+}
+
+.home-hero-art {
+  width: min(100%, 360px);
+  height: auto;
+  justify-self: end;
+  filter: drop-shadow(var(--product-shadow));
 }
 
 .home-heading {
   display: grid;
-  justify-items: center;
+  justify-items: start;
   gap: clamp(6px, 1.4dvh, 12px);
 }
 
@@ -3139,8 +3150,20 @@ label {
 
 @media (max-width: 640px) {
   .home-hero {
-    min-height: clamp(72px, 16dvh, 112px);
+    grid-template-columns: minmax(72px, 0.38fr) minmax(0, 1fr);
+    min-height: clamp(108px, 19dvh, 150px);
+    gap: 12px;
     padding: clamp(12px, 3dvh, 24px) 12px;
+    text-align: left;
+  }
+
+  .home-hero-art {
+    width: min(28vw, 116px);
+    justify-self: center;
+  }
+
+  .home-heading {
+    justify-items: start;
   }
 
   .home-hero .eyebrow,
