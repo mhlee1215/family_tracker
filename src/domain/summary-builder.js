@@ -22,6 +22,40 @@ export function buildTodaySummary(events = []) {
   };
 }
 
+export function filterEventsForWindow(events = [], options = {}) {
+  const now = options.now instanceof Date ? options.now : new Date(options.now || Date.now());
+  const end = options.end instanceof Date ? options.end : new Date(options.end || now);
+  const start = options.start instanceof Date ? options.start : new Date(options.start || end.getTime() - 24 * 60 * 60000);
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  return events.filter((event) => eventOverlapsWindow(event, startMs, endMs));
+}
+
+export function buildWindowSummary(events = [], options = {}) {
+  const now = options.now instanceof Date ? options.now : new Date(options.now || Date.now());
+  const end = options.end instanceof Date ? options.end : new Date(options.end || now);
+  const start = options.start instanceof Date ? options.start : new Date(options.start || end.getTime() - 24 * 60 * 60000);
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  const visibleEvents = filterEventsForWindow(events, { start, end }).filter((event) => !event.hiddenFromTimeline);
+  const milkFeeds = visibleEvents.filter((event) => event.type === 'feeding_milk' && pointEventInWindow(event, startMs, endMs));
+  const solids = visibleEvents.filter((event) => event.type === 'feeding_solid' && pointEventInWindow(event, startMs, endMs));
+  const diapers = visibleEvents.filter((event) => event.type === 'diaper' && pointEventInWindow(event, startMs, endMs));
+  const sleepMinutes = visibleEvents
+    .filter((event) => event.type === 'sleep' && !(event.action?.value === 'end' && event.linkedStartEventId))
+    .reduce((sum, event) => sum + sleepOverlapMinutes(event, startMs, endMs), 0);
+  const milkAmount = milkFeeds.reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0);
+
+  return {
+    sleepMinutes,
+    sleepLabel: formatMinutes(sleepMinutes),
+    milkCount: milkFeeds.length,
+    milkAmountMl: milkAmount,
+    solidCount: solids.length,
+    diaperCount: diapers.length,
+  };
+}
+
 export function answerSimpleQuestion(question, events = []) {
   const summary = buildTodaySummary(events);
   const text = String(question || '');
@@ -87,6 +121,43 @@ export function buildTodayContext(events = [], options = {}) {
     inferredFieldCount,
     correctedFieldCount,
   };
+}
+
+function eventOverlapsWindow(event, startMs, endMs) {
+  if (!event || event.hiddenFromTimeline) return false;
+  if (event.type === 'sleep') {
+    const range = sleepRange(event, endMs);
+    if (range) return range.start < endMs && range.end > startMs;
+  }
+  return pointEventInWindow(event, startMs, endMs);
+}
+
+function pointEventInWindow(event, startMs, endMs) {
+  const value = eventTimeValue(event);
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) && time >= startMs && time < endMs;
+}
+
+function sleepOverlapMinutes(event, startMs, endMs) {
+  const range = sleepRange(event, endMs);
+  if (!range) return 0;
+  const overlapStart = Math.max(range.start, startMs);
+  const overlapEnd = Math.min(range.end, endMs);
+  return Math.max(0, Math.round((overlapEnd - overlapStart) / 60000));
+}
+
+function sleepRange(event, fallbackEndMs = Date.now()) {
+  const startValue = event.startAt?.value || event.occurredAt?.value;
+  if (!startValue) return null;
+  const start = new Date(startValue).getTime();
+  if (!Number.isFinite(start)) return null;
+  const explicitEnd = event.endAt?.value ? new Date(event.endAt.value).getTime() : NaN;
+  if (Number.isFinite(explicitEnd) && explicitEnd > start) return { start, end: explicitEnd };
+  const duration = Number(event.durationMinutes?.value);
+  if (Number.isFinite(duration) && duration > 0) return { start, end: start + duration * 60000 };
+  if (event.action?.value === 'start' && event.status !== 'completed') return { start, end: fallbackEndMs };
+  return { start, end: start };
 }
 
 function latestEvent(events, getValue = eventTimeValue) {

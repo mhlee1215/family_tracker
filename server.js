@@ -5,7 +5,7 @@ import { parseBabyLogForSave } from './src/domain/log-parser-orchestrator.js';
 import { applyInferences } from './src/domain/inference-engine.js';
 import { getProviderModelOptions, normalizeLLMProvider } from './src/domain/llm-provider.js';
 import { completedOpenSleepUpdate, createAutoWakeEvents, findOpenSleep, linkSleepSessions } from './src/domain/sleep-session.js';
-import { answerSimpleQuestion, buildTodayContext, buildTodaySummary } from './src/domain/summary-builder.js';
+import { answerSimpleQuestion, buildTodayContext, buildTodaySummary, buildWindowSummary, filterEventsForWindow } from './src/domain/summary-builder.js';
 import { defaultAuthorId } from './src/domain/profile-defaults.js';
 import {
   clearOAuthStateCookie,
@@ -316,11 +316,24 @@ async function handleApi(request, response) {
     if (request.method === 'GET' && requestUrl.pathname === '/api/logs/today') {
       const today = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
       const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
+      const now = new Date();
+      if (requestUrl.searchParams.get('range') === 'recent24h') {
+        const allEvents = await store.listEvents({ ...scope, limit: 1000 });
+        const windowStart = new Date(now.getTime() - 24 * 60 * 60000);
+        const events = filterEventsForWindow(allEvents, { start: windowStart, end: now });
+        sendJson(response, 200, {
+          events,
+          summary: buildWindowSummary(allEvents, { start: windowStart, end: now }),
+          context: buildTodayContext(events, { selectedDay: localDateKeyFromIso(now.toISOString(), timezone), today: localDateKeyFromIso(now.toISOString(), timezone), now }),
+          range: { kind: 'recent24h', start: windowStart.toISOString(), end: now.toISOString() },
+        });
+        return;
+      }
       const events = await store.listEventsForDay(today, { ...scope, timezone });
       sendJson(response, 200, {
         events,
         summary: buildTodaySummary(events),
-        context: buildTodayContext(events, { selectedDay: today, today: localDateKeyFromIso(new Date().toISOString(), timezone), now: new Date() }),
+        context: buildTodayContext(events, { selectedDay: today, today: localDateKeyFromIso(now.toISOString(), timezone), now }),
       });
       return;
     }

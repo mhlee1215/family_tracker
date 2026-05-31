@@ -387,6 +387,45 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('baby status defaults to recent 24h and toggles back to today', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+
+    await page.route('**/api/logs/today**', async (route) => {
+      const url = new URL(route.request().url());
+      const recent = url.searchParams.get('range') === 'recent24h';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(recent ? {
+          events: [{ id: 'recent-milk', type: 'feeding_milk', rawText: 'recent formula', occurredAt: { value: new Date().toISOString() }, amountMl: { value: 90 } }],
+          summary: { sleepMinutes: 0, milkCount: 2, milkAmountMl: 180, solidCount: 0, diaperCount: 1 },
+          context: { lastMilk: { label: '10m ago', amountMl: 90 }, lastDiaper: { label: '2h ago', diaperKind: 'wet' }, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 },
+        } : {
+          events: [{ id: 'today-diaper', type: 'diaper', rawText: 'today diaper', occurredAt: { value: '2026-05-30T10:00:00.000Z' } }],
+          summary: { sleepMinutes: 0, milkCount: 1, milkAmountMl: 90, solidCount: 0, diaperCount: 0 },
+          context: { lastMilk: { label: '9:00 AM', amountMl: 90 }, lastDiaper: null, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 },
+        }),
+      });
+    });
+
+    await app.loginAsDevAdmin();
+
+    await expect(page.locator('#baby-status-range [data-status-range="recent24h"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#summary')).toContainText('2x · 180ml');
+    await expect(page.locator('#today-context')).toContainText('10m ago · 90ml');
+
+    await page.locator('#baby-status-range [data-status-range="today"]').click();
+    await expect(page.locator('#baby-status-range [data-status-range="today"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#summary')).toContainText('1x · 90ml');
+    await expect(page.locator('#today-context')).toContainText('9:00 AM · 90ml');
+    await app.captureStep('Toggled baby status range', 'The status cards default to Recent 24h and can switch back to the Today snapshot.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('LLM-first baby context and recent suggestions update after mixed log save', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let events = [];

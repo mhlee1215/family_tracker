@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createField } from '../src/domain/baby-events.js';
-import { buildTodayContext, buildTodaySummary } from '../src/domain/summary-builder.js';
+import { buildTodayContext, buildTodaySummary, buildWindowSummary, filterEventsForWindow } from '../src/domain/summary-builder.js';
 
 test('buildTodaySummary does not double-count linked sleep end events', () => {
   const summary = buildTodaySummary([
@@ -86,3 +86,41 @@ test('buildTodayContext summarizes last care events and provenance counts', () =
   assert.equal(context.inferredFieldCount, 1);
 });
 
+
+test('buildWindowSummary counts only the rolling window and clips overlapping sleep', () => {
+  const events = [
+    {
+      id: 'sleep-overlap',
+      type: 'sleep',
+      action: createField('start', 'explicit', 'sleep_keyword'),
+      status: 'completed',
+      startAt: createField('2026-05-30T09:00:00.000Z', 'explicit', 'typed_time'),
+      endAt: createField('2026-05-30T11:00:00.000Z', 'explicit', 'typed_time'),
+      durationMinutes: createField(120, 'explicit', 'typed_duration'),
+    },
+    {
+      id: 'old-milk',
+      type: 'feeding_milk',
+      occurredAt: createField('2026-05-30T09:30:00.000Z', 'explicit', 'typed_time'),
+      amountMl: createField(90, 'explicit', 'typed_amount'),
+    },
+    {
+      id: 'recent-milk',
+      type: 'feeding_milk',
+      occurredAt: createField('2026-05-30T12:00:00.000Z', 'explicit', 'typed_time'),
+      amountMl: createField(120, 'explicit', 'typed_amount'),
+    },
+  ];
+  const options = {
+    start: new Date('2026-05-30T10:00:00.000Z'),
+    end: new Date('2026-05-31T10:00:00.000Z'),
+  };
+
+  const windowEvents = filterEventsForWindow(events, options);
+  const summary = buildWindowSummary(events, options);
+
+  assert.deepEqual(windowEvents.map((event) => event.id), ['sleep-overlap', 'recent-milk']);
+  assert.equal(summary.sleepMinutes, 60);
+  assert.equal(summary.milkCount, 1);
+  assert.equal(summary.milkAmountMl, 120);
+});
