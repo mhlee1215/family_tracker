@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 072](https://img.shields.io/badge/build-072-0066cc)
+![Build 075](https://img.shields.io/badge/build-075-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -45,6 +45,31 @@ Designed for very short natural-language input such as `낮잠`, `깸`, `분유 
   - milk feeding
   - solid feeding
   - diaper
+  - growth moments / milestones with photo or short-video thumbnail attachments
+
+#### Growth moments and media
+
+Baby tracking includes a `Moments` flow for memories such as first outings, rolling over, and first smiles. The current local-first MVP stores the moment as a structured `milestone` event and saves small generated thumbnails with the event so the timeline can show a photo-first card immediately. Original photo/video object storage should be configured with private Cloudflare R2 before production media uploads. Keep R2 credentials in server environment variables only; browser code must never receive storage secrets. `R2_PUBLIC_BASE_URL` is optional and should stay blank for private buckets that use signed view URLs.
+
+Recommended R2 environment variables for the production upload provider:
+
+```bash
+MEDIA_STORAGE_PROVIDER=r2
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=family-tracker-media
+# Optional. Leave blank for private buckets that use signed GET URLs.
+R2_PUBLIC_BASE_URL=
+MEDIA_UPLOAD_MAX_IMAGE_BYTES=10485760
+MEDIA_UPLOAD_MAX_VIDEO_BYTES=104857600
+```
+
+Validate local R2 environment variables without printing secrets:
+
+```bash
+npm run check:r2
+```
 
 ### 2) Task Tracking
 

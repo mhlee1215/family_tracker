@@ -19,6 +19,7 @@ import {
   parseCookies,
 } from './src/server/auth.js';
 import { createBabyStore, getStorageConfig } from './src/server/db/store-factory.js';
+import { getMediaStorageConfig, publicMediaStorageConfig } from './src/server/media-config.js';
 import { createId } from './src/utils/ids.js';
 import { colorForBabyEventType } from './src/utils/tracker-colors.js';
 
@@ -26,6 +27,7 @@ const port = Number(process.env.PORT || 4174);
 const root = resolve('.');
 loadEnv();
 const storageConfig = getStorageConfig();
+const mediaStorageConfig = getMediaStorageConfig();
 const store = await createBabyStore();
 const runtimeLLMConfig = {
   provider: normalizeLLMProvider(process.env.LLM_PROVIDER || 'mock'),
@@ -73,6 +75,7 @@ createServer(async (request, response) => {
 }).listen(port, () => {
   console.log(`Family Tracker running at http://localhost:${port}`);
   console.log(`Storage provider: ${storageConfig.provider}`);
+  console.log(`Media storage provider: ${mediaStorageConfig.provider}${mediaStorageConfig.configured ? '' : ' (not configured)'}`);
 });
 
 async function handleApi(request, response) {
@@ -86,6 +89,7 @@ async function handleApi(request, response) {
         storageProvider: storageConfig.provider,
         storageConfigured: storageConfig.configured,
         storageMissing: storageConfig.missing,
+        mediaStorage: publicMediaStorageConfig(mediaStorageConfig),
         googleConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         user: session?.user || null,
       });
@@ -352,6 +356,51 @@ async function handleApi(request, response) {
         if (!days[day].includes(color)) days[day].push(color);
       }
       sendJson(response, 200, { days });
+      return;
+    }
+
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/moments') {
+      const body = await readJson(request);
+      const title = String(body.title || '').trim();
+      if (!title || title.length > 120) {
+        sendJson(response, 400, { error: 'Moment title is required and must be <= 120 chars.' });
+        return;
+      }
+      const note = String(body.note || '').trim().slice(0, 500);
+      const occurredAt = validIsoOrNow(body.occurredAt);
+      const rawText = note ? `${title} — ${note}` : title;
+      const inputAt = new Date().toISOString();
+      const rawLog = {
+        id: createId('rawlog'),
+        familyId: scope.familyId,
+        babyId: scope.babyId,
+        authorId: session.user.id || defaultAuthorId,
+        rawText,
+        inputAt,
+        timezone: body.timezone || 'UTC',
+        inputSource: 'moment',
+        parserMode: 'system',
+      };
+      const event = {
+        id: createId('event'),
+        rawLogId: rawLog.id,
+        familyId: scope.familyId,
+        babyId: scope.babyId,
+        authorId: session.user.id || defaultAuthorId,
+        type: 'milestone',
+        title,
+        note,
+        isFirst: Boolean(body.isFirst),
+        occurredAt: { value: occurredAt, source: 'explicit', basis: 'moment form date', confidence: 1 },
+        rawText,
+        attachments: normalizeMomentAttachments(body.attachments),
+        parserInfo: { kind: 'system', label: 'Moment form' },
+        createdAt: inputAt,
+      };
+      const saved = await store.saveLogWithEvents(rawLog, [event]);
+      await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLog.id, action: 'add', actorId: session.user.id || defaultAuthorId, message: `added growth moment "${summarizeActionText(title)}"`, metadata: { after: { rawLog: saved } } });
+      sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
     }
 
@@ -759,6 +808,29 @@ function summarizeActionText(value) {
   const compact = String(value || '').replace(/\s+/g, ' ').trim();
   if (compact.length <= 80) return compact;
   return `${compact.slice(0, 77)}...`;
+}
+
+
+function validIsoOrNow(value) {
+  const date = new Date(value || Date.now());
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function normalizeMomentAttachments(attachments) {
+  return Array.isArray(attachments) ? attachments.slice(0, 10).map((item, index) => {
+    const mediaType = item?.mediaType === 'video' ? 'video' : 'image';
+    const thumb = String(item?.thumbnailDataUrl || '');
+    return {
+      id: String(item?.id || createId('media')),
+      name: String(item?.name || `${mediaType}-${index + 1}`).slice(0, 120),
+      mediaType,
+      mimeType: String(item?.mimeType || '').slice(0, 80),
+      byteSize: Number.isFinite(Number(item?.byteSize)) ? Number(item.byteSize) : 0,
+      thumbnailDataUrl: thumb.startsWith('data:image/') && thumb.length < 250_000 ? thumb : '',
+      status: 'uploaded',
+      sortOrder: index,
+    };
+  }) : [];
 }
 
 async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLogId = '' }) {
