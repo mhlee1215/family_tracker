@@ -72,6 +72,10 @@ test.describe('Family Tracker core flows', () => {
 
     await app.loginAsDevAdmin();
     await expect(page.locator('#feeding-guidance')).toContainText('Feeding progress');
+    await expect(page.locator('#feeding-guidance')).toContainText('Progress at a glance');
+    await expect(page.locator('#feeding-guidance .feeding-progress-row summary')).toContainText(['Day elapsed', 'Milk pace']);
+    await page.locator('#feeding-guidance .feeding-progress-row', { hasText: 'Milk pace' }).locator('summary').click();
+    await expect(page.locator('#feeding-guidance .feeding-progress-row', { hasText: 'Milk pace' })).toContainText('logged so far');
     await expect(page.locator('#feeding-guidance')).toContainText('5x · 100ml');
     await expect(page.locator('#feeding-guidance')).toContainText('4–6x · 120–180ml');
     await expect(page.locator('#feeding-guidance')).toContainText('50ml less');
@@ -265,6 +269,9 @@ test.describe('Family Tracker core flows', () => {
 
     await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
     await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Diaper (pee)']);
+    await expect(page.locator('#timeline .swipe-affordance')).toHaveCount(3);
+    await page.locator('#timeline .timeline-detail-button').first().click();
+    await expect(page.locator('#timeline .timeline-detail-popover').first()).toContainText('Original text');
     await expect(page.locator('#summary .summary-item span')).toHaveText(['Sleep', 'Milk', 'Baby food', 'Diaper']);
     await app.captureStep('Timeline sorted oldest first', 'The default timeline order follows event time from earliest to latest.');
 
