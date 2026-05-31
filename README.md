@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 067](https://img.shields.io/badge/build-067-0066cc)
+![Build 068](https://img.shields.io/badge/build-068-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:

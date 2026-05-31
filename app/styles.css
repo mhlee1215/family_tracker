@@ -313,6 +313,14 @@ input {
   display: block;
 }
 
+#home-view.module-view.active {
+  display: grid;
+  grid-template-rows: minmax(0, auto) minmax(0, 1fr);
+  height: calc(100dvh - 44px);
+  min-height: 0;
+  overflow: hidden;
+}
+
 .top-bar {
   display: grid;
   place-items: center;
@@ -2658,43 +2666,47 @@ label {
 }
 
 .home-hero {
-  min-height: 240px;
+  min-height: clamp(104px, 20dvh, 220px);
   background: var(--canvas);
+  padding-block: clamp(22px, 5dvh, 56px);
 }
 
 .home-heading {
   display: grid;
   justify-items: center;
-  gap: 12px;
+  gap: clamp(6px, 1.4dvh, 12px);
 }
 
 .home-deck {
   max-width: 680px;
   margin: 0;
   color: var(--muted);
-  font-size: 21px;
+  font-size: clamp(15px, 2.4vw, 21px);
   line-height: 1.35;
 }
 
 .home-dashboard {
   display: grid;
-  gap: 24px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  gap: clamp(8px, 2dvh, 20px);
   background: var(--canvas-parchment);
-  padding: 56px min(80px, 7vw) 72px;
+  padding: clamp(14px, 3dvh, 40px) min(56px, 5vw) clamp(16px, 3dvh, 44px);
+  overflow: hidden;
 }
 
 .home-dashboard-header {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 24px;
+  gap: clamp(10px, 2vw, 24px);
 }
 
 .home-dashboard-header h2 {
   margin: 0;
   color: var(--ink);
   font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 40px;
+  font-size: clamp(24px, 3.2vw, 40px);
   font-weight: 600;
   line-height: 1.1;
 }
@@ -2778,18 +2790,20 @@ label {
 .home-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  min-height: 0;
+  gap: clamp(8px, 1.5vw, 18px);
 }
 
 .home-card {
   display: grid;
   align-content: start;
-  gap: 18px;
-  min-height: 300px;
+  gap: clamp(8px, 1.6dvh, 18px);
+  min-height: 0;
   border: 1px solid var(--hairline);
   border-radius: 24px;
   background: var(--canvas);
-  padding: 24px;
+  padding: clamp(12px, 2vw, 24px);
+  overflow: hidden;
 }
 
 .home-card-header {
@@ -2803,7 +2817,7 @@ label {
   margin: 0;
   color: var(--ink);
   font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 28px;
+  font-size: clamp(20px, 2.4vw, 28px);
   font-weight: 600;
   line-height: 1.14;
 }
@@ -2828,7 +2842,7 @@ label {
 
 .home-timeline {
   display: grid;
-  gap: 12px;
+  gap: clamp(6px, 1dvh, 12px);
   min-width: 0;
   margin-top: auto;
 }
@@ -2846,7 +2860,7 @@ label {
 
 .home-timeline-rail {
   position: relative;
-  height: 76px;
+  height: clamp(44px, 9dvh, 76px);
   border-radius: 18px;
   background: var(--canvas-parchment);
   overflow: hidden;
@@ -2930,11 +2944,11 @@ label {
 .home-meal-dot-item {
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: clamp(4px, 0.9dvh, 8px);
   min-width: 0;
   border-radius: 18px;
   background: var(--canvas-parchment);
-  padding: 18px 10px;
+  padding: clamp(8px, 1.8dvh, 18px) 10px;
   text-align: center;
 }
 
@@ -2965,45 +2979,135 @@ label {
   white-space: nowrap;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 833px) {
   .home-summary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(3, minmax(0, 1fr));
   }
 
   .home-card {
-    min-height: 240px;
+    align-content: stretch;
   }
 }
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .home-hero {
-    min-height: 220px;
+    min-height: clamp(72px, 16dvh, 112px);
+    padding: clamp(12px, 3dvh, 24px) 12px;
+  }
+
+  .home-hero .eyebrow,
+  .home-dashboard-header .eyebrow {
+    display: none;
   }
 
   .home-deck {
-    font-size: 17px;
+    max-width: 92vw;
   }
 
   .home-dashboard {
-    padding: 40px 16px 56px;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   }
 
   .home-dashboard-header,
   .home-card-header {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
   }
 
   .home-dashboard-header h2 {
-    font-size: 34px;
+    font-size: 24px;
+  }
+
+  .home-attention-strip {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .attention-pill,
+  .task-due-pill,
+  .home-empty-inline {
+    min-height: 30px;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .attention-pill {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .home-card {
+    gap: 6px;
     border-radius: 18px;
-    padding: 18px;
+    padding: 10px;
+  }
+
+  .home-card-copy {
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-timeline-ticks {
+    display: none;
+  }
+
+  .home-timeline-rail {
+    height: 38px;
+    border-radius: 14px;
+  }
+
+  .home-marker {
+    width: 24px;
+    min-height: 24px;
+    font-size: 12px;
+  }
+
+  .home-marker.lane-0,
+  .home-marker.lane-1,
+  .home-marker.lane-2 {
+    top: 7px;
   }
 
   .home-meal-dots {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .home-meal-dot-item {
+    border-radius: 14px;
+    padding: 7px 4px;
+  }
+
+  .home-meal-dot {
+    width: 20px;
+    height: 20px;
+  }
+
+  .home-meal-dot-item strong,
+  .home-card-link,
+  .home-meal-dot-item small {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 419px) {
+  .home-dashboard-header h2 {
+    font-size: 22px;
+  }
+
+  .home-attention-count {
+    min-height: 28px;
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  .home-card-header h3 {
+    font-size: 18px;
   }
 }
