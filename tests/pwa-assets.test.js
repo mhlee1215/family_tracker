@@ -11,10 +11,10 @@ function assertPng(path) {
   assert.deepEqual([...readFileSync(path).subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
 }
 
-test('home screen and PWA artwork is linked and cacheable', () => {
+test('home screen and PWA raster artwork is linked and cacheable', () => {
   const html = read('app/index.html');
   assert.match(html, /rel="apple-touch-icon" sizes="180x180" href="\/app\/icons\/family-tracker-icon-180\.png"/);
-  assert.match(html, /class="home-hero-art" src="\/app\/assets\/family-tracker-illustration\.svg"/);
+  assert.match(html, /class="home-hero-art" src="\/app\/icons\/family-tracker-icon-512\.png"/);
 
   const manifest = JSON.parse(read('app/manifest.webmanifest'));
   assert.deepEqual(manifest.icons.map((icon) => icon.src), [
@@ -25,7 +25,6 @@ test('home screen and PWA artwork is linked and cacheable', () => {
 
   const serviceWorker = read('app/sw.js');
   for (const asset of [
-    '/app/assets/family-tracker-illustration.svg',
     '/app/icons/family-tracker-icon-180.png',
     '/app/icons/family-tracker-icon-192.png',
     '/app/icons/family-tracker-icon-512.png',
