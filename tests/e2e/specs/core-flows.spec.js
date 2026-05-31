@@ -32,6 +32,37 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+  test('home dashboard stays within one screen on Apple-sized viewports', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const viewports = [
+      { name: 'iphone-se', width: 375, height: 667 },
+      { name: 'iphone-pro', width: 393, height: 852 },
+      { name: 'iphone-max', width: 430, height: 932 },
+      { name: 'ipad-mini', width: 744, height: 1133 },
+      { name: 'ipad-pro-11', width: 834, height: 1194 },
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await app.loginAsDevAdmin('/');
+      await expect(page.locator('#home-view.active #home-summary-grid .home-card')).toHaveCount(3);
+
+      const metrics = await page.evaluate(() => ({
+        documentScrollHeight: document.documentElement.scrollHeight,
+        viewportHeight: window.innerHeight,
+        homeHeight: document.querySelector('#home-view')?.getBoundingClientRect().height ?? 0,
+        homeBottom: document.querySelector('#home-view')?.getBoundingClientRect().bottom ?? 0,
+      }));
+
+      expect(metrics.documentScrollHeight, `${viewport.name} should not create page scroll`).toBeLessThanOrEqual(metrics.viewportHeight + 1);
+      expect(metrics.homeHeight, `${viewport.name} home view should fit viewport below nav`).toBeLessThanOrEqual(metrics.viewportHeight - 44 + 1);
+      expect(metrics.homeBottom, `${viewport.name} home view should end within the visible page`).toBeLessThanOrEqual(metrics.viewportHeight + 1);
+    }
+
+    app.assertNoRuntimeErrors();
+    await app.attachDiagnostics();
+  });
+
 
   test('baby feeding guidance compares current milk records with the newborn pace', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
