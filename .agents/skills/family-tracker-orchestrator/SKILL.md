@@ -30,6 +30,14 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 
 
 
+
+## GitHub PR Environment Policy
+- 사용자가 PR 생성/제출/업데이트를 요청하면 먼저 로컬 remote 존재 여부를 확인한다.
+- `origin` remote가 없고 `GITHUB_REPO` 환경변수가 있으면 `https://github.com/${GITHUB_REPO}.git` 값을 사용해 `origin`을 설정한다.
+- 기본 대상 브랜치는 `GITHUB_DEFAULT_BRANCH` 환경변수가 있으면 그 값을 사용하고, 없으면 `main`을 사용한다.
+- GitHub 인증은 환경에 제공된 `GITHUB_TOKEN`/`gh` 인증 상태를 사용하되, 토큰 값은 출력/커밋/PR 본문에 절대 노출하지 않는다.
+- PR 작업 전에는 `git status --short --branch`, `git remote -v`, `gh auth status`로 상태를 확인하고, secret 값은 redaction된 형태로만 보고한다.
+
 ## Planning Checklist Gate
 - 모든 비단순 작업은 코드/문서 변경 전에 작업 계획과 체크리스트를 먼저 작성한다.
 - 체크리스트는 최소한 범위 확인, 구현 항목, 테스트/검증, 문서/스킬 업데이트 필요 여부를 포함한다.
