@@ -7,8 +7,9 @@ test('builds baby log request with minimal instructions and JSON schema format',
 
   assert.equal(request.model, 'gpt-test');
   assert.match(request.instructions, /Return JSON matching the supplied schema/);
+  assert.match(request.instructions, /decide which baby activities are clear enough to save/);
   assert.match(request.instructions, /needs_clarification/);
-  assert.match(request.instructions, /Do not turn minute expressions/);
+  assert.doesNotMatch(request.instructions, /Do not turn minute expressions/);
   assert.equal(request.text.format.type, 'json_schema');
   assert.equal(request.text.format.name, 'baby_log_parse');
   assert.equal(request.text.format.schema.required[0], 'events');

@@ -120,3 +120,74 @@ test('does not treat minute expressions near formula as milk amount', () => {
   assert.equal(event.type, 'feeding_milk');
   assert.equal(event.amountMl, undefined);
 });
+
+
+test('parses 5/31 baby tracker log strings into structured event data', () => {
+  const may31Now = new Date('2026-05-31T20:00:00.000Z');
+  const cases = [
+    {
+      text: 'feed formula 10 ml 10 mins ago',
+      expected: {
+        type: 'feeding_milk',
+        occurredAt: '2026-05-31T19:50:00.000Z',
+        occurredAtSource: 'inferred',
+        occurredAtBasis: 'current_time_minus_10_minutes',
+        amountMl: 10,
+        amountSource: 'explicit',
+        feedingKind: 'formula',
+      },
+    },
+    {
+      text: 'feed formula 10 mins ago',
+      expected: {
+        type: 'feeding_milk',
+        occurredAt: '2026-05-31T19:50:00.000Z',
+        occurredAtSource: 'inferred',
+        occurredAtBasis: 'current_time_minus_10_minutes',
+        amountMl: undefined,
+        feedingKind: 'formula',
+      },
+    },
+    {
+      text: 'dirty diaper 5 mins ago',
+      expected: {
+        type: 'diaper',
+        occurredAt: '2026-05-31T19:55:00.000Z',
+        occurredAtSource: 'inferred',
+        occurredAtBasis: 'current_time_minus_5_minutes',
+        diaperKind: 'dirty',
+      },
+    },
+    {
+      text: 'nap 30 mins ago',
+      expected: {
+        type: 'sleep',
+        startAt: '2026-05-31T19:30:00.000Z',
+        startAtSource: 'inferred',
+        startAtBasis: 'current_time_minus_30_minutes',
+        action: 'start',
+      },
+    },
+  ];
+
+  for (const { text, expected } of cases) {
+    const clarification = getBabyLogClarification(text);
+    assert.equal(clarification, null, `${text} should not need clarification`);
+
+    const [event] = parseBabyLogText(text, { now: may31Now, timezone: 'UTC' });
+
+    assert.equal(event.rawText, text);
+    assert.equal(event.type, expected.type);
+    assert.equal(event.occurredAt?.value, expected.occurredAt);
+    assert.equal(event.occurredAt?.source, expected.occurredAtSource);
+    assert.equal(event.occurredAt?.basis, expected.occurredAtBasis);
+    assert.equal(event.startAt?.value, expected.startAt);
+    assert.equal(event.startAt?.source, expected.startAtSource);
+    assert.equal(event.startAt?.basis, expected.startAtBasis);
+    assert.equal(event.amountMl?.value, expected.amountMl);
+    assert.equal(event.amountMl?.source, expected.amountSource);
+    assert.equal(event.feedingKind?.value, expected.feedingKind);
+    assert.equal(event.diaperKind?.value, expected.diaperKind);
+    assert.equal(event.action?.value, expected.action);
+  }
+});

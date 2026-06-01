@@ -55,7 +55,7 @@ LLM-extracted fields are normalized to `source: "explicit"`; missing times that 
 
 ## Parsing Principle
 
-The LLM should extract intent and explicit values only, returning one event per activity when one input describes multiple activities. When the required meaning is missing or ambiguous, it should ask for clarification rather than inventing a record. For clear relative-time references to recent context, the LLM should extract the relation and offset; deterministic domain logic resolves the final timestamp from recent events. Deterministic domain logic should fill missing quantities, durations, relative timestamps, and session links whenever possible. Provider outputs are normalized, provenance-wrapped, and validated server-side before storage; invalid or unavailable provider output falls back to the local heuristic parser.
+The LLM prompt should stay high-level: ask the model to read the caregiver log, decide which baby activities are clear enough to save, and return schema-compatible JSON. The prompt should not enumerate narrow heuristic parsing rules; the model should judge whether values are stated or safely understood from the input and context. When the required meaning is missing or ambiguous, it should ask for clarification rather than inventing a record. For clear relative-time references to recent context, the LLM should extract the relation and offset; deterministic domain logic resolves the final timestamp from recent events. Deterministic domain logic should fill missing quantities, durations, relative timestamps, and session links whenever possible. Provider outputs are normalized, provenance-wrapped, and validated server-side before storage; invalid or unavailable provider output falls back to the local heuristic parser.
 
 Examples:
 
@@ -82,7 +82,7 @@ Information-deficient logs are not saved. The API returns a blocking clarificati
 
 Clarification is required when:
 
-- a number near milk feeding uses a minute unit (`5mins`, `5 min`, `5 minutes`) and could be mistaken for `amountMl`;
+- a number near milk feeding uses a minute unit (`5mins`, `5 min`, `5 minutes`) and could be mistaken for a duration, timestamp, or volume;
 - multiple baby activities are connected by relative timing (`before`, `after`, `전`, `후`) but the anchor, offset target, or duration meaning is ambiguous;
 - a clear relative-time relation references recent context, but no matching recent anchor event with a usable time exists;
 - the parser cannot determine a safe event set without inventing values.
