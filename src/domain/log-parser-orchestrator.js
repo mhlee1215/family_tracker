@@ -10,9 +10,6 @@ import {
 } from './baby-log-parser.js';
 
 export async function parseBabyLogForSave(text, context = {}, options = {}) {
-  const clarification = getBabyLogClarification(text);
-  if (clarification) return clarification;
-
   const provider = options.provider || 'mock';
   const model = options.model || 'mock-local';
   const apiKey = options.apiKey || '';
@@ -20,6 +17,8 @@ export async function parseBabyLogForSave(text, context = {}, options = {}) {
   const canUseLLM = !forceHeuristic && provider !== 'mock' && Boolean(apiKey);
 
   if (!canUseLLM) {
+    const clarification = getBabyLogClarification(text);
+    if (clarification) return clarification;
     return { status: 'ok', events: applyParserInfo(parseBabyLogText(text, context), heuristicParserInfo()) };
   }
 
@@ -39,6 +38,8 @@ export async function parseBabyLogForSave(text, context = {}, options = {}) {
     return normalizeParsedBabyLogDecision(response, { ...context, rawText: text }, llmParserInfo(provider, model));
   } catch (error) {
     if (error?.clarification) return error.clarification;
+    const clarification = getBabyLogClarification(text);
+    if (clarification) return clarification;
     const fallbackInfo = {
       ...heuristicParserInfo(),
       fallbackFrom: { provider, model, reason: error.message || 'LLM parse failed' },
