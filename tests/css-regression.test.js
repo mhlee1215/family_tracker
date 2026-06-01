@@ -55,6 +55,12 @@ test('floating panels and gallery CSS keep usable tablet/desktop layout', () => 
     'position:\\s*fixed',
     'width:\\s*min\\(640px, calc\\(100% - 32px\\)\\)',
     'max-height:\\s*min\\(78vh, 760px\\)',
+    'z-index:\\s*24',
+  ]);
+
+  ruleIncludes('.app-menu-button', [
+    'position:\\s*relative',
+    'z-index:\\s*25',
   ]);
 
   ruleIncludes('.task-composer.app-floating-panel', [
