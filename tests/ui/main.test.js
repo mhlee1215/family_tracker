@@ -78,6 +78,70 @@ describe('app/main', () => {
   });
 
 
+
+  it('clusters crowded baby timeline logs on the home dashboard', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [
+            {
+              id: 'milk-1',
+              type: 'feeding_milk',
+              rawText: 'formula',
+              occurredAt: { value: '2026-05-28T10:00:00.000Z' },
+              amountMl: { value: 120 },
+            },
+            {
+              id: 'diaper-1',
+              type: 'diaper',
+              rawText: 'pee',
+              occurredAt: { value: '2026-05-28T10:12:00.000Z' },
+              diaperKind: { value: 'wet' },
+            },
+            {
+              id: 'sleep-1',
+              type: 'sleep',
+              rawText: 'nap',
+              startAt: { value: '2026-05-28T10:31:00.000Z' },
+              endAt: { value: '2026-05-28T10:42:00.000Z' },
+              durationMinutes: { value: 11 },
+            },
+            {
+              id: 'milk-2',
+              type: 'feeding_milk',
+              rawText: 'formula',
+              occurredAt: { value: '2026-05-28T13:00:00.000Z' },
+              amountMl: { value: 90 },
+            },
+          ],
+          summary: {},
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=home-baby-clusters');
+
+    const babyCard = document.querySelector('.home-card-baby');
+    const cluster = babyCard.querySelector('.baby-cluster-marker');
+    expect(cluster).toBeTruthy();
+    expect(babyCard.querySelectorAll('.home-marker')).toHaveLength(2);
+    expect(cluster.querySelectorAll('.home-cluster-icon')).toHaveLength(3);
+
+    fireEvent.click(cluster);
+
+    expect(cluster.getAttribute('aria-expanded')).toBe('true');
+    expect(cluster.querySelector('.home-tooltip').textContent).toContain('3 logs near');
+    expect(cluster.querySelector('.home-tooltip').textContent).toContain('Formula');
+    expect(cluster.querySelector('.home-tooltip').textContent).toContain('Diaper');
+    expect(cluster.querySelector('.home-tooltip').textContent).toContain('Sleep');
+  });
+
+
   it('opens meal log as overlay without collapsing meal columns', async () => {
     await import('../../app/main.js?case=meal-log');
 

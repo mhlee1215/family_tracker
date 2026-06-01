@@ -3167,6 +3167,51 @@ label {
 .baby-marker.marker-feeding_solid { box-shadow: inset 0 0 0 2px var(--tracker-baby-solids); }
 .baby-marker.marker-diaper { box-shadow: inset 0 0 0 2px var(--tracker-baby-diaper); }
 
+.baby-cluster-marker {
+  width: 44px;
+  min-height: 32px;
+  border-radius: 9999px;
+}
+
+.home-cluster-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.home-cluster-icon,
+.home-cluster-more {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: -5px;
+  border: 1px solid var(--canvas);
+  border-radius: 9999px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.home-cluster-icon:first-child {
+  margin-left: 0;
+}
+
+.home-cluster-more {
+  background: var(--ink);
+  color: var(--on-dark);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.baby-cluster-marker:hover .home-cluster-icon,
+.baby-cluster-marker:focus-visible .home-cluster-icon,
+.baby-cluster-marker[aria-expanded="true"] .home-cluster-icon {
+  border-color: var(--on-primary);
+}
+
 .task-marker {
   background: var(--primary);
   color: var(--on-primary);
@@ -3383,6 +3428,18 @@ label {
     width: 24px;
     min-height: 24px;
     font-size: 12px;
+  }
+
+  .baby-cluster-marker {
+    width: 38px;
+    min-height: 26px;
+  }
+
+  .home-cluster-icon,
+  .home-cluster-more {
+    width: 15px;
+    height: 15px;
+    font-size: 9px;
   }
 
   .home-marker.lane-0,
