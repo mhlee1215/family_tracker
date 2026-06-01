@@ -10,6 +10,7 @@ const mealThumbnailCache = new Map();
 const swipeState = { openItem: null, nextId: 0 };
 let openTimelineDetail = null;
 let openHomeTooltip = null;
+let growthChartInstance = null;
 
 const babyTrackerTypes = [
   { type: 'sleep', label: 'Sleep' },
@@ -94,6 +95,7 @@ const state = {
   mealCalendarDots: {},
   taskPanel: 'today',
   babyPanel: null,
+  momentPanelMode: 'gallery',
   meals: emptyMealState(),
   llmConfig: { provider: 'mock', model: 'mock-local', providers: [] },
   timelineSort: normalizeTimelineSort(localStorage.getItem(storageKeys.timelineSort)),
@@ -141,6 +143,7 @@ const elements = {
   openBabyMoments: $('#open-baby-moments'),
   openBabyActionLog: $('#open-baby-action-log'),
   babyMomentPanel: $('#baby-moment-panel'),
+  babyMomentGallery: $('#baby-moment-gallery'),
   momentForm: $('#moment-form'),
   momentTitle: $('#moment-title'),
   momentDate: $('#moment-date'),
@@ -368,13 +371,13 @@ elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today')
 elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
 elements.openBabyPatterns?.addEventListener('click', () => toggleBabyPanel('patterns'));
 elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
-elements.openBabyMoments?.addEventListener('click', () => toggleBabyPanel('moments'));
+elements.openBabyMoments?.addEventListener('click', () => toggleBabyPanel('moments', { mode: 'gallery' }));
 elements.openBabyActionLog?.addEventListener('click', () => toggleBabyPanel('actionLog'));
 elements.openBabyLog?.addEventListener('click', () => {
   setBabyPanel(null);
   elements.logInput?.focus();
 });
-elements.quickAddMoment?.addEventListener('click', () => toggleBabyPanel('moments'));
+elements.quickAddMoment?.addEventListener('click', () => setBabyPanel('moments', { mode: 'form' }));
 elements.momentLibraryButton?.addEventListener('click', () => elements.momentFileInput?.click());
 elements.momentCameraButton?.addEventListener('click', () => elements.momentCameraInput?.click());
 elements.momentFileInput?.addEventListener('change', (event) => addMomentFiles(event.target.files));
@@ -383,9 +386,16 @@ elements.momentReset?.addEventListener('click', resetMomentForm);
 elements.momentForm?.addEventListener('submit', submitMomentForm);
 elements.babyMomentPanel?.addEventListener('click', (event) => {
   const preset = event.target.closest('[data-moment-title]');
-  if (!preset) return;
-  elements.momentTitle.value = preset.dataset.momentTitle || '';
-  elements.momentTitle.focus();
+  if (preset) {
+    elements.momentTitle.value = preset.dataset.momentTitle || '';
+    elements.momentTitle.focus();
+    return;
+  }
+  if (event.target.closest('[data-open-moment-form]')) {
+    state.momentPanelMode = 'form';
+    renderBabyPanel();
+    elements.momentTitle?.focus();
+  }
 });
 
 elements.babySettingsForm.addEventListener('submit', async (event) => {
@@ -1097,12 +1107,14 @@ function setMenuOpen(open) {
   elements.menuToggle.setAttribute('aria-expanded', String(open));
 }
 
-function toggleBabyPanel(panel) {
-  setBabyPanel(state.babyPanel === panel ? null : panel);
+function toggleBabyPanel(panel, options = {}) {
+  setBabyPanel(state.babyPanel === panel ? null : panel, options);
 }
 
-function setBabyPanel(panel) {
+function setBabyPanel(panel, options = {}) {
   state.babyPanel = ['summary', 'settings', 'patterns', 'moments', 'actionLog'].includes(panel) ? panel : null;
+  if (options.mode) state.momentPanelMode = options.mode === 'form' ? 'form' : 'gallery';
+  if (state.babyPanel === 'moments' && !options.mode) state.momentPanelMode = 'gallery';
   if (state.babyPanel === 'moments') prepareMomentForm();
   renderBabyPanel();
 }
@@ -1135,6 +1147,7 @@ function renderBabyPanel() {
   elements.openBabyMoments?.setAttribute('aria-expanded', String(momentsOpen));
   elements.openBabyActionLog?.setAttribute('aria-expanded', String(actionLogOpen));
   if (settingsOpen) renderBabySettings();
+  if (momentsOpen) renderMomentPanel();
 }
 
 function setTaskComposerOpen(open) {
@@ -1203,9 +1216,9 @@ function saveActiveBabyTrackerSettings() {
   const selected = Array.from(elements.babyTrackerToggles)
     .filter((input) => input.checked)
     .map((input) => input.value);
-  state.activeBabyTrackers = normalizeActiveBabyTrackers(selected.join(','));
+  state.activeBabyTrackers = selected;
   localStorage.setItem(storageKeys.activeBabyTrackers, state.activeBabyTrackers.join(','));
-  if (!state.activeBabyTrackers.includes(state.timelineFilter)) {
+  if (state.timelineFilter !== 'all' && !state.activeBabyTrackers.includes(state.timelineFilter)) {
     state.timelineFilter = 'all';
     localStorage.setItem(storageKeys.timelineFilter, state.timelineFilter);
   }
@@ -1267,6 +1280,47 @@ function prepareMomentForm() {
   renderMomentPreviews();
 }
 
+function renderMomentPanel() {
+  const formMode = state.momentPanelMode === 'form';
+  elements.momentForm?.classList.toggle('hidden', !formMode);
+  elements.babyMomentGallery?.classList.toggle('hidden', formMode);
+  if (!formMode) renderMomentGallery();
+}
+
+function renderMomentGallery() {
+  if (!elements.babyMomentGallery) return;
+  const moments = sortedTimelineEvents(state.events.filter((event) => event.type === 'milestone' && !event.hiddenFromTimeline)).reverse();
+  const cards = moments.map(momentGalleryCard).join('');
+  elements.babyMomentGallery.innerHTML = `
+    <div class="moment-gallery-hero">
+      <div>
+        <p class="eyebrow">Moments</p>
+        <h2>Growth moments</h2>
+        <p>Browse the tiny firsts and favorite memories you have saved so far.</p>
+      </div>
+      <button type="button" data-open-moment-form>+ Add moment</button>
+    </div>
+    <div class="moment-gallery-grid">${cards || '<p class="empty">No growth moments yet. Add the first one from Record.</p>'}</div>
+  `;
+}
+
+function momentGalleryCard(event) {
+  const attachment = (event.attachments || []).find((item) => item.thumbnailDataUrl);
+  const media = attachment
+    ? `<img loading="lazy" src="${escapeHtml(attachment.thumbnailDataUrl)}" alt="${escapeHtml(attachment.name || eventTitle(event))}">`
+    : `<div class="moment-gallery-placeholder">${actionIcon('moment')}</div>`;
+  return `
+    <article class="moment-gallery-card">
+      <div class="moment-gallery-media">${media}</div>
+      <div class="moment-gallery-copy">
+        <span>${escapeHtml(timeLabel(event.occurredAt))}</span>
+        <strong>${escapeHtml(eventTitle(event))}</strong>
+        <p>${escapeHtml(event.note || event.rawText || 'No description yet.')}</p>
+      </div>
+    </article>
+  `;
+}
+
 function resetMomentForm() {
   elements.momentForm?.reset();
   if (elements.momentDate) elements.momentDate.value = state.selectedDay || localDateKey(new Date());
@@ -1303,7 +1357,7 @@ async function addMomentFiles(fileList) {
 function renderMomentPreviews() {
   if (!elements.momentPreviewStrip) return;
   if (!state.momentAttachments.length) {
-    elements.momentPreviewStrip.innerHTML = '<p class="empty">아직 첨부가 없어요. 사진이나 짧은 동영상을 추가해보세요.</p>';
+    elements.momentPreviewStrip.innerHTML = '<p class="empty">No attachments yet. Add a photo or a short video.</p>';
   } else {
     elements.momentPreviewStrip.replaceChildren(...state.momentAttachments.map((attachment) => {
       const card = document.createElement('article');
@@ -1326,7 +1380,7 @@ function renderMomentPreviews() {
   }
   if (elements.momentUploadStatus) {
     const count = state.momentAttachments.length;
-    elements.momentUploadStatus.textContent = count ? `${count}개 준비됨` : '사진/동영상 먼저';
+    elements.momentUploadStatus.textContent = count ? `${count} ready` : 'Add photo or video first';
   }
 }
 
@@ -1462,6 +1516,7 @@ function renderSummary() {
     isBabyTrackerActive('feeding_solid') ? summaryItem('Baby food', `${summary.solidCount || 0}x`, babySummaryLabelColors.Solids) : null,
     isBabyTrackerActive('diaper') ? summaryItem('Diaper', `${summary.diaperCount || 0}x`, babySummaryLabelColors.Diaper) : null,
   ].filter(Boolean);
+  elements.summary.classList.toggle('hidden', !items.length);
   elements.summary.replaceChildren(...items);
   renderTimelineControls();
 }
@@ -1473,8 +1528,9 @@ function renderTodayContext() {
     isBabyTrackerActive('feeding_milk') ? contextCard('Last milk', milkContextLabel(context.lastMilk), 'feeding_milk') : null,
     isBabyTrackerActive('diaper') ? contextCard('Last diaper', diaperContextLabel(context.lastDiaper), 'diaper') : null,
     isBabyTrackerActive('sleep') ? contextCard('Sleep', sleepContextLabel(context.sleep), 'sleep') : null,
-    contextCard('AI checks', estimateContextLabel(context), 'all'),
   ].filter(Boolean);
+  if (cards.length) cards.push(contextCard('AI checks', estimateContextLabel(context), 'all'));
+  elements.todayContext.classList.toggle('hidden', !cards.length);
   elements.todayContext.replaceChildren(...cards);
 }
 
@@ -2117,51 +2173,82 @@ function renderGrowthSummary() {
 
 function renderGrowthChart(records) {
   const chartRecords = [...records].sort(compareGrowthRecordsAsc).slice(-8);
-  const series = [
-    { key: 'heightCm', label: 'Height', unit: 'cm' },
-    { key: 'headCm', label: 'Head', unit: 'cm' },
-    { key: 'weightG', label: 'Weight', unit: 'g' },
-  ].map((metric) => ({ ...metric, points: growthChartPoints(chartRecords, metric.key) }));
-  const visibleSeries = series.filter((metric) => metric.points.length >= 2);
-  if (!visibleSeries.length) {
+  const datasets = growthChartDatasets(chartRecords);
+  if (!datasets.length) {
+    destroyGrowthChart();
     return '<section class="growth-chart-card"><p class="empty">Add at least two dated growth records to draw a trend chart.</p></section>';
   }
-  const polylines = visibleSeries.map((metric) => `<polyline class="growth-line growth-line-${metric.key}" points="${metric.points.map((point) => `${point.x},${point.y}`).join(' ')}"><title>${escapeHtml(metric.label)}</title></polyline>`).join('');
-  const markers = visibleSeries.flatMap((metric) => metric.points.map((point) => `<circle class="growth-dot growth-dot-${metric.key}" cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml(metric.label)} ${escapeHtml(point.valueText)} on ${escapeHtml(point.label)}</title></circle>`)).join('');
-  const legend = visibleSeries.map((metric) => `<span class="growth-legend-item growth-legend-${metric.key}">${escapeHtml(metric.label)}</span>`).join('');
   const firstLabel = growthRecordDateLabel(chartRecords[0]);
   const lastLabel = growthRecordDateLabel(chartRecords[chartRecords.length - 1]);
+  window.setTimeout(() => renderGrowthChartInstance(chartRecords, datasets), 0);
   return `
     <section class="growth-chart-card" aria-label="Growth trend chart">
       <div class="growth-chart-copy">
         <strong>Growth trend</strong>
         <span>${escapeHtml(firstLabel)} → ${escapeHtml(lastLabel)}</span>
       </div>
-      <svg class="growth-chart" viewBox="0 0 640 220" role="img" aria-label="Growth measurements over time">
-        <line x1="40" y1="20" x2="40" y2="184"></line>
-        <line x1="40" y1="184" x2="612" y2="184"></line>
-        ${polylines}${markers}
-      </svg>
-      <div class="growth-legend">${legend}</div>
+      <div class="growth-chart-shell">
+        <canvas id="growth-trend-chart" class="growth-chart" role="img" aria-label="Growth measurements over time with dates on the x-axis and measured units on the y-axis"></canvas>
+      </div>
+      <p class="growth-chart-axis-note">X-axis shows record dates. Y-axis shows each measurement in its own unit: cm for height/head and grams for weight.</p>
     </section>
   `;
 }
 
-function growthChartPoints(records, key) {
-  const values = records
-    .map((record, index) => ({ record, index, value: record[key] }))
-    .filter((point) => point.value !== null && point.value !== undefined && Number.isFinite(Number(point.value)));
-  if (values.length < 2) return [];
-  const min = Math.min(...values.map((point) => Number(point.value)));
-  const max = Math.max(...values.map((point) => Number(point.value)));
-  const span = max - min || 1;
-  const xSpan = Math.max(records.length - 1, 1);
-  return values.map((point) => ({
-    x: Math.round(40 + (point.index / xSpan) * 572),
-    y: Math.round(184 - ((Number(point.value) - min) / span) * 150),
-    label: growthRecordDateLabel(point.record),
-    valueText: `${point.value}`,
-  }));
+function growthChartDatasets(records) {
+  return [
+    { key: 'heightCm', label: 'Height (cm)', unit: 'cm', color: '#2997ff', axisID: 'cm' },
+    { key: 'headCm', label: 'Head (cm)', unit: 'cm', color: '#0066cc', axisID: 'cm' },
+    { key: 'weightG', label: 'Weight (g)', unit: 'g', color: '#7a7a7a', axisID: 'g' },
+  ].map((metric) => ({
+    ...metric,
+    data: records.map((record) => record[metric.key] == null ? null : Number(record[metric.key])),
+  })).filter((metric) => metric.data.filter((value) => Number.isFinite(value)).length >= 2);
+}
+
+function renderGrowthChartInstance(records, datasets) {
+  const canvas = document.getElementById('growth-trend-chart');
+  const ChartCtor = window.Chart;
+  if (!canvas || !ChartCtor) return;
+  destroyGrowthChart();
+  growthChartInstance = new ChartCtor(canvas, {
+    type: 'line',
+    data: {
+      labels: records.map(growthRecordDateLabel),
+      datasets: datasets.map((metric) => ({
+        label: metric.label,
+        data: metric.data,
+        borderColor: metric.color,
+        backgroundColor: metric.color,
+        yAxisID: metric.axisID,
+        spanGaps: true,
+        tension: 0.28,
+        pointRadius: 4,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+      })),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: '#1d1d1f' } },
+        tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${context.parsed.y}` } },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Record date' }, grid: { color: '#f0f0f0' } },
+        cm: { type: 'linear', position: 'left', title: { display: true, text: 'Centimeters' }, grid: { color: '#f0f0f0' } },
+        g: { type: 'linear', position: 'right', title: { display: true, text: 'Grams' }, grid: { drawOnChartArea: false } },
+      },
+    },
+  });
+}
+
+function destroyGrowthChart() {
+  if (!growthChartInstance) return;
+  growthChartInstance.destroy();
+  growthChartInstance = null;
 }
 
 function compareGrowthRecordsAsc(a, b) {
@@ -2617,10 +2704,7 @@ function renderEvent(event) {
   title.className = 'timeline-title';
   const titleText = document.createElement('span');
   titleText.textContent = eventTitle(event);
-  const swipeAffordance = document.createElement('span');
-  swipeAffordance.className = 'swipe-affordance';
-  swipeAffordance.setAttribute('aria-label', 'Swipe left for edit and delete actions');
-  title.replaceChildren(titleText, swipeAffordance);
+  title.replaceChildren(titleText);
 
   const meta = document.createElement('div');
   meta.className = 'timeline-meta';
@@ -2630,8 +2714,7 @@ function renderEvent(event) {
   raw.textContent = event.rawText;
   const main = document.createElement('div');
   main.className = 'timeline-main';
-  const media = event.type === 'milestone' ? renderMomentMediaGrid(event) : null;
-  main.replaceChildren(meta, raw, ...(media ? [media] : []));
+  main.replaceChildren(meta, raw);
   if (event.type === 'milestone') item.classList.add('moment-timeline-item');
 
   const badges = document.createElement('div');
@@ -3235,7 +3318,7 @@ function eventTitle(event) {
   if (event.type === 'feeding_milk') return event.feedingKind?.value === 'breast' ? 'Breast milk' : 'Formula';
   if (event.type === 'feeding_solid') return event.food?.value || 'Baby food';
   if (event.type === 'diaper') return diaperTitle(event);
-  if (event.type === 'milestone') return event.title || '성장 순간';
+  if (event.type === 'milestone') return event.title || 'Growth moment';
   return 'Log';
 }
 
@@ -3426,8 +3509,9 @@ function normalizeTimelineFilter(value) {
 }
 
 function normalizeActiveBabyTrackers(value) {
-  const selected = String(value || '').split(',').filter((item) => babyTrackerTypeSet.has(item));
-  return selected.length ? [...new Set(selected)] : babyTrackerTypes.map((item) => item.type);
+  if (value === null || value === undefined) return babyTrackerTypes.map((item) => item.type);
+  const selected = String(value).split(',').filter((item) => babyTrackerTypeSet.has(item));
+  return [...new Set(selected)];
 }
 
 function normalizePatternTypes(value) {

@@ -156,15 +156,16 @@ test.describe('Family Tracker core flows', () => {
 
 
 
-  test('baby moments flow saves an iPhone-style media thumbnail to the timeline', async ({ page }, testInfo) => {
+  test('baby moments flow saves media for gallery browsing without timeline thumbnails', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin('/baby');
     await app.captureStep('Opened baby tracker for moments', 'Starting from the Baby tracker before adding a growth moment.');
 
+    const title = `First outing media ${Date.now()}`;
     await page.locator('#quick-add-moment').click();
     await expect(page.locator('#baby-moment-panel')).toBeVisible();
-    await page.locator('#moment-title').fill('처음으로 밖에 나감');
-    await page.locator('#moment-note').fill('유모차 타고 동네 한 바퀴');
+    await page.locator('#moment-title').fill(title);
+    await page.locator('#moment-note').fill('Stroller walk around the neighborhood');
     await page.locator('#moment-file-input').setInputFiles({
       name: 'first-outing.png',
       mimeType: 'image/png',
@@ -174,12 +175,18 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Prepared moment media thumbnail', 'The selected photo appears as a local thumbnail before saving.');
 
     await page.locator('#moment-form button[type="submit"]').click();
-    await expect(page.locator('#timeline')).toContainText('처음으로 밖에 나감');
-    await expect(page.locator('#timeline .moment-media-grid img').first()).toBeVisible();
+    await expect(page.locator('#timeline')).toContainText(title);
+    await expect(page.locator('#timeline .moment-media-grid img')).toHaveCount(0);
     await page.locator('#timeline-filter').selectOption('milestone');
     await expect(page.locator('#event-count')).toContainText('of');
-    await expect(page.locator('#timeline')).toContainText('처음으로 밖에 나감');
-    await app.captureStep('Saved moment to timeline', 'The growth moment is saved and the timeline shows its thumbnail under the Moments filter.');
+    await expect(page.locator('#timeline')).toContainText(title);
+    await page.locator('#timeline .timeline-swipe', { hasText: title }).first().locator('.timeline-detail-button').click();
+    await expect(page.locator('#timeline .timeline-swipe', { hasText: title }).first().locator('.timeline-detail-popover')).toContainText('Stroller walk around the neighborhood');
+    await page.locator('#open-baby-moments').click();
+    await expect(page.locator('#baby-moment-gallery')).toBeVisible();
+    await expect(page.locator('#baby-moment-gallery')).toContainText(title);
+    await expect(page.locator('#baby-moment-gallery img').first()).toBeVisible();
+    await app.captureStep('Saved moment to gallery and timeline log', 'The growth moment is saved as a lightweight timeline log, with media reserved for the Moments gallery.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
@@ -218,13 +225,16 @@ test.describe('Family Tracker core flows', () => {
     const title = `첫 이유식 ${Date.now()}`;
 
     await page.locator('#open-baby-moments').click();
-    await expect(page.locator('#baby-moment-panel')).toBeVisible();
-    await page.locator('[data-moment-title="첫 이유식"]').click();
-    await expect(page.locator('#moment-title')).toHaveValue('첫 이유식');
+    await expect(page.locator('#baby-moment-gallery')).toBeVisible();
+    await expect(page.locator('#baby-moment-panel')).toContainText('Growth moments');
+    await page.locator('[data-open-moment-form]').click();
+    await expect(page.locator('#moment-form')).toBeVisible();
+    await page.locator('[data-moment-title="First solids"]').click();
+    await expect(page.locator('#moment-title')).toHaveValue('First solids');
     await page.locator('#moment-reset').click();
     await expect(page.locator('#moment-title')).toHaveValue('');
     await expect(page.locator('#moment-is-first')).toBeChecked();
-    await app.captureStep('Opened and reset moment form', 'The Moments menu opens the same form, preset chips populate the title, and Reset clears it while keeping first-moment default.');
+    await app.captureStep('Opened and reset moment form', 'The Moments menu opens a browsing gallery first, then its Add button reveals the form; preset chips populate the title, and Reset clears it while keeping first-moment default.');
 
     await page.locator('#moment-title').fill(title);
     await page.locator('#moment-note').fill('사진 없이 먼저 저장해도 타임라인에 남아야 해');
@@ -406,7 +416,7 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#baby-tab').click();
     await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
     await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Diaper (pee)']);
-    await expect(page.locator('#timeline .swipe-affordance')).toHaveCount(3);
+    await expect(page.locator('#timeline .swipe-affordance')).toHaveCount(0);
     await page.locator('#timeline .timeline-detail-button').first().click();
     await expect(page.locator('#timeline .timeline-detail-popover').first()).toContainText('Original text');
     await expect(page.locator('#summary .summary-item span')).toHaveText(['Sleep', 'Milk', 'Baby food', 'Diaper']);
@@ -672,7 +682,7 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
-  test('baby timeline item reveals and runs actions after a left swipe', async ({ page }, testInfo) => {
+  test('baby timeline item reveals and runs actions after a horizontal reveal gesture', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
     await app.captureStep('Opened app for swipe action scenario', 'Starting on baby tab before creating a swipable timeline log.');
@@ -688,16 +698,12 @@ test.describe('Family Tracker core flows', () => {
 
     const card = row.locator('.swipe-card');
     await card.scrollIntoViewIfNeeded();
-    const box = await card.boundingBox();
-    expect(box).toBeTruthy();
-    await page.mouse.move(box.x + box.width - 16, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width - 140, box.y + box.height / 2, { steps: 8 });
-    await page.mouse.up();
+    await card.hover();
+    await page.mouse.wheel(220, 0);
 
     await expect(row.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'false');
     await expect.poll(async () => row.locator('.swipe-card').evaluate((node) => node.style.transform)).toMatch(/^translate3d\(-/);
-    await app.captureStep('Revealed swipe action rail', 'A real desktop mouse drag opened the action rail.');
+    await app.captureStep('Revealed swipe action rail', 'A desktop horizontal wheel gesture opened the action rail.');
 
     await row.getByRole('button', { name: /Delete/ }).click();
     await expect(page.getByRole('heading', { name: 'Delete baby record?' })).toBeVisible();

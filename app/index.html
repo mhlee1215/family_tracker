@@ -253,33 +253,34 @@
         <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
         <section id="baby-patterns" class="baby-patterns app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby patterns"></section>
         <section id="growth-summary" class="growth-summary app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth summary"></section>
-        <section id="baby-moment-panel" class="baby-moment-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Add growth moment">
+        <section id="baby-moment-panel" class="baby-moment-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth moments">
+          <div id="baby-moment-gallery" class="moment-gallery" aria-live="polite"></div>
           <form id="moment-form" class="moment-form" autocomplete="off">
             <div class="section-header">
               <div>
                 <p class="eyebrow">Moments</p>
-                <h3>성장 순간</h3>
+                <h3>Add growth moment</h3>
               </div>
-              <span id="moment-upload-status" class="muted-count">사진/동영상 먼저</span>
+              <span id="moment-upload-status" class="muted-count">Add photo or video first</span>
             </div>
             <div class="moment-media-picker">
               <input id="moment-file-input" class="hidden" type="file" accept="image/*,video/*" multiple>
               <input id="moment-camera-input" class="hidden" type="file" accept="image/*" capture="environment">
-              <button id="moment-library-button" type="button" class="moment-add-media">+ 사진/동영상 추가</button>
-              <button id="moment-camera-button" type="button" class="ghost-button">카메라로 찍기</button>
+              <button id="moment-library-button" type="button" class="moment-add-media">+ Add photo or video</button>
+              <button id="moment-camera-button" type="button" class="ghost-button">Use camera</button>
             </div>
             <div id="moment-preview-strip" class="moment-preview-strip" aria-live="polite"></div>
             <div class="moment-presets" aria-label="Moment title presets">
-              <button type="button" data-moment-title="처음으로 밖에 나감">처음 외출</button>
-              <button type="button" data-moment-title="처음으로 뒤집기 성공">뒤집기</button>
-              <button type="button" data-moment-title="처음으로 크게 웃음">첫 웃음</button>
-              <button type="button" data-moment-title="첫 이유식">첫 이유식</button>
+              <button type="button" data-moment-title="First outing">First outing</button>
+              <button type="button" data-moment-title="Rolling over">Rolling over</button>
+              <button type="button" data-moment-title="First laugh">First laugh</button>
+              <button type="button" data-moment-title="First solids">First solids</button>
             </div>
-            <label class="floating-field"><span>제목</span><input id="moment-title" type="text" placeholder="처음으로 밖에 나감" required></label>
-            <label class="floating-field"><span>날짜</span><input id="moment-date" type="date" required></label>
-            <label class="floating-field"><span>메모</span><textarea id="moment-note" rows="3" placeholder="유모차 타고 동네 한 바퀴"></textarea></label>
-            <label class="moment-first-check"><input id="moment-is-first" type="checkbox" checked> <span>처음 한 일이에요</span></label>
-            <menu class="floating-window-actions"><button id="moment-reset" type="button" class="ghost-button">Reset</button><button type="submit">저장</button></menu>
+            <label class="floating-field"><span>Title</span><input id="moment-title" type="text" placeholder="First walk outside" required></label>
+            <label class="floating-field"><span>Date</span><input id="moment-date" type="date" required></label>
+            <label class="floating-field"><span>Note</span><textarea id="moment-note" rows="3" placeholder="A tiny detail you want to remember"></textarea></label>
+            <label class="moment-first-check"><input id="moment-is-first" type="checkbox" checked> <span>This was a first</span></label>
+            <menu class="floating-window-actions"><button id="moment-reset" type="button" class="ghost-button">Reset</button><button type="submit">Save moment</button></menu>
           </form>
         </section>
         <aside id="baby-action-log-panel" class="baby-action-log-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby action log">
@@ -296,7 +297,7 @@
                 <button type="submit">Save</button>
               </div>
               <div id="quick-actions" class="quick-actions" aria-label="Suggested logs"></div>
-              <button id="quick-add-moment" type="button" class="moment-quick-entry">+ 성장 순간</button>
+              <button id="quick-add-moment" type="button" class="moment-quick-entry">+ Growth moment</button>
             </form>
 
             <section class="timeline-section">
@@ -539,6 +540,7 @@
     </div>
     <script src="/app/vendor/Sortable.min.js"></script>
     <script src="/app/vendor/Swiped.min.js"></script>
+    <script src="/app/vendor/Chart.umd.js"></script>
     <script type="module" src="/app/main.js"></script>
   </body>
 </html>
