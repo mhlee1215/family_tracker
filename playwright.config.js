@@ -18,7 +18,7 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'DATABASE_PROVIDER=sqlite npm start',
+    command: 'MEDIA_STORAGE_PROVIDER=local DATABASE_PROVIDER=sqlite npm start',
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 90_000,

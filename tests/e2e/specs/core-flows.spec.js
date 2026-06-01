@@ -682,7 +682,7 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
-  test('baby timeline item reveals and runs actions after a left swipe', async ({ page }, testInfo) => {
+  test('baby timeline item reveals and runs actions after a horizontal reveal gesture', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
     await app.captureStep('Opened app for swipe action scenario', 'Starting on baby tab before creating a swipable timeline log.');
@@ -698,16 +698,12 @@ test.describe('Family Tracker core flows', () => {
 
     const card = row.locator('.swipe-card');
     await card.scrollIntoViewIfNeeded();
-    const box = await card.boundingBox();
-    expect(box).toBeTruthy();
-    await page.mouse.move(box.x + box.width - 16, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width - 140, box.y + box.height / 2, { steps: 8 });
-    await page.mouse.up();
+    await card.hover();
+    await page.mouse.wheel(220, 0);
 
     await expect(row.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'false');
     await expect.poll(async () => row.locator('.swipe-card').evaluate((node) => node.style.transform)).toMatch(/^translate3d\(-/);
-    await app.captureStep('Revealed swipe action rail', 'A real desktop mouse drag opened the action rail.');
+    await app.captureStep('Revealed swipe action rail', 'A desktop horizontal wheel gesture opened the action rail.');
 
     await row.getByRole('button', { name: /Delete/ }).click();
     await expect(page.getByRole('heading', { name: 'Delete baby record?' })).toBeVisible();
