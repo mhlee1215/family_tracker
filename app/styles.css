@@ -486,12 +486,12 @@ input {
 
 .tracker-preferences {
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  border-radius: 18px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 8px;
   margin: 0;
-  padding: 14px;
+  padding: 12px;
 }
 
 .tracker-preferences legend {
@@ -510,19 +510,31 @@ input {
   align-items: center;
   background: var(--surface-pearl);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: 9999px;
   color: var(--ink);
   cursor: pointer;
-  display: flex;
-  font-size: 14px;
+  display: inline-flex;
+  font-size: 13px;
   font-weight: 600;
-  gap: 8px;
-  min-height: 44px;
-  padding: 10px 12px;
+  gap: 7px;
+  min-height: 34px;
+  min-width: 0;
+  padding: 7px 10px;
 }
 
-.tracker-preferences input {
+.tracker-preferences input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
   accent-color: var(--primary);
+}
+
+.tracker-preferences label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .baby-status-range {
@@ -2289,21 +2301,26 @@ label {
 
 /* Floating section panels keep module menus lightweight without replacing the main workspace. */
 .module-view {
+  --floating-panel-top: calc(44px + 260px + 61px + 8px);
   position: relative;
+}
+
+#task-view,
+#meal-view {
+  --floating-panel-top: calc(44px + 220px + 61px + 8px);
 }
 
 .app-section-menu {
   position: relative;
-  z-index: 22;
 }
 
 .app-floating-panel {
   position: fixed;
-  top: calc(44px + 92px);
+  top: var(--floating-panel-top);
   right: min(80px, 7vw);
-  z-index: 18;
+  z-index: 24;
   width: min(640px, calc(100% - 32px));
-  max-height: min(78vh, 760px);
+  max-height: min(calc(100dvh - var(--floating-panel-top) - 16px), 760px);
   overflow: auto;
   border: 1px solid var(--hairline);
   border-radius: 18px;
@@ -2317,7 +2334,7 @@ label {
 
 .task-layout > .app-floating-panel,
 .task-composer.app-floating-panel {
-  top: calc(44px + 76px);
+  top: var(--floating-panel-top);
   right: min(80px, 7vw);
 }
 
@@ -2380,11 +2397,21 @@ label {
   display: none;
 }
 
+@media (min-width: 681px) and (max-width: 1023px) {
+  .module-view {
+    --floating-panel-top: calc(44px + 148px + 61px + 8px);
+  }
+}
+
 @media (max-width: 680px) {
+  .module-view {
+    --floating-panel-top: calc(44px + 132px + 52px + 8px);
+  }
+
   .app-floating-panel,
   .task-layout > .app-floating-panel,
   .task-composer.app-floating-panel {
-    top: calc(44px + 76px);
+    top: var(--floating-panel-top);
     right: 16px;
     left: 16px;
     width: auto;
@@ -3230,6 +3257,45 @@ label {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+
+@media (min-width: 760px) and (max-height: 900px) and (orientation: landscape) {
+  .home-hero {
+    grid-template-columns: minmax(120px, 0.34fr) minmax(280px, 1fr);
+    min-height: clamp(120px, 18dvh, 168px);
+    gap: clamp(18px, 4vw, 48px);
+    padding: clamp(16px, 3dvh, 28px) min(56px, 5vw);
+  }
+
+  .home-hero-art {
+    width: min(22dvh, 180px);
+  }
+
+  .home-heading {
+    gap: 4px;
+  }
+
+  .home-hero .eyebrow {
+    margin-bottom: 4px;
+  }
+
+  .home-hero .day-label {
+    font-size: clamp(36px, 6dvh, 48px);
+  }
+
+  .home-deck {
+    font-size: clamp(14px, 2dvh, 17px);
+  }
+
+  .home-dashboard {
+    gap: 10px;
+    padding: 14px min(44px, 4vw) 16px;
+  }
+
+  .home-dashboard-header h2 {
+    font-size: clamp(24px, 4dvh, 32px);
+  }
 }
 
 @media (max-width: 833px) {

@@ -54,7 +54,8 @@ test('floating panels and gallery CSS keep usable tablet/desktop layout', () => 
   ruleIncludes('.app-floating-panel', [
     'position:\\s*fixed',
     'width:\\s*min\\(640px, calc\\(100% - 32px\\)\\)',
-    'max-height:\\s*min\\(78vh, 760px\\)',
+    'max-height:\\s*min\\(calc\\(100dvh - var\\(--floating-panel-top\\) - 16px\\), 760px\\)',
+    'z-index:\\s*24',
   ]);
 
   ruleIncludes('.task-composer.app-floating-panel', [
@@ -62,9 +63,17 @@ test('floating panels and gallery CSS keep usable tablet/desktop layout', () => 
     'margin:\\s*0',
   ]);
 
+  ruleIncludes('.module-view', [
+    '--floating-panel-top:\\s*calc\\(44px \\+ 260px \\+ 61px \\+ 8px\\)',
+  ]);
+
+  ruleIncludes('#task-view,\n#meal-view', [
+    '--floating-panel-top:\\s*calc\\(44px \\+ 220px \\+ 61px \\+ 8px\\)',
+  ]);
+
   const taskPositionRule = css.match(/\.task-layout > \.app-floating-panel,\s*\.task-composer\.app-floating-panel\s*\{([^}]*)\}/m);
   assert.ok(taskPositionRule, 'Missing combined task floating panel position rule');
-  assert.match(compact(taskPositionRule[1]), /top:\s*calc\(44px \+ 76px\)/, 'Task composer should open below the module menu, not under it');
+  assert.match(compact(taskPositionRule[1]), /top:\s*var\(--floating-panel-top\)/, 'Task composer should open below the module menu, not under it');
 
   ruleIncludes('.growth-summary.app-floating-panel', [
     'width:\\s*min\\(1040px, calc\\(100% - 32px\\)\\)',
