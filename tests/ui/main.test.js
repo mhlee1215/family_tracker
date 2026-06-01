@@ -330,7 +330,8 @@ describe('app/main', () => {
     expect(settingsPanel.getAttribute('aria-hidden')).toBe('true');
     expect(summaryPanel.classList.contains('hidden')).toBe(false);
     expect(summaryPanel.getAttribute('aria-hidden')).toBe('false');
-    expect(summaryPanel.querySelector('.growth-chart')).toBeTruthy();
+    expect(summaryPanel.querySelector('#growth-trend-chart')).toBeTruthy();
+    expect(summaryPanel.textContent).toContain('X-axis shows record dates');
 
     fireEvent.pointerDown(document.body);
     expect(summaryPanel.classList.contains('hidden')).toBe(true);
@@ -597,6 +598,38 @@ describe('app/main', () => {
     localStorage.removeItem('familyTracker.activeBabyTrackers');
   });
 
+
+  it('hides all baby tracker status cards when every tracker is disabled', async () => {
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile') && (!init.method || init.method === 'GET')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.endsWith('/api/profile') && init.method === 'POST') return new Response(JSON.stringify({ profile: JSON.parse(init.body).profile, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [],
+          summary: { sleepMinutes: 40, milkCount: 2, milkAmountMl: 180, solidCount: 1, diaperCount: 3 },
+          context: { lastMilk: null, lastDiaper: null, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 },
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=all-baby-trackers-disabled');
+
+    fireEvent.click(document.querySelector('#open-baby-settings'));
+    document.querySelectorAll('[name="babyTrackerTypes"]').forEach((input) => { input.checked = false; });
+    fireEvent.submit(document.querySelector('#baby-settings-form'));
+
+    await vi.waitFor(() => expect(localStorage.getItem('familyTracker.activeBabyTrackers')).toBe(''));
+    await vi.waitFor(() => expect(document.querySelector('#summary').classList.contains('hidden')).toBe(true));
+    expect(document.querySelector('#today-context').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#quick-actions').children).toHaveLength(0);
+
+    localStorage.removeItem('familyTracker.activeBabyTrackers');
+  });
+
   it('sorts the baby timeline by event time and filters by log type', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
@@ -775,7 +808,7 @@ describe('app/main', () => {
     await vi.waitFor(() => expect(document.querySelector('#timeline .raw-text')?.textContent).toBe('formula'));
     const timeline = document.querySelector('#timeline');
     expect(timeline.querySelector('.timeline-swipe .swipe-hint')).toBeNull();
-    expect(timeline.querySelector('.swipe-affordance')?.getAttribute('aria-label')).toContain('Swipe left');
+    expect(timeline.querySelector('.swipe-affordance')).toBeNull();
     fireEvent.click(timeline.querySelector('.timeline-detail-button'));
     expect(timeline.querySelector('.timeline-detail-popover')?.hidden).toBe(false);
     expect(timeline.querySelector('.timeline-detail-popover')?.textContent).toContain('Original text');

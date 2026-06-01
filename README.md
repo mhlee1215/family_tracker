@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 075](https://img.shields.io/badge/build-075-0066cc)
+![Build 076](https://img.shields.io/badge/build-076-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -34,7 +34,7 @@ Designed for very short natural-language input such as `낮잠`, `깸`, `분유 
 - Extracts explicit facts from the message
 - Fills missing fields from context/defaults when possible
 - Stores detailed baby profile fields including birth time, height, head size, weight, and Apgar
-- Saves dated growth records for birth, current, or custom dates and shows growth history summaries with an in-section trend chart
+- Saves dated growth records for birth, current, or custom dates and shows growth history summaries with a Chart.js-powered trend chart
 - Marks inferred values separately from user-provided values
 - Shows Baby status for last milk, diaper, sleep state, and estimated fields with a Recent 24h/Today toggle
 - Adds a Baby menu Patterns panel with selectable day/week/month-style periods, 24-hour activity lanes, interval insight cards, and comparison statistics
@@ -49,7 +49,7 @@ Designed for very short natural-language input such as `낮잠`, `깸`, `분유 
 
 #### Growth moments and media
 
-Baby tracking includes a `Moments` flow for memories such as first outings, rolling over, and first smiles. The current local-first MVP stores the moment as a structured `milestone` event and saves small generated thumbnails with the event so the timeline can show a photo-first card immediately. Original photo/video object storage should be configured with private Cloudflare R2 before production media uploads. Keep R2 credentials in server environment variables only; browser code must never receive storage secrets. `R2_PUBLIC_BASE_URL` is optional and should stay blank for private buckets that use signed view URLs.
+Baby tracking includes a `Moments` flow for memories such as first outings, rolling over, and first smiles. The current local-first MVP stores the moment as a structured `milestone` event and saves small generated thumbnails with the event so the Moments gallery can show a photo-first browsing card without forcing timeline thumbnail loads. Original photo/video object storage should be configured with private Cloudflare R2 before production media uploads. Keep R2 credentials in server environment variables only; browser code must never receive storage secrets. `R2_PUBLIC_BASE_URL` is optional and should stay blank for private buckets that use signed view URLs.
 
 Recommended R2 environment variables for the production upload provider:
 

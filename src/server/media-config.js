@@ -12,7 +12,9 @@ export function getMediaStorageConfig(env = process.env) {
     }
   }
 
-  const publicBaseUrl = normalizeOptionalUrl(env.R2_PUBLIC_BASE_URL, invalid, 'R2_PUBLIC_BASE_URL');
+  const publicBaseUrl = provider === 'r2'
+    ? normalizeOptionalUrl(env.R2_PUBLIC_BASE_URL, invalid, 'R2_PUBLIC_BASE_URL')
+    : '';
   const maxImageBytes = positiveInteger(env.MEDIA_UPLOAD_MAX_IMAGE_BYTES, defaultMaxImageBytes, invalid, 'MEDIA_UPLOAD_MAX_IMAGE_BYTES');
   const maxVideoBytes = positiveInteger(env.MEDIA_UPLOAD_MAX_VIDEO_BYTES, defaultMaxVideoBytes, invalid, 'MEDIA_UPLOAD_MAX_VIDEO_BYTES');
 

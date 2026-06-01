@@ -17,6 +17,15 @@ test('media storage defaults to local with safe upload limits', () => {
   assert.equal(config.maxVideoBytes, 100 * 1024 * 1024);
 });
 
+
+test('local media storage ignores unrelated R2 optional URL values', () => {
+  const config = getMediaStorageConfig({ MEDIA_STORAGE_PROVIDER: 'local', R2_PUBLIC_BASE_URL: 'not a url' });
+  assert.equal(config.provider, 'local');
+  assert.equal(config.configured, true);
+  assert.deepEqual(config.invalid, []);
+  assert.equal(config.publicBaseUrlConfigured, false);
+});
+
 test('R2 media storage reports missing secrets without exposing secret values', () => {
   const config = getMediaStorageConfig({ MEDIA_STORAGE_PROVIDER: 'r2', R2_BUCKET: 'family-tracker-media' });
   assert.equal(config.provider, 'r2');
