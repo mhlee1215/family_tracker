@@ -18,6 +18,11 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 
 
 
+## GitHub PR Semantics Gate
+- PR 생성/제출/업데이트 요청의 완료 기준은 GitHub 원격 저장소에 실제 Pull Request가 생성되거나 업데이트되어 URL/번호가 확인되는 것이다.
+- 하네스 기록, 로컬 메타데이터, `make_pr` 도구 호출은 실제 GitHub PR의 대체물이 아니며, 필요한 경우에도 GitHub PR 생성과 별도로만 취급한다.
+- PR 작업은 커밋 이후 브랜치 push와 `gh pr create` 또는 GitHub API 호출까지 포함한다. 실패하면 실패 상태로 보고하고 완료 처리하지 않는다.
+
 ## GitHub PR Environment Gate
 - PR 생성/제출/업데이트 요청은 환경변수 기반 GitHub 설정을 우선 사용한다.
 - `origin` remote가 비어 있으면 `GITHUB_REPO`를 읽어 `https://github.com/${GITHUB_REPO}.git` remote를 설정한다.

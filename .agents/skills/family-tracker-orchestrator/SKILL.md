@@ -31,6 +31,12 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 
 
 
+## GitHub PR Semantics Policy
+- 사용자가 "PR 생성", "PR 만들기", "PR 올리기", "피알 만들어"라고 요청하면 이는 하네스 기록이나 로컬 PR 메타데이터가 아니라 **GitHub 원격 저장소에 실제 Pull Request를 생성/업데이트**하라는 뜻이다.
+- 코드 변경을 커밋한 뒤에는 브랜치를 GitHub remote에 push하고 `gh pr create` 또는 GitHub API로 실제 PR URL/번호를 확보해야 완료로 간주한다.
+- `make_pr` 같은 로컬/하네스 기록 도구는 GitHub PR 생성을 대체하지 못한다. 사용해야 하는 상위 지시가 있더라도, 별도로 실제 GitHub PR 생성까지 수행하고 최종 보고에 URL을 남긴다.
+- 인증/권한/네트워크 문제로 실제 GitHub PR 생성이 불가능하면 완료라고 말하지 말고, 실패한 명령과 원인을 명시한다.
+
 ## GitHub PR Environment Policy
 - 사용자가 PR 생성/제출/업데이트를 요청하면 먼저 로컬 remote 존재 여부를 확인한다.
 - `origin` remote가 없고 `GITHUB_REPO` 환경변수가 있으면 `https://github.com/${GITHUB_REPO}.git` 값을 사용해 `origin`을 설정한다.
