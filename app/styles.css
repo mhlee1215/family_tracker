@@ -2133,6 +2133,8 @@ label {
 }
 
 .app-menu-button {
+  position: relative;
+  z-index: 25;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2306,7 +2308,6 @@ label {
 
 .app-section-menu {
   position: relative;
-  z-index: 10;
 }
 
 .app-floating-panel {
