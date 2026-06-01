@@ -21,7 +21,7 @@ export function getBabyLogClarification(text) {
     });
   }
 
-  if (looksLikeMilk(lower) && /(?:formula|milk|feeding|feed|fed|분유|수유|모유)\D{0,16}\d+(?:\.\d+)?\s*(?:m|min|mins|minute|minutes)\b/i.test(normalized)) {
+  if (looksLikeMilk(lower) && !hasRelativeAgo(normalized) && /(?:formula|milk|feeding|feed|fed|분유|수유|모유)\D{0,16}\d+(?:\.\d+)?\s*(?:m|min|mins|minute|minutes)\b/i.test(normalized)) {
     return createClarification({
       code: 'ambiguous_feeding_minutes',
       message: 'The log includes minutes near a milk feeding, but it is unclear whether that means feeding duration or timing relative to another event.',
@@ -44,7 +44,7 @@ export function parseBabyLogText(text, context = {}) {
   const normalized = rawText.replace(/\s+/g, ' ');
   const lower = normalized.toLowerCase();
   const event = baseEvent(normalized, context);
-  const explicitTime = extractExplicitTime(normalized, context);
+  const explicitTime = extractEventTime(normalized, context);
   const candidates = [];
 
   if (looksLikeDiaper(lower)) {
@@ -469,7 +469,7 @@ function extractAmountMl(text) {
   const explicitUnit = text.match(/(\d{1,3}(?:\.\d+)?)\s?(ml|미리|밀리)\b/i);
   if (explicitUnit) return Number(explicitUnit[1]);
 
-  const nearbyNumber = text.match(/(?:분유|수유|모유|milk|formula)\D{0,12}(\d{1,3}(?:\.\d+)?)(?!\s*(?:m|min|mins|minute|minutes)\b)/i);
+  const nearbyNumber = text.match(/(?:분유|수유|모유|milk|formula)\D{0,12}(\d{1,3}(?:\.\d+)?)(?![\d.])(?!\s*(?:m|min|mins|minute|minutes)\b)/i);
   return nearbyNumber ? Number(nearbyNumber[1]) : null;
 }
 
@@ -479,6 +479,27 @@ function extractFood(text) {
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned || '이유식';
+}
+
+function extractEventTime(text, context = {}) {
+  return extractExplicitTime(text, context) || extractRelativeAgoTime(text, context);
+}
+
+function extractRelativeAgoTime(text, context = {}) {
+  const match = text.match(/\b(\d{1,3}(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)\s+ago\b/i);
+  if (!match) return null;
+  const minutesAgo = Number(match[1]);
+  if (!Number.isFinite(minutesAgo)) return null;
+  const { now } = explicitTimeContext(context);
+  return createField(addMinutes(now.toISOString(), -minutesAgo), 'inferred', `current_time_minus_${formatBasisNumber(minutesAgo)}_minutes`, 0.9);
+}
+
+function hasRelativeAgo(text) {
+  return /\b\d{1,3}(?:\.\d+)?\s*(?:m|min|mins|minute|minutes)\s+ago\b/i.test(text);
+}
+
+function formatBasisNumber(value) {
+  return Number.isInteger(value) ? String(value) : String(value).replace(/\./g, '_');
 }
 
 function extractExplicitTime(text, context = {}) {

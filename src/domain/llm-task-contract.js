@@ -55,13 +55,9 @@ export function instructionsForTask(task) {
   if (task === 'parse_baby_log') {
     return [
       'Return JSON matching the supplied schema.',
-      'Return one event per clear baby activity.',
-      'If required meaning is ambiguous, return status "needs_clarification" with code, message, questions, suggestedInputs, and no events instead of guessing.',
-      'Do not turn minute expressions such as 5mins, 5 min, or 5 minutes into amountMl.',
-      'Only set amountMl when the user explicitly used a milk-volume unit such as ml.',
-      'Only set occurredAt when the user explicitly supplied an absolute time or the timing can be unambiguously resolved from now and the text.',
-      'For clear phrases like latest/recent formula feeding 10 minutes before/after another activity, set relativeTime instead of calculating occurredAt yourself.',
-      'Use diaperKind mixed when the user mentions both poop/dirty and pee/wet in the same diaper.',
+      'Read the caregiver log, decide which baby activities are clear enough to save, and return one event per activity.',
+      'Include only values that are stated or safely understood from the input and provided context.',
+      'When the input is not safe to save as structured data, return status "needs_clarification" with caregiver-facing questions and no events.',
     ].join(' ');
   }
   return 'Answer family tracker questions using the provided structured data.';

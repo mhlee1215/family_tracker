@@ -89,6 +89,32 @@ test('uses heuristic parser when shortcut buttons request it even with configure
 });
 
 
+test('lets configured LLM providers judge ambiguous baby logs before local heuristic clarification', async () => {
+  let callCount = 0;
+  const result = await parseBabyLogForSave('formula 5mins', { now }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    callTask: async () => {
+      callCount += 1;
+      return {
+        output_text: JSON.stringify({
+          status: 'needs_clarification',
+          code: 'llm_ambiguous_formula_minutes',
+          message: 'The model needs the caregiver to confirm whether this is a duration or a timestamp.',
+          questions: ['Does 5mins mean formula feeding lasted 5 minutes or happened 5 minutes ago?'],
+          suggestedInputs: ['formula for 5 minutes', 'formula 5 minutes ago'],
+          events: [],
+        }),
+      };
+    },
+  });
+
+  assert.equal(callCount, 1);
+  assert.equal(result.status, 'needs_clarification');
+  assert.equal(result.code, 'llm_ambiguous_formula_minutes');
+});
+
 test('returns clarification decisions without falling back to heuristic saves', async () => {
   let callCount = 0;
   const result = await parseBabyLogForSave('fed 5mins', { now }, {
