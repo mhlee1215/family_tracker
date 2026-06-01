@@ -288,6 +288,10 @@ const elements = {
   actionDialogConfirm: $('#action-dialog-confirm'),
 };
 
+const HOME_BABY_CLUSTER_WINDOW_MINUTES = 45;
+const HOME_BABY_MARKER_LIMIT = 18;
+const HOME_BABY_CLUSTER_ICON_LIMIT = 4;
+
 function handleMenuToggleClick() {
   setMenuOpen(elements.menuPanel.classList.contains('hidden'));
 }
@@ -2854,14 +2858,19 @@ function renderHomeDashboard() {
 
 function homeBabyCard(events) {
   const latest = latestClientEvent(events);
-  const markers = sortedTimelineEvents(events).slice(0, 18).map((event, index) => homeTimelineMarker({
-    className: `home-marker baby-marker marker-${event.type}`,
-    value: eventTimeValue(event),
-    index,
-    label: `${eventTitle(event)} · ${eventMeta(event)}`,
-    icon: babyEventIcon(event),
-  })).join('');
-  const overflow = events.length > 18 ? `<span class="home-marker-overflow">+${events.length - 18}</span>` : '';
+  const timelineItems = homeBabyTimelineItems(events);
+  const visibleItems = timelineItems.slice(0, HOME_BABY_MARKER_LIMIT);
+  const markers = visibleItems.map((item, index) => (item.events
+    ? homeBabyClusterMarker(item, index)
+    : homeTimelineMarker({
+      className: `home-marker baby-marker marker-${item.event.type}`,
+      value: eventTimeValue(item.event),
+      index,
+      label: `${eventTitle(item.event)} · ${eventMeta(item.event)}`,
+      icon: babyEventIcon(item.event),
+    }))).join('');
+  const hiddenEventCount = timelineItems.slice(HOME_BABY_MARKER_LIMIT).reduce((sum, item) => sum + (item.events?.length || 1), 0);
+  const overflow = hiddenEventCount ? `<span class="home-marker-overflow">+${hiddenEventCount}</span>` : '';
   return `
     <article class="home-card home-card-baby">
       <header class="home-card-header">
@@ -2874,6 +2883,43 @@ function homeBabyCard(events) {
         <div class="home-timeline-rail">${markers}${overflow}${homeNowMarker()}</div>
       </div>
     </article>`;
+}
+
+function homeBabyTimelineItems(events) {
+  const chronologicalEvents = [...events].sort(compareTimelineEvents);
+  const clusters = [];
+  chronologicalEvents.forEach((event) => {
+    const eventTimestamp = timelineEventTimestamp(event);
+    const lastCluster = clusters.at(-1);
+    if (lastCluster && eventTimestamp - lastCluster.lastTimestamp <= HOME_BABY_CLUSTER_WINDOW_MINUTES * 60000) {
+      lastCluster.events.push(event);
+      lastCluster.lastTimestamp = eventTimestamp;
+      return;
+    }
+    clusters.push({ events: [event], firstTimestamp: eventTimestamp, lastTimestamp: eventTimestamp });
+  });
+  return clusters.map((cluster) => (cluster.events.length === 1
+    ? { event: cluster.events[0] }
+    : cluster));
+}
+
+function homeBabyClusterMarker(cluster, index) {
+  const firstEvent = cluster.events[0];
+  const icons = cluster.events.slice(0, HOME_BABY_CLUSTER_ICON_LIMIT).map((event) => (
+    `<span class="home-cluster-icon marker-${escapeHtml(event.type)}">${babyEventIcon(event)}</span>`
+  )).join('');
+  const extra = cluster.events.length > HOME_BABY_CLUSTER_ICON_LIMIT
+    ? `<span class="home-cluster-more">+${cluster.events.length - HOME_BABY_CLUSTER_ICON_LIMIT}</span>`
+    : '';
+  const labels = cluster.events.slice(0, 6).map((event) => `${eventTitle(event)} ${timeLabel({ value: eventTimeValue(event) })}`);
+  const moreLabel = cluster.events.length > 6 ? ` · +${cluster.events.length - 6} more` : '';
+  return homeTimelineMarker({
+    className: 'home-marker baby-marker baby-cluster-marker',
+    value: eventTimeValue(firstEvent),
+    index,
+    label: `${cluster.events.length} logs near ${timeLabel({ value: eventTimeValue(firstEvent) })} · ${labels.join(' · ')}${moreLabel}`,
+    icon: `<span class="home-cluster-icons">${icons}${extra}</span>`,
+  });
 }
 
 function homeTaskCard(urgentTasks, completedTasks) {

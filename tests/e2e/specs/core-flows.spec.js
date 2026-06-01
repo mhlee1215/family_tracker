@@ -32,6 +32,41 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+
+  test('home baby timeline clusters crowded logs into one marker', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await page.route('**/api/logs/today**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          events: [
+            { id: 'milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-06-01T10:00:00.000Z' }, amountMl: { value: 120 } },
+            { id: 'diaper-1', type: 'diaper', rawText: 'pee', occurredAt: { value: '2026-06-01T10:12:00.000Z' }, diaperKind: { value: 'wet' } },
+            { id: 'sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-06-01T10:31:00.000Z' }, endAt: { value: '2026-06-01T10:42:00.000Z' }, durationMinutes: { value: 11 } },
+            { id: 'milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-06-01T13:00:00.000Z' }, amountMl: { value: 90 } },
+          ],
+          summary: {},
+        }),
+      });
+    });
+
+    await app.loginAsDevAdmin('/');
+    const babyCard = page.locator('.home-card-baby');
+    await expect(babyCard.locator('.home-marker')).toHaveCount(2);
+    await expect(babyCard.locator('.baby-cluster-marker .home-cluster-icon')).toHaveCount(3);
+
+    await babyCard.locator('.baby-cluster-marker').click();
+    await expect(babyCard.locator('.baby-cluster-marker')).toHaveAttribute('aria-expanded', 'true');
+    await expect(babyCard.locator('.baby-cluster-marker .home-tooltip')).toContainText('3 logs near');
+    await expect(babyCard.locator('.baby-cluster-marker .home-tooltip')).toContainText('Formula');
+    await app.captureStep('Opened clustered baby timeline marker', 'Crowded baby logs are represented as one small icon collection with a combined tooltip.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('home dashboard stays within one screen on Apple-sized viewports', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     const viewports = [
