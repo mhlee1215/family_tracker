@@ -975,4 +975,56 @@ describe('app/main', () => {
     }
   });
 
+
+  it('refreshes milk pace when baby profile loads after milk logs', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-30T12:00:00'));
+    let resolveProfile;
+    const profileReady = new Promise((resolve) => { resolveProfile = resolve; });
+    try {
+      global.fetch = vi.fn(async (input) => {
+        const url = typeof input === 'string' ? input : input.url;
+        if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+        if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+        if (url.endsWith('/api/profile')) {
+          await profileReady;
+          return new Response(JSON.stringify({
+            profile: { babyName: 'Ari', birthDate: '2026-05-16', milkAmountMlOverride: 30 },
+            growthRecords: [],
+          }), { status: 200 });
+        }
+        if (url.startsWith('/api/logs/today')) {
+          const requestUrl = new URL(url, 'http://localhost');
+          const day = requestUrl.searchParams.get('day') || '2026-05-30';
+          const count = day === '2026-05-29' ? 6 : 5;
+          const amount = day === '2026-05-29' ? 25 : 20;
+          return new Response(JSON.stringify({
+            events: Array.from({ length: count }, (_, index) => ({
+              id: `${day}-${index}`,
+              type: 'feeding_milk',
+              rawText: `formula ${amount}`,
+              occurredAt: { value: `${day}T0${Math.min(index + 1, 9)}:00:00.000Z` },
+              amountMl: { value: amount },
+            })),
+            summary: { milkCount: count, milkAmountMl: count * amount },
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+      });
+
+      const importPromise = import('../../app/main.js?case=feeding-guidance-profile-race');
+      await vi.waitFor(() => expect(document.querySelector('#feeding-guidance')?.textContent).toContain('Add a birth date'));
+
+      resolveProfile();
+      await importPromise;
+
+      const guidance = document.querySelector('#feeding-guidance');
+      expect(guidance.textContent).toContain('Week 3 newborn');
+      expect(guidance.textContent).toContain('Milk pace');
+      expect(guidance.textContent).toContain('4–6x · 120–180ml');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
 });

@@ -658,6 +658,7 @@ async function loadBabyProfile() {
   state.growthRecords = payload.growthRecords || [];
   renderBabySettings();
   renderGrowthSummary();
+  renderFeedingGuidance();
 }
 
 async function saveBabyProfile() {
