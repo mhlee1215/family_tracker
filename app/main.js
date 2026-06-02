@@ -410,7 +410,7 @@ elements.openTaskActionLog?.addEventListener('click', () => setTaskPanel(state.t
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
 elements.openBabySummary?.addEventListener('click', () => setBabyPanel('summary'));
 elements.openBabyPatterns?.addEventListener('click', () => setBabyPanel('patterns'));
-elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
+elements.openBabySettings?.addEventListener('click', () => setBabyPanel('settings'));
 elements.openBabyMoments?.addEventListener('click', () => setBabyPanel('moments', { mode: 'gallery' }));
 elements.openBabyActionLog?.addEventListener('click', () => setBabyPanel('actionLog'));
 elements.openBabyLog?.addEventListener('click', () => {
@@ -1197,7 +1197,7 @@ function renderBabyPanel() {
   const patternsOpen = state.babyPanel === 'patterns';
   const momentsOpen = state.babyPanel === 'moments';
   const actionLogOpen = state.babyPanel === 'actionLog';
-  const recordOpen = !summaryOpen && !patternsOpen && !momentsOpen && !actionLogOpen;
+  const recordOpen = !summaryOpen && !settingsOpen && !patternsOpen && !momentsOpen && !actionLogOpen;
   const recordButtonActive = recordOpen && !settingsOpen;
   elements.workspace?.classList.toggle('hidden', !recordOpen);
   elements.workspace?.setAttribute('aria-hidden', String(!recordOpen));
@@ -2015,7 +2015,10 @@ function insightCard(label, value, detail) {
 function renderPatternStatistics(days, unit) {
   const buckets = patternStatisticBuckets(days, unit);
   const metrics = patternStatisticMetrics(days);
-  const maxValue = Math.max(1, ...buckets.flatMap((bucket) => metrics.map((metric) => bucket[metric.key] || 0)));
+  const metricMaxValues = Object.fromEntries(metrics.map((metric) => [
+    metric.key,
+    Math.max(1, ...buckets.map((bucket) => bucket[metric.key] || 0)),
+  ]));
   const unitName = { day: 'day', week: 'week', month: 'month' }[unit] || 'day';
   const average = (metric) => buckets.length ? metricsValueLabel(metric, buckets.reduce((sum, bucket) => sum + (bucket[metric.key] || 0), 0) / buckets.length) : 'No data';
   return `
@@ -2023,14 +2026,14 @@ function renderPatternStatistics(days, unit) {
       <div>
         <span class="eyebrow">Statistics</span>
         <h3>${escapeHtml(unitName[0].toUpperCase() + unitName.slice(1))} comparison</h3>
-        <p>Compare ${escapeHtml(unitName)} averages across the selected history.</p>
+        <p>Compare ${escapeHtml(unitName)} totals as grouped multi-bar charts. Tap a group for exact numbers.</p>
       </div>
       <div class="pattern-stat-averages">
         ${metrics.map((metric) => `<span><strong>${escapeHtml(average(metric))}</strong>${escapeHtml(metric.label)} avg</span>`).join('')}
       </div>
     </div>
-    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics comparison chart">
-      ${buckets.map((bucket) => patternStatisticBucket(bucket, metrics, maxValue)).join('') || '<p class="empty">No logs to chart yet.</p>'}
+    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics grouped multi-bar chart">
+      ${buckets.map((bucket) => patternStatisticBucket(bucket, metrics, metricMaxValues)).join('') || '<p class="empty">No logs to chart yet.</p>'}
     </div>
   `;
 }
@@ -2059,18 +2062,29 @@ function patternStatisticBuckets(days, unit) {
   });
 }
 
-function patternStatisticBucket(bucket, metrics, maxValue) {
+function patternStatisticBucket(bucket, metrics, metricMaxValues) {
+  const detailId = `pattern-stat-detail-${bucket.key.replace(/[^a-z0-9_-]/gi, '-')}`;
   return `
-    <article class="pattern-stat-bucket">
-      <strong>${escapeHtml(bucket.label)}</strong>
-      <div class="pattern-stat-bars">
+    <details class="pattern-stat-bucket">
+      <summary aria-controls="${escapeHtml(detailId)}">
+        <strong>${escapeHtml(bucket.label)}</strong>
+        <div class="pattern-stat-bars" aria-hidden="true">
+          ${metrics.map((metric) => {
+            const value = bucket[metric.key] || 0;
+            const height = Math.max(value ? 8 : 0, (value / (metricMaxValues[metric.key] || 1)) * 100);
+            const valueLabel = metricsValueLabel(metric, value);
+            return `<span class="pattern-stat-bar pattern-stat-${metric.key}" title="${escapeHtml(metric.label)}: ${escapeHtml(valueLabel)}"><i style="height:${height}%"></i><em>${escapeHtml(metric.label)}</em></span>`;
+          }).join('')}
+        </div>
+        <span class="pattern-stat-tap-hint">Tap for numbers</span>
+      </summary>
+      <dl id="${escapeHtml(detailId)}" class="pattern-stat-detail">
         ${metrics.map((metric) => {
           const value = bucket[metric.key] || 0;
-          const width = Math.max(value ? 4 : 0, (value / maxValue) * 100);
-          return `<div class="pattern-stat-row pattern-stat-${metric.key}"><span>${escapeHtml(metric.label)}</span><div class="pattern-stat-track"><i style="width:${width}%"></i></div><em>${escapeHtml(metricsValueLabel(metric, value))}</em></div>`;
+          return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>`;
         }).join('')}
-      </div>
-    </article>
+      </dl>
+    </details>
   `;
 }
 

@@ -606,6 +606,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toContainText('Milk interval');
     await expect(page.locator('#baby-patterns')).toContainText('Sleep rhythm');
     await expect(page.locator('#baby-patterns')).toContainText('Week comparison');
+    await expect(page.locator('#baby-patterns')).toContainText('Tap a group for exact numbers');
+    await expect(page.locator('#baby-patterns .pattern-stat-bar').first()).toBeVisible();
+    await page.locator('#baby-patterns .pattern-stat-bucket').first().click();
+    await expect(page.locator('#baby-patterns .pattern-stat-detail').first()).toBeVisible();
     await app.captureStep('Weekly baby pattern rendered', 'The pattern panel opened from the baby menu with seven calendar lanes, interval cards, and statistics.');
 
     await page.locator('#baby-patterns .pattern-toggle', { hasText: 'Milk' }).click();
@@ -937,6 +941,8 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Opened baby settings for growth scenario', 'Starting on baby tab before saving birth measurements.');
 
     await page.locator('#open-baby-settings').click();
+    await expect(page.locator('#baby-settings-panel')).toBeVisible();
+    await expect(page.locator('#workspace')).toBeHidden();
     await page.locator('#baby-name').fill('Growth E2E Baby');
     await page.locator('#birth-date').fill('2026-01-01');
     await page.locator('#birth-time').fill('20:06');
