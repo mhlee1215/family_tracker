@@ -9,7 +9,7 @@ app/
   Browser rendering and event handling.
 
 src/domain/
-  Baby log parsing, field inference, sleep-session linking, summaries, and LLM provider boundaries.
+  Baby log parsing, field inference, sleep-session linking, summaries, deterministic care forecasts, and LLM provider boundaries.
 
 src/server/db/
   SQLite-backed local persistence for profiles, raw records, structured events, and module action logs.

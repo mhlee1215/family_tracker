@@ -262,6 +262,15 @@
               <span>Default nap length, minutes</span>
               <input id="nap-duration" name="napDurationMinutesOverride" type="number" min="0" step="5" placeholder="60">
             </label>
+            <label class="select-control">
+              <span>Forecast baseline</span>
+              <select id="forecast-baseline" name="forecastBaseline">
+                <option value="1">Last day</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+              </select>
+            </label>
+            <p class="settings-note">Care forecasts use this history window for next milk and diaper estimates.</p>
             <fieldset class="tracker-preferences" aria-label="Visible baby trackers">
               <legend>Visible trackers</legend>
               <p class="settings-note">Choose the cards and quick log buttons that match your baby’s current stage.</p>
@@ -286,6 +295,7 @@
           </div>
           <section id="summary" class="summary-strip" aria-label="Baby status summary"></section>
           <section id="today-context" class="today-context" aria-label="Baby status context"></section>
+          <section id="care-forecast" class="care-forecast" aria-label="Care forecast"></section>
           <section id="feeding-guidance" class="feeding-guidance" aria-label="Feeding progress guidance"></section>
           <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
           <section id="growth-summary" class="growth-summary" aria-label="Growth summary"></section>
