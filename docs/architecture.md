@@ -43,7 +43,7 @@ Schema objects already include family/user-friendly boundaries:
 - `baby_id`
 - `author_id`
 
-The local MVP uses default IDs. Cloud sync can later attach those IDs to real accounts.
+The local MVP uses default IDs. Cloud sync can later attach those IDs to real accounts. Development auth intentionally keeps two local admin scopes: `admin-dev` uses `family-admin-dev` for manual/dev data, while `admin-test` uses `family-admin-test` for automated tests so seeded or mutated test data cannot mix with dev data.
 
 ## LLM Boundary
 

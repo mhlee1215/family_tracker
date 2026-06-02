@@ -6,7 +6,7 @@
 
 ## Environment policy (project-specific)
 - For all data-modification requests, treat **Turso** as the source of truth.
-- Default target family scope for task data operations is **`family-admin`**.
+- Default target family scope for local development task data operations is **`family-admin-dev`**; automated tests must use **`family-admin-test`** via `admin-test`.
 - Seeded/mock task titles and text content must be written in **English**.
 
 ## Target profile
