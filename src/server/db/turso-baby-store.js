@@ -2,6 +2,11 @@ import { parseEvent, serializeEvent } from '../../domain/baby-events.js';
 import { createDefaultProfile, defaultBabyId, defaultFamilyId } from '../../domain/profile-defaults.js';
 import { utcRangeForLocalDay } from '../../utils/time.js';
 
+const legacyDevAdminFamilyId = 'family-admin';
+const legacyDevAdminBabyId = 'family-admin-baby';
+const currentDevAdminFamilyId = 'family-admin-dev';
+const currentDevAdminBabyId = 'family-admin-dev-baby';
+
 export class TursoBabyStore {
   static async create(options = {}) {
     if (!options.url) throw new Error('TURSO_DATABASE_URL is required.');
@@ -143,6 +148,78 @@ export class TursoBabyStore {
     await this.ensureTaskDueModeColumn();
     await this.ensureActionLogColumns();
     await this.ensureProfileBirthDetailColumns();
+    await this.migrateLegacyDevAdminFamily();
+  }
+
+  async migrateLegacyDevAdminFamily() {
+    const targetProfile = await this.client.execute({
+      sql: 'SELECT baby_id FROM profiles WHERE baby_id = ?',
+      args: [currentDevAdminBabyId],
+    });
+    const statements = [];
+    if (!targetProfile.rows.length) {
+      statements.push({
+        sql: `UPDATE profiles
+          SET family_id = ?, baby_id = ?
+          WHERE family_id = ? AND baby_id = ?`,
+        args: [currentDevAdminFamilyId, currentDevAdminBabyId, legacyDevAdminFamilyId, legacyDevAdminBabyId],
+      });
+    }
+    statements.push(
+      {
+        sql: `UPDATE growth_records
+          SET family_id = ?, baby_id = ?
+          WHERE family_id = ? AND baby_id = ?`,
+        args: [currentDevAdminFamilyId, currentDevAdminBabyId, legacyDevAdminFamilyId, legacyDevAdminBabyId],
+      },
+      {
+        sql: `UPDATE raw_logs
+          SET family_id = ?, baby_id = ?
+          WHERE family_id = ? AND baby_id = ?`,
+        args: [currentDevAdminFamilyId, currentDevAdminBabyId, legacyDevAdminFamilyId, legacyDevAdminBabyId],
+      },
+      {
+        sql: `UPDATE baby_events
+          SET family_id = ?, baby_id = ?, event_json = REPLACE(REPLACE(event_json, ?, ?), ?, ?)
+          WHERE family_id = ? AND baby_id = ?`,
+        args: [
+          currentDevAdminFamilyId,
+          currentDevAdminBabyId,
+          legacyDevAdminFamilyId,
+          currentDevAdminFamilyId,
+          legacyDevAdminBabyId,
+          currentDevAdminBabyId,
+          legacyDevAdminFamilyId,
+          legacyDevAdminBabyId,
+        ],
+      },
+      {
+        sql: `UPDATE action_logs
+          SET family_id = ?,
+              baby_id = CASE WHEN baby_id = ? THEN ? ELSE baby_id END,
+              metadata_json = REPLACE(REPLACE(metadata_json, ?, ?), ?, ?)
+          WHERE family_id = ?`,
+        args: [
+          currentDevAdminFamilyId,
+          legacyDevAdminBabyId,
+          currentDevAdminBabyId,
+          legacyDevAdminFamilyId,
+          currentDevAdminFamilyId,
+          legacyDevAdminBabyId,
+          currentDevAdminBabyId,
+          legacyDevAdminFamilyId,
+        ],
+      },
+      {
+        sql: 'UPDATE task_assignees SET family_id = ? WHERE family_id = ?',
+        args: [currentDevAdminFamilyId, legacyDevAdminFamilyId],
+      },
+      {
+        sql: 'UPDATE task_items SET family_id = ? WHERE family_id = ?',
+        args: [currentDevAdminFamilyId, legacyDevAdminFamilyId],
+      },
+    );
+    await this.client.batch(statements, 'write');
   }
 
   async ensureTaskDueModeColumn() {
