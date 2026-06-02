@@ -427,7 +427,7 @@ describe('app/main', () => {
     expect(document.querySelector('#llm-provider-select').value).toBe('openai');
   });
 
-  it('keeps baby settings floating while main baby sections switch as tabs', async () => {
+  it('keeps baby settings in the baby section tabs', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
@@ -679,6 +679,9 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns').textContent).toContain('Sleep rhythm');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Statistics');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Week comparison');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Tap a group for exact numbers');
+    expect(document.querySelectorAll('#baby-patterns .pattern-stat-bar').length).toBeGreaterThan(0);
+    expect(document.querySelector('#baby-patterns .pattern-stat-bucket')?.tagName).toBe('DETAILS');
     expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
 
     fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));
@@ -723,6 +726,8 @@ describe('app/main', () => {
     expect(document.querySelector('#summary .summary-item:last-child').getAttribute('style')).toContain('--tracker-accent: #22c55e');
 
     fireEvent.click(document.querySelector('#open-baby-settings'));
+    expect(document.querySelector('#baby-settings-panel').classList.contains('hidden')).toBe(false);
+    expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(true);
     document.querySelector('[name="babyTrackerTypes"][value="feeding_milk"]').checked = false;
     document.querySelector('[name="babyTrackerTypes"][value="feeding_solid"]').checked = false;
     fireEvent.submit(document.querySelector('#baby-settings-form'));
@@ -1184,7 +1189,7 @@ describe('app/main', () => {
 
     localStorage.setItem('familyTracker.activeTab', 'baby');
     await import('../../app/main.js?case=pull-refresh-floating-layer');
-    const floatingPanel = document.querySelector('#baby-settings-panel');
+    const floatingPanel = document.querySelector('#menu-panel');
     floatingPanel.classList.remove('hidden');
 
     dispatchTouch('touchstart', 0, { target: floatingPanel });
