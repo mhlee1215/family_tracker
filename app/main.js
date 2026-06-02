@@ -113,6 +113,9 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 
 const elements = {
+  app: $('#app'),
+  appLoading: $('#app-loading'),
+  appLoadingText: $('#app-loading-text'),
   tabs: document.querySelectorAll('.module-tab'),
   views: document.querySelectorAll('.module-view'),
   homeDayLabel: $('#home-day-label'),
@@ -298,16 +301,7 @@ function handleMenuToggleClick() {
 
 elements.menuToggle?.addEventListener('click', handleMenuToggleClick);
 
-applyPreferences();
-await syncBuildMetadata();
-renderTabs();
-renderTimelineControls();
-renderQuickActions();
-if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
-await Promise.all([loadCurrentUser(), loadAppConfig()]);
-state.meals = loadMealsForUser(state.user);
-if (state.user) await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
-renderAuthState();
+await initializeApp();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/app/sw.js').catch(() => {});
@@ -1037,6 +1031,33 @@ function applyPreferences() {
   document.documentElement.lang = 'en';
   document.documentElement.dataset.theme = state.theme;
   elements.themeSelect.value = state.theme;
+}
+
+async function initializeApp() {
+  setAppLoading(true, 'Loading family data...');
+  try {
+    applyPreferences();
+    await syncBuildMetadata();
+    renderTabs();
+    renderTimelineControls();
+    renderQuickActions();
+    if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
+    await Promise.all([loadCurrentUser(), loadAppConfig()]);
+    state.meals = loadMealsForUser(state.user);
+    if (state.user) await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
+    renderAuthState();
+    setAppLoading(false);
+  } catch (error) {
+    console.error(error);
+    setAppLoading(true, 'Could not load family data. Please refresh.');
+  }
+}
+
+function setAppLoading(loading, message = 'Loading family data...') {
+  if (elements.appLoadingText) elements.appLoadingText.textContent = message;
+  elements.appLoading?.classList.toggle('hidden', !loading);
+  elements.appLoading?.setAttribute('aria-hidden', String(!loading));
+  elements.app?.setAttribute('aria-busy', String(loading));
 }
 
 async function syncBuildMetadata() {
