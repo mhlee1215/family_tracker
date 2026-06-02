@@ -1,5 +1,33 @@
 import { createId } from '../utils/ids.js';
 
+export const defaultDevLoginId = 'admin-dev';
+export const testDevLoginId = 'admin-test';
+
+export const devAuthUsers = {
+  'admin-dev': {
+    provider: 'dev',
+    providerId: 'admin-dev',
+    email: 'admin-dev@local.dev',
+    name: 'Admin Dev',
+    familyId: 'family-admin-dev',
+  },
+  'admin-test': {
+    provider: 'dev',
+    providerId: 'admin-test',
+    email: 'admin-test@local.dev',
+    name: 'Admin Test',
+    familyId: 'family-admin-test',
+  },
+};
+
+export function getDevAuthUser(id) {
+  return devAuthUsers[String(id || '').trim()] || null;
+}
+
+export function isDevAdminUser(user) {
+  return Boolean(user && user.provider === 'dev' && devAuthUsers[user.providerId]);
+}
+
 export const sessionCookieName = 'ft_session';
 export const oauthStateCookieName = 'ft_oauth_state';
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 30;

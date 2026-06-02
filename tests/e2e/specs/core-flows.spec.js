@@ -529,7 +529,7 @@ test.describe('Family Tracker core flows', () => {
       });
     });
 
-    const loginResponse = await page.request.post('/api/auth/dev', { data: { id: 'admin' } });
+    const loginResponse = await page.request.post('/api/auth/dev', { data: { id: 'admin-test' } });
     expect(loginResponse.ok()).toBeTruthy();
     await page.goto('/baby?day=2026-05-30');
 

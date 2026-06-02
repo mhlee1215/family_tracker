@@ -15,7 +15,9 @@ import {
   createSessionCookie,
   exchangeGoogleCode,
   fetchGoogleUser,
+  getDevAuthUser,
   getSessionIdFromRequest,
+  isDevAdminUser,
   parseCookies,
 } from './src/server/auth.js';
 import { createBabyStore, getStorageConfig } from './src/server/db/store-factory.js';
@@ -135,17 +137,12 @@ async function handleApi(request, response) {
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/auth/dev') {
       const body = await readJson(request);
-      if (String(body.id || '').trim() !== 'admin') {
-        sendJson(response, 403, { error: 'Dev login requires id=admin.' });
+      const devUser = getDevAuthUser(body.id);
+      if (!devUser) {
+        sendJson(response, 403, { error: 'Dev login requires id=admin-dev or id=admin-test.' });
         return;
       }
-      const user = await store.upsertUser({
-        provider: 'dev',
-        providerId: 'admin',
-        email: 'admin@local.dev',
-        name: 'Admin Dev',
-        familyId: 'family-admin',
-      });
+      const user = await store.upsertUser(devUser);
       const session = await createSessionForUser(user.id);
       sendJson(response, 200, { user }, { 'set-cookie': createSessionCookie(session.id, request) });
       return;
@@ -182,7 +179,7 @@ async function handleApi(request, response) {
         return;
       }
 
-      const familyId = String(process.env.ALEXA_FAMILY_ID || 'family-admin');
+      const familyId = String(process.env.ALEXA_FAMILY_ID || 'family-admin-dev');
       const assignees = await store.ensureDefaultTaskAssignees(familyId);
       const assigneeId = assignees[0]?.id;
       if (!assigneeId) {
@@ -524,7 +521,7 @@ async function handleApi(request, response) {
 
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/dev/clear-tasks') {
-      if (session.user.provider !== 'dev' || session.user.providerId !== 'admin') {
+      if (!isDevAdminUser(session.user)) {
         sendJson(response, 403, { error: 'Dev admin required.' });
         return;
       }
@@ -534,7 +531,7 @@ async function handleApi(request, response) {
     }
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/dev/seed-tasks') {
-      if (session.user.provider !== 'dev' || session.user.providerId !== 'admin') {
+      if (!isDevAdminUser(session.user)) {
         sendJson(response, 403, { error: 'Dev admin required.' });
         return;
       }

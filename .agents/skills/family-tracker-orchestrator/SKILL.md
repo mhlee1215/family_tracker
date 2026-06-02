@@ -67,6 +67,11 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - README는 사용자 안내용이고, 에이전트 작업 기준의 source of truth가 아니다.
 - 저장소 실행 정책 변경(예: Turso, proxy, start script, CI/test command)은 관련 기능 스킬(`skills/features/*`)에도 재사용 규칙으로 반영한다.
 
+## Dev/Test Account Isolation Policy
+- Manual local development must use `admin-dev` (`family-admin-dev`).
+- Automated tests must use `admin-test` (`family-admin-test`).
+- The legacy `admin` dev login ID must remain rejected to prevent data mixing.
+
 ## Runtime Environment Policy
 - 이 저장소의 기본 실행 경로는 현재 환경의 Turso 설정에서도 실패하지 않아야 한다.
 - `npm start`는 `scripts/start-server.js`를 통해 실행되어야 하며, Turso 모드(`DATABASE_PROVIDER=turso` 또는 `TURSO_DATABASE_URL` 존재)에서는 Node를 `--use-env-proxy` 및 `--dns-result-order=ipv4first`로 재실행해야 한다.

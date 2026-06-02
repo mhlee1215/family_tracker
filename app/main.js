@@ -987,7 +987,7 @@ async function devLogin() {
   const response = await fetch('/api/auth/dev', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: 'admin' }),
+    body: JSON.stringify({ id: 'admin-dev' }),
   });
   const payload = await response.json();
   if (!response.ok) {
