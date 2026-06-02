@@ -1896,7 +1896,7 @@ function diaperForecastSubtitle(forecast) {
 
 function careForecastDetail(kind, forecast) {
   const basis = forecast.basis || {};
-  const intervalBars = forecastIntervalBars(basis.intervalMinutes || []);
+  const reasoning = careForecastReasoning(kind, forecast);
   const amountDetail = kind === 'milk' && forecast.amountMl
     ? `<div><dt>Typical amount</dt><dd>${escapeHtml(milkAmountLabel(forecast.amountMl))}</dd></div>`
     : '';
@@ -1904,6 +1904,7 @@ function careForecastDetail(kind, forecast) {
   return `
     <div class="care-forecast-detail">
       <p>${escapeHtml(forecast.message || 'Estimated from recent logs.')}</p>
+      ${reasoning}
       <dl>
         <div><dt>Used</dt><dd>${escapeHtml(forecastPeriodLabel(basis.periodDays))}</dd></div>
         <div><dt>Logs</dt><dd>${Number(basis.sampleCount || 0)}</dd></div>
@@ -1915,7 +1916,6 @@ function careForecastDetail(kind, forecast) {
         ${diaperKinds}
         <div><dt>Excluded</dt><dd>${Number(basis.excludedOutliers || 0)} outliers</dd></div>
       </dl>
-      ${intervalBars}
     </div>
   `;
 }
@@ -1934,14 +1934,105 @@ function notEnoughForecastDetail(forecast) {
   `;
 }
 
-function forecastIntervalBars(intervals) {
-  if (!intervals.length) return '';
-  const max = Math.max(...intervals, 1);
-  const bars = intervals.map((minutes) => {
-    const height = Math.max(12, Math.round((minutes / max) * 100));
-    return `<span style="height:${height}%"><i>${escapeHtml(minutesLabel(minutes))}</i></span>`;
+function careForecastReasoning(kind, forecast) {
+  const basis = forecast?.basis || {};
+  const eventLabel = kind === 'milk' ? 'milk' : 'diaper';
+  const median = Number(basis.medianIntervalMinutes || 0);
+  const equation = `Last ${eventLabel} ${clockLabel(basis.lastEventAt)} + typical gap ${minutesLabel(median)} = ${clockLabel(forecast.nextAt)}`;
+  const scatter = forecastScatterPlot(forecast);
+  const intervals = forecastIntervalChips(basis.intervalMinutes || [], median);
+  return `
+    <section class="care-forecast-explainer" aria-label="Forecast calculation">
+      <div class="care-forecast-equation">
+        <span>How this estimate was made</span>
+        <strong>${escapeHtml(equation)}</strong>
+      </div>
+      ${scatter}
+      ${intervals}
+    </section>
+  `;
+}
+
+function forecastIntervalChips(intervals, median) {
+  if (!intervals.length) return '<p class="care-forecast-chip-note">No interval samples available yet.</p>';
+  const chips = intervals.map((minutes) => {
+    const isMedian = minutes === median;
+    const label = `${minutesLabel(minutes)}${isMedian ? ' · median' : ''}`;
+    return `<span class="care-forecast-chip${isMedian ? ' median' : ''}">${escapeHtml(label)}</span>`;
   }).join('');
-  return `<div class="care-forecast-bars" aria-label="Recent interval samples">${bars}</div>`;
+  return `
+    <div class="care-forecast-intervals">
+      <span>Recent gaps used</span>
+      <div class="care-forecast-chip-row">${chips}</div>
+    </div>
+  `;
+}
+
+function forecastScatterPlot(forecast) {
+  const basis = forecast?.basis || {};
+  const samples = (basis.intervalSamples || [])
+    .map((sample) => ({
+      minutes: Number(sample.minutes),
+      endedAt: sample.endedAt,
+      time: timestamp(sample.endedAt),
+    }))
+    .filter((sample) => Number.isFinite(sample.minutes) && sample.minutes > 0 && sample.time);
+  const median = Number(basis.medianIntervalMinutes || 0);
+  const nextTime = timestamp(forecast?.nextAt);
+  if (!samples.length || !Number.isFinite(median) || median <= 0 || !nextTime) return '';
+
+  const width = 360;
+  const height = 190;
+  const left = 42;
+  const right = 18;
+  const top = 20;
+  const bottom = 38;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const sampleTimes = samples.map((sample) => sample.time);
+  let minTime = Math.min(...sampleTimes);
+  let maxTime = Math.max(...sampleTimes, nextTime);
+  if (minTime === maxTime) {
+    minTime -= 60 * 60000;
+    maxTime += 60 * 60000;
+  }
+  const maxMinutes = Math.max(...samples.map((sample) => sample.minutes), median, 1);
+  const yMax = Math.max(30, Math.ceil((maxMinutes * 1.18) / 30) * 30);
+  const x = (time) => left + ((time - minTime) / (maxTime - minTime)) * plotWidth;
+  const y = (minutes) => top + (1 - Math.max(0, Math.min(yMax, minutes)) / yMax) * plotHeight;
+  const medianY = y(median);
+  const points = samples.map((sample) => {
+    const cx = roundSvg(x(sample.time));
+    const cy = roundSvg(y(sample.minutes));
+    const label = `${clockLabel(sample.endedAt)} · ${minutesLabel(sample.minutes)}`;
+    return `<circle class="care-forecast-point" cx="${cx}" cy="${cy}" r="4"><title>${escapeHtml(label)}</title></circle>`;
+  }).join('');
+  const nextX = roundSvg(x(nextTime));
+  const nextY = roundSvg(medianY);
+  const firstLabel = clockLabel(samples[0].endedAt);
+  const lastLabel = clockLabel(forecast.nextAt);
+
+  return `
+    <figure class="care-forecast-scatter">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Interval scatter plot: x axis is time, y axis is minutes between logs, blue line is typical gap">
+        <line class="care-forecast-axis" x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}"></line>
+        <line class="care-forecast-axis" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"></line>
+        <line class="care-forecast-grid-line" x1="${left}" y1="${medianY}" x2="${width - right}" y2="${medianY}"></line>
+        <text class="care-forecast-axis-label" x="10" y="${top + 6}">long</text>
+        <text class="care-forecast-axis-label" x="10" y="${height - bottom}">short</text>
+        <text class="care-forecast-axis-label" x="${left}" y="${height - 10}">${escapeHtml(firstLabel)}</text>
+        <text class="care-forecast-axis-label" x="${width - right}" y="${height - 10}" text-anchor="end">${escapeHtml(lastLabel)}</text>
+        <text class="care-forecast-line-label" x="${width - right}" y="${medianY - 7}" text-anchor="end">typical ${escapeHtml(minutesLabel(median))}</text>
+        ${points}
+        <path class="care-forecast-prediction" d="M ${nextX} ${nextY - 6} L ${nextX + 6} ${nextY} L ${nextX} ${nextY + 6} L ${nextX - 6} ${nextY} Z"><title>Prediction: ${escapeHtml(clockLabel(forecast.nextAt))}</title></path>
+      </svg>
+      <figcaption>Dots are recent gaps over time. The blue line is the typical gap; the diamond is the predicted next time.</figcaption>
+    </figure>
+  `;
+}
+
+function roundSvg(value) {
+  return Math.round(value * 10) / 10;
 }
 
 function clockLabel(value) {
