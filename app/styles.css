@@ -2255,6 +2255,55 @@ label {
   color: var(--on-primary);
 }
 
+
+.baby-section-tabs {
+  justify-content: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.baby-section-tabs .baby-settings-button {
+  margin-left: auto;
+}
+
+.baby-tab-panel {
+  background: var(--canvas);
+}
+
+.baby-tab-hero {
+  display: grid;
+  gap: 8px;
+  padding: 64px min(80px, 7vw) 28px;
+  text-align: center;
+}
+
+.baby-tab-hero h2 {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 600;
+  line-height: 1.07;
+  letter-spacing: -0.28px;
+}
+
+.baby-tab-hero p:not(.eyebrow) {
+  max-width: 720px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.47;
+}
+
+.baby-summary-panel .growth-summary {
+  border-top: 1px solid var(--hairline);
+}
+
+.baby-moment-panel,
+.baby-action-log-panel {
+  border-top: 1px solid var(--hairline);
+  padding: 48px min(80px, 7vw);
+}
+
 .app-menu-button svg {
   width: 17px;
   height: 17px;
@@ -3615,11 +3664,6 @@ label {
   padding: 11px 22px;
 }
 
-.baby-moment-panel.app-floating-panel {
-  padding: 20px;
-  border-top: 1px solid var(--hairline);
-}
-
 .moment-form {
   display: grid;
   gap: 16px;
@@ -3912,4 +3956,25 @@ label {
   .moment-gallery-card {
     grid-template-rows: minmax(170px, 42vw) auto;
   }
+}
+
+@media (max-width: 680px) {
+  .baby-section-tabs {
+    justify-content: flex-start;
+    padding-inline: 12px;
+  }
+
+  .baby-section-tabs .baby-settings-button {
+    margin-left: 0;
+  }
+
+  .baby-tab-hero,
+  .baby-moment-panel,
+  .baby-action-log-panel {
+    padding-inline: 16px;
+  }
+}
+
+.baby-tab-panel.hidden {
+  display: none;
 }

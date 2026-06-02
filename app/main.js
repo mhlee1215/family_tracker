@@ -171,6 +171,7 @@ const elements = {
   babyStatusRange: $('#baby-status-range'),
   feedingGuidance: $('#feeding-guidance'),
   sleepStatus: $('#sleep-status'),
+  babySummaryPanel: $('#baby-summary-panel'),
   babyPatterns: $('#baby-patterns'),
   growthSummary: $('#growth-summary'),
   babySettingsPanel: $('#baby-settings-panel'),
@@ -407,11 +408,11 @@ elements.openTaskLog?.addEventListener('click', () => {
 });
 elements.openTaskActionLog?.addEventListener('click', () => setTaskPanel(state.taskPanel === 'actionLog' ? 'today' : 'actionLog'));
 elements.backToTodayTasks?.addEventListener('click', () => setTaskPanel('today'));
-elements.openBabySummary?.addEventListener('click', () => toggleBabyPanel('summary'));
-elements.openBabyPatterns?.addEventListener('click', () => toggleBabyPanel('patterns'));
+elements.openBabySummary?.addEventListener('click', () => setBabyPanel('summary'));
+elements.openBabyPatterns?.addEventListener('click', () => setBabyPanel('patterns'));
 elements.openBabySettings?.addEventListener('click', () => toggleBabyPanel('settings'));
-elements.openBabyMoments?.addEventListener('click', () => toggleBabyPanel('moments', { mode: 'gallery' }));
-elements.openBabyActionLog?.addEventListener('click', () => toggleBabyPanel('actionLog'));
+elements.openBabyMoments?.addEventListener('click', () => setBabyPanel('moments', { mode: 'gallery' }));
+elements.openBabyActionLog?.addEventListener('click', () => setBabyPanel('actionLog'));
 elements.openBabyLog?.addEventListener('click', () => {
   setBabyPanel(null);
   elements.logInput?.focus();
@@ -1162,18 +1163,8 @@ function closeModuleFloatingPanels() {
 }
 
 function closeFloatingSectionPanels(target) {
-  const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel
-    : state.babyPanel === 'summary' ? elements.growthSummary
-      : state.babyPanel === 'patterns' ? elements.babyPatterns
-        : state.babyPanel === 'moments' ? elements.babyMomentPanel
-          : state.babyPanel === 'actionLog' ? elements.babyActionLogPanel
-            : null;
-  const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings
-    : state.babyPanel === 'summary' ? elements.openBabySummary
-      : state.babyPanel === 'patterns' ? elements.openBabyPatterns
-        : state.babyPanel === 'moments' ? elements.openBabyMoments
-          : state.babyPanel === 'actionLog' ? elements.openBabyActionLog
-            : null;
+  const babyPanel = state.babyPanel === 'settings' ? elements.babySettingsPanel : null;
+  const babyToggle = state.babyPanel === 'settings' ? elements.openBabySettings : null;
   if (isPanelOpen(babyPanel) && !(babyPanel.contains(target) || babyToggle?.contains(target))) setBabyPanel(null);
 
   if (isPanelOpen(elements.taskSummaryPanel) && !(elements.taskSummaryPanel.contains(target) || elements.openTaskSummary?.contains(target))) setTaskPanel('today');
@@ -1206,8 +1197,13 @@ function renderBabyPanel() {
   const patternsOpen = state.babyPanel === 'patterns';
   const momentsOpen = state.babyPanel === 'moments';
   const actionLogOpen = state.babyPanel === 'actionLog';
-  elements.growthSummary?.classList.toggle('hidden', !summaryOpen);
-  elements.growthSummary?.setAttribute('aria-hidden', String(!summaryOpen));
+  const recordOpen = !summaryOpen && !patternsOpen && !momentsOpen && !actionLogOpen;
+  const recordButtonActive = recordOpen && !settingsOpen;
+  elements.workspace?.classList.toggle('hidden', !recordOpen);
+  elements.workspace?.setAttribute('aria-hidden', String(!recordOpen));
+  elements.babySummaryPanel?.classList.toggle('hidden', !summaryOpen);
+  elements.babySummaryPanel?.setAttribute('aria-hidden', String(!summaryOpen));
+  elements.growthSummary?.classList.remove('hidden');
   elements.babyPatterns?.classList.toggle('hidden', !patternsOpen);
   elements.babyPatterns?.setAttribute('aria-hidden', String(!patternsOpen));
   elements.babySettingsPanel?.classList.toggle('hidden', !settingsOpen);
@@ -1221,7 +1217,7 @@ function renderBabyPanel() {
   elements.openBabySettings?.classList.toggle('active', settingsOpen);
   elements.openBabyMoments?.classList.toggle('active', momentsOpen);
   elements.openBabyActionLog?.classList.toggle('active', actionLogOpen);
-  elements.openBabyLog?.classList.toggle('active', !summaryOpen && !settingsOpen && !patternsOpen && !momentsOpen && !actionLogOpen);
+  elements.openBabyLog?.classList.toggle('active', recordButtonActive);
   elements.openBabySummary?.setAttribute('aria-expanded', String(summaryOpen));
   elements.openBabyPatterns?.setAttribute('aria-expanded', String(patternsOpen));
   elements.openBabySettings?.setAttribute('aria-expanded', String(settingsOpen));

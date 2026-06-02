@@ -235,6 +235,7 @@ test.describe('Family Tracker core flows', () => {
     });
 
     await app.loginAsDevAdmin();
+    await page.locator('#open-baby-summary').click();
     await expect(page.locator('#feeding-guidance')).toContainText('Feeding progress');
     await expect(page.locator('#feeding-guidance')).toContainText('Progress at a glance');
     await expect(page.locator('#feeding-guidance .feeding-progress-row summary')).toContainText(['Day elapsed', 'Milk pace']);
@@ -595,6 +596,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toBeHidden();
     await page.locator('#open-baby-patterns').click();
     await expect(page.locator('#baby-patterns')).toBeVisible();
+    await expect(page.locator('#workspace')).toBeHidden();
+    await page.locator('#open-baby-log').click();
+    await expect(page.locator('#workspace')).toBeVisible();
+    await page.locator('#open-baby-patterns').click();
     await expect(page.locator('#baby-patterns')).toContainText('7-day rhythm');
     await expect(page.locator('#baby-patterns')).toContainText('5 visible logs');
     await expect(page.locator('#baby-patterns .pattern-marker')).toHaveCount(5);
@@ -642,6 +647,7 @@ test.describe('Family Tracker core flows', () => {
     });
 
     await app.loginAsDevAdmin();
+    await page.locator('#open-baby-summary').click();
 
     await expect(page.locator('#baby-status-range [data-status-range="recent24h"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#summary')).toContainText('2x · 180ml');
