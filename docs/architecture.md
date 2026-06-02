@@ -45,6 +45,12 @@ Schema objects already include family/user-friendly boundaries:
 
 The local MVP uses default IDs. Cloud sync can later attach those IDs to real accounts. Development auth intentionally keeps two local admin scopes: `admin-dev` uses `family-admin-dev` for manual/dev data, while `admin-test` uses `family-admin-test` for automated tests so seeded or mutated test data cannot mix with dev data.
 
+## Lightweight Sync Refresh
+
+The browser keeps automatic refreshes inexpensive by polling `GET /api/sync/state` only while the app is visible. The endpoint returns small per-module version tokens for baby logs, tasks, and profile/growth data. Full data reloads are reserved for modules whose version changed, while manual refresh and pull-to-refresh remain explicit user-requested full refresh paths.
+
+SQLite and Turso stores compute these versions from family/baby-scoped timestamps and action logs so local-first behavior and family boundaries stay intact.
+
 ## LLM Boundary
 
 Provider calls stay server-side:

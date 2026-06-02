@@ -498,6 +498,33 @@ export class SQLiteBabyStore {
   }
 
 
+
+  getSyncState(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const babyId = options.babyId || defaultBabyId;
+    const babyVersion = maxIsoValue([
+      this.getScalar('SELECT MAX(created_at) FROM action_logs WHERE family_id = ? AND module = ? AND baby_id = ?', [familyId, 'baby', babyId]),
+      this.getScalar('SELECT MAX(created_at) FROM raw_logs WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+      this.getScalar('SELECT MAX(created_at) FROM baby_events WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+    ]);
+    const taskVersion = maxIsoValue([
+      this.getScalar('SELECT MAX(created_at) FROM action_logs WHERE family_id = ? AND module = ?', [familyId, 'task']),
+      this.getScalar('SELECT MAX(updated_at) FROM task_items WHERE family_id = ?', [familyId]),
+      this.getScalar('SELECT MAX(updated_at) FROM task_assignees WHERE family_id = ?', [familyId]),
+    ]);
+    const profileVersion = maxIsoValue([
+      this.getScalar('SELECT MAX(updated_at) FROM profiles WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+      this.getScalar('SELECT MAX(created_at) FROM growth_records WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+    ]);
+    return buildSyncState({ babyVersion, taskVersion, profileVersion });
+  }
+
+  getScalar(sql, args = []) {
+    const row = this.db.prepare(sql).get(...args);
+    if (!row) return '';
+    return Object.values(row)[0] || '';
+  }
+
   appendActionLog(entry) {
     const now = entry.createdAt || new Date().toISOString();
     this.db.prepare(`
@@ -764,6 +791,22 @@ function rowToGrowthRecord(row) {
     apgarPercent: row.apgar_percent,
     createdAt: row.created_at,
   };
+}
+
+
+function buildSyncState({ babyVersion = '', taskVersion = '', profileVersion = '' } = {}) {
+  return {
+    serverTime: new Date().toISOString(),
+    modules: {
+      baby: { version: babyVersion || '' },
+      task: { version: taskVersion || '' },
+      profile: { version: profileVersion || '' },
+    },
+  };
+}
+
+function maxIsoValue(values = []) {
+  return values.filter(Boolean).sort().at(-1) || '';
 }
 
 function optionalNumber(value) {
