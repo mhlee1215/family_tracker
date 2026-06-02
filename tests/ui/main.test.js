@@ -11,7 +11,7 @@ function dispatchTouch(type, clientY, options = {}) {
     configurable: true,
     value: options.ended ? [] : [{ clientY }],
   });
-  document.dispatchEvent(event);
+  (options.target || document).dispatchEvent(event);
 }
 
 function mockFetch() {
@@ -37,6 +37,7 @@ describe('app/main', () => {
     vi.resetModules();
     global.fetch = mockFetch();
     delete window.Swiped;
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
   });
 
   it('renders login panel for unauthenticated user', async () => {
@@ -1142,10 +1143,12 @@ describe('app/main', () => {
       return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
     });
 
+    localStorage.setItem('familyTracker.activeTab', 'baby');
     await import('../../app/main.js?case=pull-refresh');
     const initialProfileCalls = global.fetch.mock.calls.filter(([input]) => String(input).endsWith('/api/profile')).length;
 
-    dispatchTouch('touchstart', 0);
+    const babySurface = document.querySelector('#baby-view');
+    dispatchTouch('touchstart', 0, { target: babySurface });
     dispatchTouch('touchmove', 180);
     expect(document.querySelector('#pull-refresh-label').textContent).toBe('Release to refresh');
     dispatchTouch('touchend', 180, { ended: true });
@@ -1155,6 +1158,55 @@ describe('app/main', () => {
       expect(profileCalls).toBeGreaterThan(initialProfileCalls);
     });
     expect(['Refreshing...', 'Updated']).toContain(document.querySelector('#pull-refresh-label').textContent);
+  });
+
+  it('ignores pull-to-refresh gestures that start in floating overlay layers', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.startsWith('/api/sync/state')) {
+        return new Response(JSON.stringify({ modules: { baby: { version: 'b1' }, task: { version: 't1' }, profile: { version: 'p1' } } }), { status: 200 });
+      }
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: { babyName: 'Ari' }, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    localStorage.setItem('familyTracker.activeTab', 'baby');
+    await import('../../app/main.js?case=pull-refresh-floating-layer');
+    const floatingPanel = document.querySelector('#baby-settings-panel');
+    floatingPanel.classList.remove('hidden');
+
+    dispatchTouch('touchstart', 0, { target: floatingPanel });
+    dispatchTouch('touchmove', 180);
+
+    expect(document.querySelector('#pull-refresh').classList.contains('visible')).toBe(false);
+    expect(document.querySelector('#pull-refresh-label').textContent).toBe('Pull to refresh');
+  });
+
+  it('requires the bottom document scroll layer to be at the top before pull-to-refresh starts', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.startsWith('/api/sync/state')) {
+        return new Response(JSON.stringify({ modules: { baby: { version: 'b1' }, task: { version: 't1' }, profile: { version: 'p1' } } }), { status: 200 });
+      }
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: { babyName: 'Ari' }, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    localStorage.setItem('familyTracker.activeTab', 'baby');
+    await import('../../app/main.js?case=pull-refresh-scroll-gate');
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 16 });
+
+    dispatchTouch('touchstart', 0, { target: document.querySelector('#baby-view') });
+    dispatchTouch('touchmove', 180);
+
+    expect(document.querySelector('#pull-refresh').classList.contains('visible')).toBe(false);
+    expect(document.querySelector('#pull-refresh-label').textContent).toBe('Pull to refresh');
   });
 
 });

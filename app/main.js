@@ -8,6 +8,19 @@ const REMOTE_SYNC_CHECK_INTERVAL_MS = 60_000;
 const REMOTE_SYNC_FOCUS_MIN_INTERVAL_MS = 15_000;
 const PULL_REFRESH_THRESHOLD_PX = 72;
 const PULL_REFRESH_MAX_DISTANCE_PX = 112;
+const PULL_REFRESH_BLOCKING_SELECTOR = [
+  'input',
+  'textarea',
+  'select',
+  'button',
+  'a',
+  'dialog',
+  '[role="button"]',
+  '.floating-window',
+  '.app-floating-panel',
+  '.menu-panel',
+  '.task-calendar-popover',
+].join(', ');
 
 const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
@@ -3290,7 +3303,10 @@ function handlePullRefreshMove(event) {
     resetPullRefresh();
     return;
   }
-  if (window.scrollY > 0) return;
+  if (!isRootScrollAtTop()) {
+    resetPullRefresh();
+    return;
+  }
   event.preventDefault();
   const distance = Math.min(PULL_REFRESH_MAX_DISTANCE_PX, delta * 0.48);
   state.pullRefresh.distance = distance;
@@ -3308,14 +3324,43 @@ function handlePullRefreshEnd() {
 }
 
 function canStartPullRefresh(event) {
-  if (!state.user || state.pullRefresh.refreshing || window.scrollY > 0) return false;
+  if (!state.user || state.pullRefresh.refreshing || !isRootScrollAtTop()) return false;
   if (!event.touches || event.touches.length !== 1) return false;
   const target = event.target instanceof Element ? event.target : null;
-  if (target?.closest('input, textarea, select, button, a, dialog, [role="button"], .floating-window, .menu-panel')) return false;
+  if (!target || target.closest(PULL_REFRESH_BLOCKING_SELECTOR)) return false;
+  const activeSurface = getActivePullRefreshSurface();
+  if (activeSurface && !activeSurface.contains(target)) return false;
+  if (hasScrollableOverlayAncestor(target, activeSurface)) return false;
   return true;
 }
 
+function getActivePullRefreshSurface() {
+  return document.querySelector('.module-view.active');
+}
+
+function isRootScrollAtTop() {
+  const rootScrollTop = Math.max(
+    window.scrollY || 0,
+    document.documentElement?.scrollTop || 0,
+    document.body?.scrollTop || 0,
+  );
+  return rootScrollTop <= 0;
+}
+
+function hasScrollableOverlayAncestor(target, boundary) {
+  for (let node = target.parentElement; node && node !== boundary; node = node.parentElement) {
+    const style = window.getComputedStyle(node);
+    const canScrollY = /(auto|scroll|overlay)/.test(style.overflowY);
+    if (canScrollY && node.scrollHeight > node.clientHeight) return true;
+  }
+  return false;
+}
+
 async function triggerPullRefresh() {
+  if (!isRootScrollAtTop()) {
+    resetPullRefresh();
+    return false;
+  }
   state.pullRefresh.refreshing = true;
   state.pullRefresh.distance = PULL_REFRESH_THRESHOLD_PX;
   renderPullRefresh('Refreshing...');

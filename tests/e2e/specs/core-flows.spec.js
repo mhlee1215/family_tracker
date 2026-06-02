@@ -98,13 +98,13 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin('/baby');
     const initialTodayRequests = todayRequests;
     await page.evaluate(() => {
-      const dispatchTouch = (type, clientY, ended = false) => {
+      const dispatchTouch = (type, clientY, target = document, ended = false) => {
         const event = new Event(type, { bubbles: true, cancelable: true });
         Object.defineProperty(event, 'touches', { configurable: true, value: ended ? [] : [{ clientY }] });
-        document.dispatchEvent(event);
+        target.dispatchEvent(event);
       };
       window.scrollTo(0, 0);
-      dispatchTouch('touchstart', 0);
+      dispatchTouch('touchstart', 0, document.querySelector('#baby-view'));
       dispatchTouch('touchmove', 180);
     });
     await expect(page.locator('#pull-refresh-label')).toHaveText('Release to refresh');
