@@ -134,6 +134,96 @@ test('SQLiteBabyStore separates sessions and family scopes by user', () => {
   assert.notEqual(first.familyId, second.familyId);
 });
 
+test('SQLiteBabyStore migrates legacy admin dev data into admin-dev scope', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const legacyFamilyId = 'family-admin';
+  const legacyBabyId = 'family-admin-baby';
+  const currentFamilyId = 'family-admin-dev';
+  const currentBabyId = 'family-admin-dev-baby';
+
+  let store = new SQLiteBabyStore(dbPath);
+  store.saveProfile({
+    familyId: legacyFamilyId,
+    babyId: legacyBabyId,
+    babyName: 'Legacy Baby',
+    birthDate: '2026-01-01',
+  });
+  store.saveGrowthRecord({
+    id: 'growth-legacy-admin',
+    familyId: legacyFamilyId,
+    babyId: legacyBabyId,
+    authorId: 'user-admin',
+    recordedFor: 'custom',
+    occurredDate: '2026-06-01',
+    weightG: 4200,
+  });
+  const rawLog = {
+    id: 'raw-legacy-admin',
+    familyId: legacyFamilyId,
+    babyId: legacyBabyId,
+    authorId: 'user-admin',
+    rawText: 'legacy milk',
+    inputAt: '2026-06-01T10:00:00.000Z',
+    timezone: 'UTC',
+  };
+  store.saveLogWithEvents(rawLog, [{
+    id: 'event-legacy-admin',
+    rawLogId: rawLog.id,
+    familyId: legacyFamilyId,
+    babyId: legacyBabyId,
+    rawText: rawLog.rawText,
+    type: 'feeding_milk',
+    occurredAt: createField(rawLog.inputAt, 'system', 'current_time'),
+    amountMl: createField(120, 'explicit', 'user_text'),
+  }]);
+  const [assignee] = store.ensureDefaultTaskAssignees(legacyFamilyId);
+  store.createTask({
+    id: 'task-legacy-admin',
+    familyId: legacyFamilyId,
+    title: 'legacy task',
+    assigneeId: assignee.id,
+    dueMode: 'on_date',
+    dueDate: '2026-06-01',
+  });
+  store.appendActionLog({
+    id: 'action-legacy-admin',
+    familyId: legacyFamilyId,
+    babyId: legacyBabyId,
+    module: 'baby',
+    entityType: 'record',
+    entityId: rawLog.id,
+    action: 'add',
+    actorId: 'user-admin',
+    message: 'added legacy record',
+    metadata: { after: { rawLog } },
+  });
+  store.close();
+
+  store = new SQLiteBabyStore(dbPath);
+  const scope = { familyId: currentFamilyId, babyId: currentBabyId };
+  const profile = store.getProfile(currentBabyId, { familyId: currentFamilyId });
+  const growthRecords = store.listGrowthRecords(scope);
+  const events = store.listEvents(scope);
+  const tasks = store.listTasksForDay('2026-06-01', scope);
+  const actions = store.listActionLogs({ ...scope, module: 'baby' });
+  const legacyEvents = store.listEvents({ familyId: legacyFamilyId, babyId: legacyBabyId });
+  store.close();
+
+  assert.equal(profile.babyName, 'Legacy Baby');
+  assert.equal(growthRecords[0].familyId, currentFamilyId);
+  assert.equal(growthRecords[0].babyId, currentBabyId);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].familyId, currentFamilyId);
+  assert.equal(events[0].babyId, currentBabyId);
+  assert.equal(events[0].amountMl.value, 120);
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].title, 'legacy task');
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].familyId, currentFamilyId);
+  assert.equal(actions[0].babyId, currentBabyId);
+  assert.equal(legacyEvents.length, 0);
+});
+
 test('SQLiteBabyStore updates an existing event after sleep completion', () => {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
   const store = new SQLiteBabyStore(dbPath);

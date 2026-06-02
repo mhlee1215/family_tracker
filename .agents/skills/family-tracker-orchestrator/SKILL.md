@@ -70,6 +70,7 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 ## Dev/Test Account Isolation Policy
 - Manual local development must use `admin-dev` (`family-admin-dev`).
 - Automated tests must use `admin-test` (`family-admin-test`).
+- Storage migrations must preserve legacy manual dev data by moving old `admin` / `family-admin` records into the current `admin-dev` / `family-admin-dev` scope.
 - The legacy `admin` dev login ID must remain rejected to prevent data mixing.
 
 ## Runtime Environment Policy

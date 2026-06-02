@@ -7,6 +7,11 @@ import { utcRangeForLocalDay } from '../../utils/time.js';
 
 export const defaultDatabasePath = join(process.cwd(), '.family-tracker', 'family-tracker.sqlite');
 
+const legacyDevAdminFamilyId = 'family-admin';
+const legacyDevAdminBabyId = 'family-admin-baby';
+const currentDevAdminFamilyId = 'family-admin-dev';
+const currentDevAdminBabyId = 'family-admin-dev-baby';
+
 export class SQLiteBabyStore {
   constructor(databasePath = defaultDatabasePath) {
     this.databasePath = databasePath;
@@ -158,6 +163,69 @@ export class SQLiteBabyStore {
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN head_cm REAL;`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN weight_g INTEGER;`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN apgar_percent INTEGER;`); } catch {}
+    this.migrateLegacyDevAdminFamily();
+  }
+
+  migrateLegacyDevAdminFamily() {
+    this.db.exec('BEGIN');
+    try {
+      const targetProfile = this.db.prepare('SELECT baby_id FROM profiles WHERE baby_id = ?').get(currentDevAdminBabyId);
+      if (!targetProfile) {
+        this.db.prepare(`
+          UPDATE profiles
+          SET family_id = ?, baby_id = ?
+          WHERE family_id = ? AND baby_id = ?
+        `).run(currentDevAdminFamilyId, currentDevAdminBabyId, legacyDevAdminFamilyId, legacyDevAdminBabyId);
+      }
+      this.db.prepare(`
+        UPDATE growth_records
+        SET family_id = ?, baby_id = ?
+        WHERE family_id = ? AND baby_id = ?
+      `).run(currentDevAdminFamilyId, currentDevAdminBabyId, legacyDevAdminFamilyId, legacyDevAdminBabyId);
+      this.db.prepare(`
+        UPDATE raw_logs
+        SET family_id = ?, baby_id = ?
+        WHERE family_id = ? AND baby_id = ?
+      `).run(currentDevAdminFamilyId, currentDevAdminBabyId, legacyDevAdminFamilyId, legacyDevAdminBabyId);
+      this.db.prepare(`
+        UPDATE baby_events
+        SET family_id = ?, baby_id = ?, event_json = REPLACE(REPLACE(event_json, ?, ?), ?, ?)
+        WHERE family_id = ? AND baby_id = ?
+      `).run(
+        currentDevAdminFamilyId,
+        currentDevAdminBabyId,
+        legacyDevAdminFamilyId,
+        currentDevAdminFamilyId,
+        legacyDevAdminBabyId,
+        currentDevAdminBabyId,
+        legacyDevAdminFamilyId,
+        legacyDevAdminBabyId,
+      );
+      this.db.prepare(`
+        UPDATE action_logs
+        SET family_id = ?,
+            baby_id = CASE WHEN baby_id = ? THEN ? ELSE baby_id END,
+            metadata_json = REPLACE(REPLACE(metadata_json, ?, ?), ?, ?)
+        WHERE family_id = ?
+      `).run(
+        currentDevAdminFamilyId,
+        legacyDevAdminBabyId,
+        currentDevAdminBabyId,
+        legacyDevAdminFamilyId,
+        currentDevAdminFamilyId,
+        legacyDevAdminBabyId,
+        currentDevAdminBabyId,
+        legacyDevAdminFamilyId,
+      );
+      this.db.prepare('UPDATE task_assignees SET family_id = ? WHERE family_id = ?')
+        .run(currentDevAdminFamilyId, legacyDevAdminFamilyId);
+      this.db.prepare('UPDATE task_items SET family_id = ? WHERE family_id = ?')
+        .run(currentDevAdminFamilyId, legacyDevAdminFamilyId);
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   upsertUser(user) {
