@@ -44,13 +44,18 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#home-summary-grid')).toContainText('Tasks today');
     await expect(page.locator('#home-summary-grid')).toContainText('Meals today');
 
+    await page.locator('#next-home-day').click();
+    await expect(page.locator('#home-view.active #home-day-label')).toHaveText('Tomorrow');
+    await expect(page).toHaveURL(/day=/);
+    await app.captureStep('Changed the Home dashboard day', 'Home date controls moved the shared dashboard context to tomorrow.');
+
     await page.locator('#baby-tab').click();
-    await expect(page.locator('#baby-view.active #day-label')).toHaveText('Today');
+    await expect(page.locator('#baby-view.active #day-label')).toHaveText('Tomorrow');
     await expect(page.locator('#timeline')).toBeVisible();
     await app.captureStep('Navigated to baby tab', 'Baby log form and timeline are visible.');
 
     await page.locator('#task-tab').click();
-    await expect(page.locator('#task-view.active #task-day-label')).toHaveText('Today');
+    await expect(page.locator('#task-view.active #task-day-label')).toHaveText('Tomorrow');
     await expect(page.locator('#task-list')).toBeVisible();
     await app.captureStep('Navigated to task tab', 'Task view rendered with today context and list.');
 

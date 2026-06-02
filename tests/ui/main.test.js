@@ -118,6 +118,30 @@ describe('app/main', () => {
 
 
 
+  it('changes the shared day from the home dashboard controls', async () => {
+    const baseFetch = mockFetch();
+    global.fetch = vi.fn((input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/api/auth/me')) {
+        return Promise.resolve(new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 }));
+      }
+      return baseFetch(input, init);
+    });
+
+    await import('../../app/main.js?case=home-date-controls');
+
+    expect(document.querySelector('#home-day-label').textContent).toBe('Today');
+
+    fireEvent.click(document.querySelector('#next-home-day'));
+
+    await vi.waitFor(() => expect(document.querySelector('#home-day-label').textContent).toBe('Tomorrow'));
+
+    fireEvent.click(document.querySelector('#baby-tab'));
+
+    expect(document.querySelector('#day-label').textContent).toBe('Tomorrow');
+  });
+
+
   it('clusters crowded baby timeline logs on the home dashboard', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
@@ -317,6 +341,7 @@ describe('app/main', () => {
 
     const previousButton = document.querySelector('#previous-meal-day');
     const nextButton = document.querySelector('#next-meal-day');
+    const homePicker = document.querySelector('#home-day-picker');
     const babyPicker = document.querySelector('#day-picker');
     const taskPicker = document.querySelector('#task-day-picker');
     const mealPicker = document.querySelector('#meal-day-picker');
@@ -552,14 +577,15 @@ describe('app/main', () => {
   it('jumps every date control back to today with compact icon controls', async () => {
     await import('../../app/main.js?case=today-jump');
 
+    const homePicker = document.querySelector('#home-day-picker');
     const babyPicker = document.querySelector('#day-picker');
     const taskPicker = document.querySelector('#task-day-picker');
     const mealPicker = document.querySelector('#meal-day-picker');
     const todayButtons = Array.from(document.querySelectorAll('.today-jump'));
     const calendarButtons = Array.from(document.querySelectorAll('.calendar-toggle'));
 
-    expect(todayButtons).toHaveLength(3);
-    expect(calendarButtons).toHaveLength(3);
+    expect(todayButtons).toHaveLength(4);
+    expect(calendarButtons).toHaveLength(4);
     todayButtons.forEach((button) => {
       expect(button.textContent.trim()).toBe('');
       expect(button.querySelector('svg')).toBeTruthy();
@@ -574,9 +600,10 @@ describe('app/main', () => {
     fireEvent.change(babyPicker, { target: { value: '2026-05-01' } });
     expect(taskPicker.value).toBe('2026-05-01');
 
-    fireEvent.click(document.querySelector('#meal-today'));
+    fireEvent.click(document.querySelector('#home-today'));
 
     const today = new Date().toLocaleDateString('en-CA');
+    expect(homePicker.value).toBe(today);
     expect(babyPicker.value).toBe(today);
     expect(taskPicker.value).toBe(today);
     expect(mealPicker.value).toBe(today);
