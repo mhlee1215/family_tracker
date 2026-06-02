@@ -36,6 +36,8 @@ test('buildCareForecast estimates next milk time and amount from recent medians'
   assert.deepEqual(forecast.milk.amountMl, { value: 120, range: [105, 135] });
   assert.equal(forecast.milk.basis.sampleCount, 4);
   assert.equal(forecast.milk.basis.medianIntervalMinutes, 180);
+  assert.deepEqual(forecast.milk.basis.intervalSamples.map((sample) => sample.minutes), [180, 180, 210]);
+  assert.equal(forecast.milk.basis.intervalSamples.at(-1).endedAt, '2026-06-02T09:30:00.000Z');
 });
 
 test('buildCareForecast estimates diaper time and keeps kind counts for detail', () => {
@@ -50,6 +52,7 @@ test('buildCareForecast estimates diaper time and keeps kind counts for detail',
   assert.equal(forecast.diaper.nextAt, '2026-06-02T12:30:00.000Z');
   assert.equal(forecast.diaper.remainingMinutes, 150);
   assert.equal(forecast.diaper.basis.medianIntervalMinutes, 180);
+  assert.deepEqual(forecast.diaper.basis.intervalSamples.map((sample) => sample.minutes), [120, 210, 180]);
   assert.deepEqual(forecast.diaper.basis.diaperKinds, { wet: 2, dirty: 1, mixed: 1 });
 });
 

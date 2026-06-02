@@ -55,6 +55,7 @@ function forecastMilk(events, now, periodDays) {
     medianIntervalMinutes: intervals.median,
     averageIntervalMinutes: intervals.average,
     intervalMinutes: intervals.used.slice(-8),
+    intervalSamples: intervals.usedSamples.slice(-8),
     amountSampleCount: amountStats.count,
     medianAmountMl: amountStats.median,
     amountRangeMl: amountStats.range,
@@ -98,6 +99,7 @@ function forecastDiaper(events, now, periodDays) {
     medianIntervalMinutes: intervals.median,
     averageIntervalMinutes: intervals.average,
     intervalMinutes: intervals.used.slice(-8),
+    intervalSamples: intervals.usedSamples.slice(-8),
     diaperKinds: kindCounts,
     lastEventAt: diaperEvents.at(-1)?.time.toISOString() || null,
   };
@@ -127,15 +129,27 @@ function pointEventsOfType(events, type) {
 }
 
 function intervalStats(items, rules) {
-  const raw = [];
+  const rawSamples = [];
   for (let index = 1; index < items.length; index += 1) {
-    const minutes = Math.round((items[index].time.getTime() - items[index - 1].time.getTime()) / MINUTE_MS);
-    if (Number.isFinite(minutes) && minutes > 0) raw.push(minutes);
+    const previous = items[index - 1];
+    const current = items[index];
+    const minutes = Math.round((current.time.getTime() - previous.time.getTime()) / MINUTE_MS);
+    if (Number.isFinite(minutes) && minutes > 0) {
+      rawSamples.push({
+        minutes,
+        startedAt: previous.time.toISOString(),
+        endedAt: current.time.toISOString(),
+      });
+    }
   }
-  const used = raw.filter((minutes) => minutes >= rules.minimumIntervalMinutes && minutes <= rules.maximumIntervalMinutes);
+  const usedSamples = rawSamples.filter((sample) => sample.minutes >= rules.minimumIntervalMinutes && sample.minutes <= rules.maximumIntervalMinutes);
+  const raw = rawSamples.map((sample) => sample.minutes);
+  const used = usedSamples.map((sample) => sample.minutes);
   return {
     raw,
     used,
+    rawSamples,
+    usedSamples,
     excluded: Math.max(0, raw.length - used.length),
     median: median(used),
     average: used.length ? Math.round(used.reduce((sum, value) => sum + value, 0) / used.length) : null,

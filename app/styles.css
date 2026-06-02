@@ -803,7 +803,7 @@ input {
   margin: 0;
 }
 
-.care-forecast-detail div {
+.care-forecast-detail dl > div {
   display: grid;
   gap: 2px;
   border-radius: 12px;
@@ -821,34 +821,125 @@ input {
 .care-forecast-detail dt { color: var(--muted); }
 .care-forecast-detail dd { color: var(--ink); font-weight: 600; }
 
-.care-forecast-bars {
-  display: flex;
-  align-items: end;
-  gap: 8px;
-  height: 86px;
-  border-radius: 14px;
-  background: var(--surface-pearl);
+.care-forecast-explainer {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(0, 102, 204, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(0, 102, 204, 0.055), rgba(250, 250, 252, 0.96));
   padding: 12px;
 }
 
-.care-forecast-bars span {
-  position: relative;
-  display: block;
-  flex: 1;
-  min-width: 18px;
-  border-radius: 999px 999px 4px 4px;
-  background: var(--primary);
+.care-forecast-equation {
+  display: grid;
+  gap: 5px;
 }
 
-.care-forecast-bars i {
-  position: absolute;
-  left: 50%;
-  bottom: -18px;
-  transform: translateX(-50%);
+.care-forecast-equation span,
+.care-forecast-intervals > span,
+.care-forecast-chip-note {
   color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.care-forecast-equation strong {
+  color: var(--ink);
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.care-forecast-scatter {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.care-forecast-scatter svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 156px;
+  border: 1px solid rgba(224, 224, 224, 0.86);
+  border-radius: 14px;
+  background: var(--canvas);
+}
+
+.care-forecast-axis {
+  stroke: rgba(122, 122, 122, 0.42);
+  stroke-width: 1;
+}
+
+.care-forecast-grid-line {
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.care-forecast-point {
+  fill: var(--ink);
+  opacity: 0.78;
+}
+
+.care-forecast-prediction {
+  fill: var(--primary);
+  stroke: var(--canvas);
+  stroke-width: 1.5;
+}
+
+.care-forecast-axis-label,
+.care-forecast-line-label {
+  fill: var(--muted);
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 10px;
-  font-style: normal;
-  white-space: nowrap;
+}
+
+.care-forecast-line-label {
+  fill: var(--primary);
+  font-weight: 600;
+}
+
+.care-forecast-scatter figcaption {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.care-forecast-intervals {
+  display: grid;
+  gap: 7px;
+}
+
+.care-forecast-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.care-forecast-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--canvas);
+  color: var(--ink-muted-80);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 9px;
+}
+
+.care-forecast-chip.median {
+  border-color: rgba(0, 102, 204, 0.32);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.care-forecast-chip-note {
+  margin: 0;
 }
 
 .baby-patterns {
