@@ -1,3 +1,4 @@
+import { buildCareForecast, normalizeForecastPeriodDays } from '../src/domain/care-forecast.js';
 import { buildFeedingGuidance } from '../src/domain/feeding-guidance.js';
 import { buildTodayContext, buildTodaySummary, buildWindowSummary, filterEventsForWindow } from '../src/domain/summary-builder.js';
 import { babyActionIconColors, babySummaryLabelColors, colorForBabyEventType, mealSlotColors } from '../src/utils/tracker-colors.js';
@@ -50,6 +51,7 @@ const storageKeys = {
   patternTypes: 'familyTracker.patternTypes',
   patternPeriodDays: 'familyTracker.patternPeriodDays',
   patternStatUnit: 'familyTracker.patternStatUnit',
+  careForecastPeriodDays: 'familyTracker.careForecastPeriodDays',
   babyStatusRange: 'familyTracker.babyStatusRange',
   activeBabyTrackers: 'familyTracker.activeBabyTrackers',
 };
@@ -127,6 +129,11 @@ const state = {
   patternTypes: normalizePatternTypes(localStorage.getItem(storageKeys.patternTypes)),
   patternPeriodDays: normalizePatternPeriodDays(localStorage.getItem(storageKeys.patternPeriodDays)),
   patternStatUnit: normalizePatternStatUnit(localStorage.getItem(storageKeys.patternStatUnit)),
+  careForecastDays: [],
+  careForecastLoading: false,
+  careForecastError: '',
+  careForecastRequestId: 0,
+  careForecastPeriodDays: normalizeForecastPeriodDays(localStorage.getItem(storageKeys.careForecastPeriodDays)),
   syncVersions: null,
   syncCheckInFlight: false,
   syncLastCheckedAt: 0,
@@ -168,6 +175,7 @@ const elements = {
   timeline: $('#timeline'),
   summary: $('#summary'),
   todayContext: $('#today-context'),
+  careForecast: $('#care-forecast'),
   babyStatusRange: $('#baby-status-range'),
   feedingGuidance: $('#feeding-guidance'),
   sleepStatus: $('#sleep-status'),
@@ -259,6 +267,7 @@ const elements = {
   growthRecordTime: $('#growth-record-time'),
   milkAmount: $('#milk-amount'),
   napDuration: $('#nap-duration'),
+  forecastBaseline: $('#forecast-baseline'),
   babyTrackerToggles: document.querySelectorAll('[name="babyTrackerTypes"]'),
   assigneeForm: $('#assignee-form'),
   assigneeName: $('#assignee-name'),
@@ -338,6 +347,7 @@ function handleMenuToggleClick() {
 elements.menuToggle?.addEventListener('click', handleMenuToggleClick);
 
 await initializeApp();
+window.setInterval(() => renderCareForecast(), 60_000);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/app/sw.js').catch(() => {});
@@ -466,6 +476,7 @@ elements.llmProviderList?.addEventListener('click', async (event) => {
 });
 
 elements.growthRecordMode?.addEventListener('change', renderGrowthRecordDateControls);
+elements.forecastBaseline?.addEventListener('change', () => changeCareForecastPeriod(elements.forecastBaseline.value));
 
 elements.assigneeForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -673,8 +684,10 @@ async function loadToday() {
   await loadPreviousBabyDay();
   hydrateRecent24StatusFallback();
   seedSelectedDayPattern();
+  seedCareForecastHistory();
   renderBaby();
   loadBabyPatterns();
+  loadCareForecastHistory();
 }
 
 async function loadPreviousBabyDay() {
@@ -1249,6 +1262,7 @@ function renderBaby() {
   renderDayControls();
   renderSummary();
   renderTodayContext();
+  renderCareForecast();
   renderFeedingGuidance();
   renderSleepStatus();
   renderBabyPatterns();
@@ -1285,6 +1299,7 @@ function renderBabySettings() {
   renderGrowthRecordDateControls();
   elements.milkAmount.value = profile.milkAmountMlOverride ?? '';
   elements.napDuration.value = profile.napDurationMinutesOverride ?? '';
+  if (elements.forecastBaseline) elements.forecastBaseline.value = String(state.careForecastPeriodDays);
   elements.babyTrackerToggles.forEach((input) => {
     input.checked = isBabyTrackerActive(input.value);
   });
@@ -1607,7 +1622,6 @@ function renderTodayContext() {
     isBabyTrackerActive('diaper') ? contextCard('Last diaper', diaperContextLabel(context.lastDiaper), 'diaper') : null,
     isBabyTrackerActive('sleep') ? contextCard('Sleep', sleepContextLabel(context.sleep), 'sleep') : null,
   ].filter(Boolean);
-  if (cards.length) cards.push(contextCard('AI checks', estimateContextLabel(context), 'all'));
   elements.todayContext.classList.toggle('hidden', !cards.length);
   elements.todayContext.replaceChildren(...cards);
 }
@@ -1776,12 +1790,220 @@ function sleepContextLabel(item) {
   return item.label || (item.state === 'ongoing' ? 'Sleeping now' : 'Logged');
 }
 
-function estimateContextLabel(context) {
-  const inferred = context?.inferredFieldCount || 0;
-  const corrected = context?.correctedFieldCount || 0;
-  if (corrected) return `${inferred} estimated · ${corrected} corrected`;
-  if (inferred) return `${inferred} estimated`;
-  return 'No estimates';
+function seedCareForecastHistory() {
+  state.careForecastDays = patternDayKeys(state.selectedDay, state.careForecastPeriodDays).map((day) => ({
+    day,
+    events: day === state.selectedDay ? state.events : [],
+  }));
+  state.careForecastError = '';
+}
+
+async function loadCareForecastHistory() {
+  if (!elements.careForecast || !state.user) return;
+  const requestId = state.careForecastRequestId + 1;
+  state.careForecastRequestId = requestId;
+  state.careForecastLoading = true;
+  renderCareForecast();
+  const days = patternDayKeys(state.selectedDay, state.careForecastPeriodDays);
+  try {
+    const forecastDays = await Promise.all(days.map(async (day) => {
+      if (day === state.selectedDay) return { day, events: state.events };
+      const params = new URLSearchParams({ day, timezone: localTimezone() });
+      const response = await fetch(`/api/logs/today?${params.toString()}`);
+      if (!response.ok) throw new Error(`Could not load ${day}`);
+      const payload = await response.json();
+      return { day, events: payload.events || [] };
+    }));
+    if (requestId !== state.careForecastRequestId) return;
+    state.careForecastDays = forecastDays;
+    state.careForecastError = '';
+  } catch {
+    if (requestId !== state.careForecastRequestId) return;
+    state.careForecastError = 'Could not load care forecast.';
+  } finally {
+    if (requestId === state.careForecastRequestId) {
+      state.careForecastLoading = false;
+      renderCareForecast();
+    }
+  }
+}
+
+function renderCareForecast() {
+  if (!elements.careForecast) return;
+  const showMilk = isBabyTrackerActive('feeding_milk');
+  const showDiaper = isBabyTrackerActive('diaper');
+  if (!showMilk && !showDiaper) {
+    elements.careForecast.classList.add('hidden');
+    elements.careForecast.innerHTML = '';
+    return;
+  }
+  const days = state.careForecastDays.length ? state.careForecastDays : [{ day: state.selectedDay, events: state.events }];
+  const events = days.flatMap(({ events: dayEvents }) => dayEvents || []);
+  const forecast = buildCareForecast(events, {
+    now: careForecastNow(),
+    periodDays: state.careForecastPeriodDays,
+  });
+  const cards = [
+    showMilk ? careForecastCard('milk', 'Next milk', forecast.milk) : '',
+    showDiaper ? careForecastCard('diaper', 'Next diaper', forecast.diaper) : '',
+  ].filter(Boolean).join('');
+  const range = `${shortDayLabel(days[0]?.day)} – ${shortDayLabel(days.at(-1)?.day)}`;
+  elements.careForecast.classList.remove('hidden');
+  elements.careForecast.innerHTML = `
+    <div class="care-forecast-header">
+      <div>
+        <p class="eyebrow">Care forecast</p>
+        <h3>What comes next?</h3>
+      </div>
+      <span>${escapeHtml(forecastPeriodLabel(state.careForecastPeriodDays))} baseline · ${escapeHtml(range)}</span>
+    </div>
+    ${state.careForecastError ? `<p class="empty">${escapeHtml(state.careForecastError)}</p>` : ''}
+    ${state.careForecastLoading ? '<p class="care-forecast-loading">Refreshing forecast…</p>' : ''}
+    <div class="care-forecast-grid">${cards}</div>
+  `;
+}
+
+function careForecastCard(kind, title, forecast) {
+  const ready = forecast?.status !== 'not_enough_data';
+  const timer = ready ? forecastTimerLabel(forecast) : 'More logs needed';
+  const subtitle = kind === 'milk' ? milkForecastSubtitle(forecast) : diaperForecastSubtitle(forecast);
+  const detail = ready ? careForecastDetail(kind, forecast) : notEnoughForecastDetail(forecast);
+  return `
+    <details class="care-forecast-card care-forecast-${escapeHtml(kind)}">
+      <summary>
+        <span>${escapeHtml(title)}</span>
+        <strong>${escapeHtml(timer)}</strong>
+        <small>${escapeHtml(subtitle)}</small>
+      </summary>
+      ${detail}
+    </details>
+  `;
+}
+
+function milkForecastSubtitle(forecast) {
+  if (forecast?.status === 'not_enough_data') return forecast.message;
+  if (!forecast.amountMl) return 'Add ml amounts to estimate the next bottle.';
+  const range = forecast.amountMl.range || [];
+  const same = range.length === 2 && range[0] === range[1];
+  const amount = same ? `${range[0]}ml` : `${range[0]}–${range[1]}ml`;
+  return `Estimated amount ${amount}`;
+}
+
+function diaperForecastSubtitle(forecast) {
+  if (forecast?.status === 'not_enough_data') return forecast.message;
+  return `Around ${clockLabel(forecast.nextAt)}`;
+}
+
+function careForecastDetail(kind, forecast) {
+  const basis = forecast.basis || {};
+  const intervalBars = forecastIntervalBars(basis.intervalMinutes || []);
+  const amountDetail = kind === 'milk' && forecast.amountMl
+    ? `<div><dt>Typical amount</dt><dd>${escapeHtml(milkAmountLabel(forecast.amountMl))}</dd></div>`
+    : '';
+  const diaperKinds = kind === 'diaper' ? `<div><dt>Diaper mix</dt><dd>${escapeHtml(diaperKindSummary(basis.diaperKinds || {}))}</dd></div>` : '';
+  return `
+    <div class="care-forecast-detail">
+      <p>${escapeHtml(forecast.message || 'Estimated from recent logs.')}</p>
+      <dl>
+        <div><dt>Used</dt><dd>${escapeHtml(forecastPeriodLabel(basis.periodDays))}</dd></div>
+        <div><dt>Logs</dt><dd>${Number(basis.sampleCount || 0)}</dd></div>
+        <div><dt>Intervals</dt><dd>${Number(basis.intervalCount || 0)} used</dd></div>
+        <div><dt>Median interval</dt><dd>${escapeHtml(minutesLabel(basis.medianIntervalMinutes || 0))}</dd></div>
+        <div><dt>Last log</dt><dd>${escapeHtml(clockLabel(basis.lastEventAt))}</dd></div>
+        <div><dt>Estimate</dt><dd>${escapeHtml(clockLabel(forecast.nextAt))}</dd></div>
+        ${amountDetail}
+        ${diaperKinds}
+        <div><dt>Excluded</dt><dd>${Number(basis.excludedOutliers || 0)} outliers</dd></div>
+      </dl>
+      ${intervalBars}
+    </div>
+  `;
+}
+
+function notEnoughForecastDetail(forecast) {
+  const basis = forecast?.basis || {};
+  return `
+    <div class="care-forecast-detail">
+      <p>${escapeHtml(forecast?.message || 'Add more logs to build this forecast.')}</p>
+      <dl>
+        <div><dt>Used</dt><dd>${escapeHtml(forecastPeriodLabel(basis.periodDays || state.careForecastPeriodDays))}</dd></div>
+        <div><dt>Logs</dt><dd>${Number(basis.sampleCount || 0)}</dd></div>
+        <div><dt>Needed</dt><dd>2+ logs</dd></div>
+      </dl>
+    </div>
+  `;
+}
+
+function forecastIntervalBars(intervals) {
+  if (!intervals.length) return '';
+  const max = Math.max(...intervals, 1);
+  const bars = intervals.map((minutes) => {
+    const height = Math.max(12, Math.round((minutes / max) * 100));
+    return `<span style="height:${height}%"><i>${escapeHtml(minutesLabel(minutes))}</i></span>`;
+  }).join('');
+  return `<div class="care-forecast-bars" aria-label="Recent interval samples">${bars}</div>`;
+}
+
+function clockLabel(value) {
+  if (!value) return 'No time yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'No time yet';
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+}
+
+function forecastTimerLabel(forecast) {
+  const minutes = Number(forecast?.remainingMinutes);
+  if (!Number.isFinite(minutes)) return 'Estimate pending';
+  if (minutes < 0) return `Overdue by ${minutesLabel(Math.abs(minutes))}`;
+  if (minutes === 0) return 'Due now';
+  return `in ${minutesLabel(minutes)}`;
+}
+
+function milkAmountLabel(amount) {
+  const range = amount?.range || [];
+  if (range.length === 2 && range[0] !== range[1]) return `${range[0]}–${range[1]}ml`;
+  return `${amount?.value || range[0] || 0}ml`;
+}
+
+function diaperKindSummary(counts) {
+  const parts = Object.entries(counts)
+    .filter(([, count]) => count)
+    .map(([kind, count]) => `${diaperKindLabel(kind)} ${count}`);
+  return parts.length ? parts.join(' · ') : 'No kind split';
+}
+
+function diaperKindLabel(kind) {
+  if (kind === 'dirty') return 'poop';
+  if (kind === 'mixed') return 'mixed';
+  if (kind === 'wet') return 'pee';
+  return 'unspecified';
+}
+
+function forecastPeriodLabel(days) {
+  const normalized = normalizeForecastPeriodDays(days);
+  if (normalized === 1) return 'Last day';
+  if (normalized === 30) return 'Last 30 days';
+  return 'Last 7 days';
+}
+
+function careForecastNow() {
+  const realNow = new Date();
+  const today = localDateKey(realNow);
+  if (!state.selectedDay || state.selectedDay === today) return realNow;
+  const selected = dateFromKey(state.selectedDay);
+  selected.setHours(12, 0, 0, 0);
+  return selected;
+}
+
+function changeCareForecastPeriod(value) {
+  const next = normalizeForecastPeriodDays(value);
+  if (next === state.careForecastPeriodDays) return;
+  state.careForecastPeriodDays = next;
+  localStorage.setItem(storageKeys.careForecastPeriodDays, String(next));
+  seedCareForecastHistory();
+  renderBabySettings();
+  renderCareForecast();
+  loadCareForecastHistory();
 }
 
 function seedSelectedDayPattern() {

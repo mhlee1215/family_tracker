@@ -657,24 +657,29 @@ input {
 
 
 .today-context {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  align-items: stretch;
   gap: 1px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
   background: var(--hairline);
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
 }
 
 .today-context-card {
-  display: grid;
-  gap: 6px;
-  justify-items: start;
-  min-height: 76px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: center;
+  min-width: min(240px, 74vw);
+  flex: 1 0 0;
   border-radius: 0;
   background: var(--canvas);
   color: var(--ink);
-  padding: 14px min(20px, 3vw);
+  padding: 12px min(18px, 3vw);
   text-align: left;
+  white-space: nowrap;
 }
 
 .today-context-card span {
@@ -687,13 +692,163 @@ input {
 .today-context-card strong {
   color: var(--ink);
   font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: clamp(17px, 2vw, 24px);
+  font-size: clamp(15px, 1.8vw, 19px);
   font-weight: 600;
   line-height: 1.12;
 }
 
 .today-context-card:hover {
   background: var(--surface-pearl);
+}
+
+.care-forecast {
+  display: grid;
+  gap: 14px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--canvas-parchment);
+  padding: 18px clamp(16px, 4vw, 32px) 22px;
+}
+
+.care-forecast-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.care-forecast-header h3 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.care-forecast-header > span,
+.care-forecast-loading {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.care-forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.care-forecast-card {
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+.care-forecast-card > summary {
+  display: grid;
+  gap: 7px;
+  min-height: 152px;
+  cursor: pointer;
+  list-style: none;
+  padding: 20px;
+}
+
+.care-forecast-card > summary::-webkit-details-marker { display: none; }
+.care-forecast-card > summary::marker { content: ''; }
+
+.care-forecast-card > summary:focus-visible {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: -2px;
+}
+
+.care-forecast-card > summary span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.care-forecast-card > summary strong {
+  color: var(--ink);
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(31px, 5vw, 48px);
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.28px;
+}
+
+.care-forecast-card > summary small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.care-forecast-detail {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--hairline);
+  padding: 0 20px 20px;
+}
+
+.care-forecast-detail p {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.care-forecast-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.care-forecast-detail div {
+  display: grid;
+  gap: 2px;
+  border-radius: 12px;
+  background: var(--surface-pearl);
+  padding: 9px 10px;
+}
+
+.care-forecast-detail dt,
+.care-forecast-detail dd {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.care-forecast-detail dt { color: var(--muted); }
+.care-forecast-detail dd { color: var(--ink); font-weight: 600; }
+
+.care-forecast-bars {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  height: 86px;
+  border-radius: 14px;
+  background: var(--surface-pearl);
+  padding: 12px;
+}
+
+.care-forecast-bars span {
+  position: relative;
+  display: block;
+  flex: 1;
+  min-width: 18px;
+  border-radius: 999px 999px 4px 4px;
+  background: var(--primary);
+}
+
+.care-forecast-bars i {
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  white-space: nowrap;
 }
 
 .baby-patterns {
@@ -1809,13 +1964,21 @@ label {
   }
 
   .summary-strip,
-  .today-context,
   .pattern-insights {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .care-forecast-grid {
+    grid-template-columns: 1fr;
+  }
+
   .baby-status-range {
     flex-wrap: wrap;
+  }
+
+  .care-forecast-header {
+    align-items: start;
+    flex-direction: column;
   }
 
   .pattern-statistics-header {

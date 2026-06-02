@@ -563,6 +563,68 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('baby care forecast replaces AI checks with next milk and diaper detail', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const eventsByDay = {
+      '2026-05-28': [
+        { id: 'forecast-milk-1', type: 'feeding_milk', rawText: 'formula 90', occurredAt: { value: '2026-05-28T00:00:00.000Z' }, amountMl: { value: 90 }, createdAt: '2026-05-28T00:01:00.000Z' },
+        { id: 'forecast-diaper-1', type: 'diaper', rawText: 'pee diaper', occurredAt: { value: '2026-05-28T01:00:00.000Z' }, diaperKind: { value: 'wet' }, createdAt: '2026-05-28T01:01:00.000Z' },
+      ],
+      '2026-05-29': [
+        { id: 'forecast-milk-2', type: 'feeding_milk', rawText: 'formula 110', occurredAt: { value: '2026-05-29T03:00:00.000Z' }, amountMl: { value: 110 }, createdAt: '2026-05-29T03:01:00.000Z' },
+        { id: 'forecast-diaper-2', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T03:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T03:01:00.000Z' },
+      ],
+      '2026-05-30': [
+        { id: 'forecast-milk-3', type: 'feeding_milk', rawText: 'formula 130', occurredAt: { value: '2026-05-30T06:00:00.000Z' }, amountMl: { value: 130 }, createdAt: '2026-05-30T06:01:00.000Z' },
+        { id: 'forecast-milk-4', type: 'feeding_milk', rawText: 'formula 150', occurredAt: { value: '2026-05-30T09:00:00.000Z' }, amountMl: { value: 150 }, createdAt: '2026-05-30T09:01:00.000Z' },
+        { id: 'forecast-diaper-3', type: 'diaper', rawText: 'pee diaper', occurredAt: { value: '2026-05-30T06:00:00.000Z' }, diaperKind: { value: 'wet' }, createdAt: '2026-05-30T06:01:00.000Z' },
+        { id: 'forecast-diaper-4', type: 'diaper', rawText: 'mixed diaper', occurredAt: { value: '2026-05-30T09:00:00.000Z' }, diaperKind: { value: 'mixed' }, createdAt: '2026-05-30T09:01:00.000Z' },
+        { id: 'forecast-nap', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-30T10:00:00.000Z' }, endAt: { value: '2026-05-30T10:45:00.000Z' }, durationMinutes: { value: 45 }, createdAt: '2026-05-30T10:00:00.000Z' },
+      ],
+    };
+
+    await page.route('**/api/logs/today**', async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const day = requestUrl.searchParams.get('day') || '2026-05-30';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: eventsByDay[day] || [], summary: {}, context: null }),
+      });
+    });
+
+    const loginResponse = await page.request.post('/api/auth/dev', { data: { id: 'admin-test' } });
+    expect(loginResponse.ok()).toBeTruthy();
+    await page.goto('/baby?day=2026-05-30');
+
+    await page.locator('#open-baby-summary').click();
+    await expect(page.locator('#today-context')).toContainText('Last milk');
+    await expect(page.locator('#today-context')).toContainText('Last diaper');
+    await expect(page.locator('#today-context')).toContainText('Sleep');
+    await expect(page.locator('#today-context')).not.toContainText('AI checks');
+    await expect(page.locator('#care-forecast')).toContainText('Care forecast');
+    await expect(page.locator('#care-forecast')).toContainText('Next milk');
+    await expect(page.locator('#care-forecast')).toContainText('Estimated amount');
+    await expect(page.locator('#care-forecast')).toContainText('Next diaper');
+
+    await page.locator('#care-forecast .care-forecast-card').first().click();
+    await expect(page.locator('#care-forecast .care-forecast-detail').first()).toContainText('Median interval');
+    await expect(page.locator('#care-forecast .care-forecast-detail').first()).toContainText('Last 7 days');
+    await expect(page.locator('#care-forecast .care-forecast-bars').first()).toBeVisible();
+    await app.captureStep('Opened baby care forecast details', 'The summary shows next milk and diaper estimates with a detail view explaining baseline, samples, and intervals.');
+
+    await page.locator('#open-baby-settings').click();
+    await page.locator('#forecast-baseline').selectOption('30');
+    await page.locator('#open-baby-summary').click();
+    await expect(page.locator('#care-forecast')).toContainText('Last 30 days baseline');
+    await app.captureStep('Changed forecast baseline', 'The forecast baseline setting updates the history window used for care estimates.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('baby weekly patterns summarize seven-day rhythm and type filters', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     const eventsByDay = {
