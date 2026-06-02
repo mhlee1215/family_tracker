@@ -2983,6 +2983,10 @@ label {
   gap: clamp(6px, 1.4dvh, 12px);
 }
 
+.home-date-heading {
+  justify-content: flex-start;
+}
+
 .home-deck {
   max-width: 680px;
   margin: 0;

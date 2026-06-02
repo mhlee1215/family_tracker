@@ -91,6 +91,8 @@ const state = {
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
   activeTab: normalizeTab(getInitialTab()),
   selectedDay: getInitialSharedDay(),
+  homeCalendarMonth: null,
+  homeCalendarDots: {},
   taskCalendarMonth: null,
   taskCalendarDots: {},
   babyCalendarMonth: null,
@@ -127,6 +129,16 @@ const elements = {
   tabs: document.querySelectorAll('.module-tab'),
   views: document.querySelectorAll('.module-view'),
   homeDayLabel: $('#home-day-label'),
+  homeDayPicker: $('#home-day-picker'),
+  homeToday: $('#home-today'),
+  homeCalendarToggle: $('#home-calendar-toggle'),
+  homeCalendarPopover: $('#home-calendar-popover'),
+  homeCalendarPrev: $('#home-calendar-prev'),
+  homeCalendarNext: $('#home-calendar-next'),
+  homeCalendarMonth: $('#home-calendar-month'),
+  homeCalendarGrid: $('#home-calendar-grid'),
+  previousHomeDay: $('#previous-home-day'),
+  nextHomeDay: $('#next-home-day'),
   homeDeck: $('#home-deck'),
   homeAttentionCount: $('#home-attention-count'),
   homeAttentionStrip: $('#home-attention-strip'),
@@ -324,6 +336,10 @@ elements.tabs.forEach((tab) => {
   tab.addEventListener('click', () => setActiveTab(tab.dataset.tab, { pushHistory: true }));
 });
 elements.brandHome?.addEventListener('click', () => setActiveTab('home', { pushHistory: true }));
+elements.previousHomeDay?.addEventListener('click', () => shiftSelectedDay(-1));
+elements.nextHomeDay?.addEventListener('click', () => shiftSelectedDay(1));
+elements.homeToday?.addEventListener('click', () => jumpToToday());
+elements.homeDayPicker?.addEventListener('change', () => setSelectedDay(elements.homeDayPicker.value, { pushHistory: true }));
 elements.homeSummaryGrid?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-home-tooltip-toggle]');
   if (!button) return;
@@ -484,6 +500,9 @@ elements.mealDayPicker?.addEventListener('change', () => setSelectedDay(elements
 elements.taskDueMode?.addEventListener('change', renderTaskComposerDueState);
 
 elements.taskDayPicker.addEventListener('change', () => setSelectedDay(elements.taskDayPicker.value, { pushHistory: true }));
+elements.homeCalendarToggle?.addEventListener('click', () => toggleHomeCalendar());
+elements.homeCalendarPrev?.addEventListener('click', () => shiftHomeCalendarMonth(-1));
+elements.homeCalendarNext?.addEventListener('click', () => shiftHomeCalendarMonth(1));
 elements.taskCalendarToggle?.addEventListener('click', () => toggleTaskCalendar());
 elements.taskCalendarPrev?.addEventListener('click', () => shiftTaskCalendarMonth(-1));
 elements.taskCalendarNext?.addEventListener('click', () => shiftTaskCalendarMonth(1));
@@ -507,6 +526,9 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('click', (event) => {
+  if (elements.homeCalendarPopover && !elements.homeCalendarPopover.classList.contains('hidden')) {
+    if (!(elements.homeCalendarPopover.contains(event.target) || elements.homeCalendarToggle.contains(event.target))) setHomeCalendarOpen(false);
+  }
   if (elements.taskCalendarPopover && !elements.taskCalendarPopover.classList.contains('hidden')) {
     if (!(elements.taskCalendarPopover.contains(event.target) || elements.taskCalendarToggle.contains(event.target))) setTaskCalendarOpen(false);
   }
@@ -1233,6 +1255,7 @@ function renderDayControls() {
 }
 
 function renderSharedDayControls() {
+  renderHomeDayControls();
   renderBabyDayControls();
   renderTaskDayControls();
   renderMealDayControls();
@@ -3346,6 +3369,73 @@ function startBuildWatcher() {
   window.setInterval(check, BUILD_CHECK_INTERVAL_MS);
 }
 
+
+function renderHomeDayControls() {
+  if (elements.homeDayPicker) elements.homeDayPicker.value = state.selectedDay;
+  if (elements.homeDayLabel) elements.homeDayLabel.textContent = dayHeading(state.selectedDay);
+  if (elements.homeCalendarToggle) elements.homeCalendarToggle.setAttribute('aria-label', 'Open home calendar');
+  renderHomeCalendar();
+}
+
+async function loadHomeCalendarDots(monthKey) {
+  const [babyDots, taskDots] = await Promise.all([
+    fetch(`/api/logs/calendar?month=${encodeURIComponent(monthKey)}&timezone=${encodeURIComponent(localTimezone())}`)
+      .then((response) => response.ok ? response.json() : { days: {} })
+      .then((payload) => payload.days || {})
+      .catch(() => ({})),
+    fetch(`/api/tasks/calendar?month=${encodeURIComponent(monthKey)}`)
+      .then((response) => response.ok ? response.json() : { days: {} })
+      .then((payload) => payload.days || {})
+      .catch(() => ({})),
+  ]);
+  const merged = {};
+  for (const [day, colors] of Object.entries(babyDots)) merged[day] = [...(merged[day] || []), ...(colors || [])];
+  for (const [day, colors] of Object.entries(taskDots)) merged[day] = [...(merged[day] || []), ...(colors || [])];
+  const mealDots = mealCalendarDotsForMonth(monthKey);
+  for (const [day, colors] of Object.entries(mealDots)) merged[day] = [...(merged[day] || []), ...(colors || [])];
+  state.homeCalendarDots = merged;
+  renderHomeCalendar();
+}
+
+function setHomeCalendarOpen(open) {
+  elements.homeCalendarPopover?.classList.toggle('hidden', !open);
+  elements.homeCalendarToggle?.setAttribute('aria-expanded', String(open));
+  elements.homeCalendarToggle?.setAttribute('aria-label', open ? 'Close home calendar' : 'Open home calendar');
+}
+
+function toggleHomeCalendar() {
+  if (!elements.homeCalendarPopover) return;
+  const open = elements.homeCalendarPopover.classList.contains('hidden');
+  if (open) {
+    state.homeCalendarMonth = state.selectedDay.slice(0, 7);
+    loadHomeCalendarDots(state.homeCalendarMonth);
+  }
+  setHomeCalendarOpen(open);
+}
+
+function shiftHomeCalendarMonth(delta) {
+  const monthKey = state.homeCalendarMonth || state.selectedDay.slice(0, 7);
+  const base = new Date(`${monthKey}-01T00:00:00`);
+  base.setMonth(base.getMonth() + delta);
+  state.homeCalendarMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+  loadHomeCalendarDots(state.homeCalendarMonth);
+}
+
+function renderHomeCalendar() {
+  if (!elements.homeCalendarGrid || !state.homeCalendarMonth) return;
+  renderCalendarGrid({
+    monthKey: state.homeCalendarMonth,
+    selectedDay: state.selectedDay,
+    dotsByDay: state.homeCalendarDots,
+    monthElement: elements.homeCalendarMonth,
+    gridElement: elements.homeCalendarGrid,
+    onSelect: (iso) => {
+      setHomeCalendarOpen(false);
+      setSelectedDay(iso, { pushHistory: true });
+    },
+  });
+}
+
 function renderTaskDayControls() {
   elements.taskDayPicker.value = state.selectedDay;
   renderTaskComposerDueState();
@@ -3449,7 +3539,7 @@ function renderMealDayControls() {
   renderMealCalendar();
 }
 
-function loadMealCalendarDots(monthKey) {
+function mealCalendarDotsForMonth(monthKey) {
   const dots = {};
   Object.keys(state.meals.plannedByDay || {}).filter((day) => day.startsWith(monthKey)).forEach((day) => {
     const plan = state.meals.plannedByDay[day] || {};
@@ -3459,7 +3549,11 @@ function loadMealCalendarDots(monthKey) {
     if ((plan.dinner || []).length) colors.push(mealSlotColors.dinner);
     if (colors.length) dots[day] = colors;
   });
-  state.mealCalendarDots = dots;
+  return dots;
+}
+
+function loadMealCalendarDots(monthKey) {
+  state.mealCalendarDots = mealCalendarDotsForMonth(monthKey);
   renderMealCalendar();
 }
 function setMealCalendarOpen(open) { elements.mealCalendarPopover?.classList.toggle('hidden', !open); elements.mealCalendarToggle?.setAttribute('aria-expanded', String(open)); elements.mealCalendarToggle?.setAttribute('aria-label', open ? 'Close meal calendar' : 'Open meal calendar'); }
