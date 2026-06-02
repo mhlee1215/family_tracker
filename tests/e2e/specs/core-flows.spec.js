@@ -64,6 +64,60 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('baby tab supports pull-to-refresh for user-requested updates', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let todayRequests = 0;
+    await page.route('**/api/sync/state**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modules: { baby: { version: 'baby-v1' }, task: { version: 'task-v1' }, profile: { version: 'profile-v1' } } }) });
+    });
+    await page.route('**/api/profile', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ profile: { babyName: 'Ari' }, growthRecords: [] }) });
+    });
+    await page.route('**/api/logs/today**', async (route) => {
+      todayRequests += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events: [], summary: {}, context: {} }) });
+    });
+    await page.route('**/api/action-logs**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ logs: [] }) });
+    });
+    await page.route('**/api/task-assignees', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ assignees: [] }) });
+    });
+    await page.route('**/api/tasks/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tasks: [], days: {} }) });
+    });
+    await page.route('**/api/events/summary**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ summary: null }) });
+    });
+
+    await app.loginAsDevAdmin('/baby');
+    const initialTodayRequests = todayRequests;
+    await page.evaluate(() => {
+      const dispatchTouch = (type, clientY, ended = false) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'touches', { configurable: true, value: ended ? [] : [{ clientY }] });
+        document.dispatchEvent(event);
+      };
+      window.scrollTo(0, 0);
+      dispatchTouch('touchstart', 0);
+      dispatchTouch('touchmove', 180);
+    });
+    await expect(page.locator('#pull-refresh-label')).toHaveText('Release to refresh');
+    await page.evaluate(() => {
+      const event = new Event('touchend', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'touches', { configurable: true, value: [] });
+      document.dispatchEvent(event);
+    });
+    await expect.poll(() => todayRequests).toBeGreaterThan(initialTodayRequests);
+    await expect(page.locator('#pull-refresh')).toHaveClass(/visible/);
+    await app.captureStep('Pulled baby view to refresh', 'Pulling down from the top explicitly triggered a current-tab refresh without relying on automatic polling.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('home baby timeline clusters crowded logs into one marker', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await page.route('**/api/logs/today**', async (route) => {

@@ -72,3 +72,8 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - 기본 `npm start` 경로는 Turso 환경 변수(`DATABASE_PROVIDER=turso`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`)가 있는 개발 컨테이너에서도 동작해야 한다.
 - Turso 모드의 서버 시작은 `scripts/start-server.js`를 사용해 proxy-aware Node 실행(`--use-env-proxy`, `--dns-result-order=ipv4first`)을 보장한다.
 - Turso 런타임/스토리지 경로를 건드린 경우 `npm run check:turso`와 `npm start` 성공 여부를 확인한다.
+
+## Lightweight Refresh Sync Policy
+- Automatic refresh behavior must poll a small sync-state endpoint first and avoid full data reloads unless a module version changed.
+- Sync-state checks must preserve family/baby scoping and avoid returning record payloads.
+- User-initiated Refresh and pull-to-refresh gestures are allowed to perform current-tab full refreshes.
