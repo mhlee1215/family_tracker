@@ -260,7 +260,7 @@ describe('app/main', () => {
   });
 
 
-  it('opens baby action log from the Baby Tracker menu', async () => {
+  it('opens baby history as a main Baby Tracker tab', async () => {
     await import('../../app/main.js?case=baby-action-log-panel');
 
     const button = document.querySelector('#open-baby-action-log');
@@ -276,11 +276,14 @@ describe('app/main', () => {
     expect(panel.getAttribute('aria-hidden')).toBe('false');
     expect(button.getAttribute('aria-expanded')).toBe('true');
 
-    fireEvent.click(button);
+    expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(true);
+
+    fireEvent.click(document.querySelector('#open-baby-log'));
 
     expect(panel.classList.contains('hidden')).toBe(true);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(false);
   });
 
 
@@ -424,7 +427,7 @@ describe('app/main', () => {
     expect(document.querySelector('#llm-provider-select').value).toBe('openai');
   });
 
-  it('keeps baby settings inside Baby Tracker and toggles growth summary chart', async () => {
+  it('keeps baby settings floating while main baby sections switch as tabs', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
@@ -447,7 +450,8 @@ describe('app/main', () => {
     expect(document.querySelector('#menu-panel #baby-settings-form')).toBeNull();
 
     const settingsPanel = document.querySelector('#baby-settings-panel');
-    const summaryPanel = document.querySelector('#growth-summary');
+    const summaryPanel = document.querySelector('#baby-summary-panel');
+    const growthSummary = document.querySelector('#growth-summary');
 
     expect(settingsPanel.classList.contains('hidden')).toBe(true);
     fireEvent.click(document.querySelector('#open-baby-settings'));
@@ -459,12 +463,17 @@ describe('app/main', () => {
     expect(settingsPanel.getAttribute('aria-hidden')).toBe('true');
     expect(summaryPanel.classList.contains('hidden')).toBe(false);
     expect(summaryPanel.getAttribute('aria-hidden')).toBe('false');
-    expect(summaryPanel.querySelector('#growth-trend-chart')).toBeTruthy();
+    expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(true);
+    expect(growthSummary.querySelector('#growth-trend-chart')).toBeTruthy();
     expect(summaryPanel.textContent).toContain('X-axis shows record dates');
 
     fireEvent.pointerDown(document.body);
+    expect(summaryPanel.classList.contains('hidden')).toBe(false);
+    expect(summaryPanel.getAttribute('aria-hidden')).toBe('false');
+
+    fireEvent.click(document.querySelector('#open-baby-log'));
+    expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(false);
     expect(summaryPanel.classList.contains('hidden')).toBe(true);
-    expect(summaryPanel.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('opens task actions as floating panels that dismiss outside', async () => {

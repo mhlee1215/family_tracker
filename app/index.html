@@ -176,15 +176,12 @@
           </div>
         </header>
 
-        <nav class="app-section-menu" aria-label="Baby tracker menu">
-          <button id="open-baby-settings" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-settings-panel">
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
-              <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2.1 2.1 0 0 1-2.97 2.97l-.04-.04a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.09 1.65V21.4a2.1 2.1 0 0 1-4.2 0v-.06a1.8 1.8 0 0 0-1.09-1.65 1.8 1.8 0 0 0-1.98.36l-.04.04a2.1 2.1 0 0 1-2.97-2.97l.04-.04A1.8 1.8 0 0 0 3.6 15a1.8 1.8 0 0 0-1.65-1.09H1.9a2.1 2.1 0 0 1 0-4.2h.06A1.8 1.8 0 0 0 3.6 8.62a1.8 1.8 0 0 0-.36-1.98l-.04-.04a2.1 2.1 0 0 1 2.97-2.97l.04.04a1.8 1.8 0 0 0 1.98.36 1.8 1.8 0 0 0 1.09-1.65V2.2a2.1 2.1 0 0 1 4.2 0v.06a1.8 1.8 0 0 0 1.09 1.65 1.8 1.8 0 0 0 1.98-.36l.04-.04a2.1 2.1 0 0 1 2.97 2.97l-.04.04a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.09h.06a2.1 2.1 0 0 1 0 4.2h-.06A1.8 1.8 0 0 0 19.4 15Z"></path>
-            </svg>
-            <span>Settings</span>
+        <nav class="app-section-menu baby-section-tabs" aria-label="Baby tracker sections">
+          <button id="open-baby-log" type="button" class="app-menu-button active" aria-controls="workspace">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6Z"></path><path d="M14 4v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
+            <span>Record</span>
           </button>
-          <button id="open-baby-summary" type="button" class="app-menu-button" aria-expanded="false" aria-controls="growth-summary">
+          <button id="open-baby-summary" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-summary-panel">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 16v-5"></path><path d="M12 16V8"></path><path d="M16 16v-9"></path></svg>
             <span>Summary</span>
           </button>
@@ -192,17 +189,20 @@
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 17c3.5-8 6.5-8 10 0"></path><path d="M4 7c3.5 8 6.5 8 10 0"></path><path d="M18 5v14"></path><path d="M15 8l3-3 3 3"></path><path d="M15 16l3 3 3-3"></path></svg>
             <span>Patterns</span>
           </button>
-          <button id="open-baby-log" type="button" class="app-menu-button active" aria-controls="log-form">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6Z"></path><path d="M14 4v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
-            <span>Record</span>
-          </button>
           <button id="open-baby-moments" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-moment-panel">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4.5 14.2 9l5 .7-3.6 3.5.9 5-4.5-2.3-4.5 2.3.9-5L4.8 9.7l5-.7Z"></path></svg>
             <span>Moments</span>
           </button>
           <button id="open-baby-action-log" type="button" class="app-menu-button" aria-expanded="false" aria-controls="baby-action-log-panel">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h12v16H6Z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
-            <span>Action log</span>
+            <span>History</span>
+          </button>
+          <button id="open-baby-settings" type="button" class="app-menu-button baby-settings-button" aria-expanded="false" aria-controls="baby-settings-panel">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+              <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2.1 2.1 0 0 1-2.97 2.97l-.04-.04a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.09 1.65V21.4a2.1 2.1 0 0 1-4.2 0v-.06a1.8 1.8 0 0 0-1.09-1.65 1.8 1.8 0 0 0-1.98.36l-.04.04a2.1 2.1 0 0 1-2.97-2.97l.04-.04A1.8 1.8 0 0 0 3.6 15a1.8 1.8 0 0 0-1.65-1.09H1.9a2.1 2.1 0 0 1 0-4.2h.06A1.8 1.8 0 0 0 3.6 8.62a1.8 1.8 0 0 0-.36-1.98l-.04-.04a2.1 2.1 0 0 1 2.97-2.97l.04.04a1.8 1.8 0 0 0 1.98.36 1.8 1.8 0 0 0 1.09-1.65V2.2a2.1 2.1 0 0 1 4.2 0v.06a1.8 1.8 0 0 0 1.09 1.65 1.8 1.8 0 0 0 1.98-.36l.04-.04a2.1 2.1 0 0 1 2.97 2.97l-.04.04a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.09h.06a2.1 2.1 0 0 1 0 4.2h-.06A1.8 1.8 0 0 0 19.4 15Z"></path>
+            </svg>
+            <span>Settings</span>
           </button>
         </nav>
 
@@ -274,17 +274,24 @@
           </form>
         </section>
 
-        <div id="baby-status-range" class="baby-status-range" role="group" aria-label="Baby status range">
-          <button type="button" data-status-range="recent24h" aria-pressed="true">Recent 24h</button>
-          <button type="button" data-status-range="today" aria-pressed="false">Today</button>
-        </div>
-        <section id="summary" class="summary-strip" aria-label="Baby status summary"></section>
-        <section id="today-context" class="today-context" aria-label="Baby status context"></section>
-        <section id="feeding-guidance" class="feeding-guidance" aria-label="Feeding progress guidance"></section>
-        <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
-        <section id="baby-patterns" class="baby-patterns app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby patterns"></section>
-        <section id="growth-summary" class="growth-summary app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth summary"></section>
-        <section id="baby-moment-panel" class="baby-moment-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Growth moments">
+        <section id="baby-summary-panel" class="baby-tab-panel baby-summary-panel hidden" aria-hidden="true" aria-label="Baby summary">
+          <div class="baby-tab-hero">
+            <p class="eyebrow">Summary</p>
+            <h2>Today at a glance</h2>
+            <p>Review the current day, recent 24 hours, feeding guidance, and growth trend without covering the record workspace.</p>
+          </div>
+          <div id="baby-status-range" class="baby-status-range" role="group" aria-label="Baby status range">
+            <button type="button" data-status-range="recent24h" aria-pressed="true">Recent 24h</button>
+            <button type="button" data-status-range="today" aria-pressed="false">Today</button>
+          </div>
+          <section id="summary" class="summary-strip" aria-label="Baby status summary"></section>
+          <section id="today-context" class="today-context" aria-label="Baby status context"></section>
+          <section id="feeding-guidance" class="feeding-guidance" aria-label="Feeding progress guidance"></section>
+          <section id="sleep-status" class="sleep-status hidden" aria-live="polite"></section>
+          <section id="growth-summary" class="growth-summary" aria-label="Growth summary"></section>
+        </section>
+        <section id="baby-patterns" class="baby-tab-panel baby-patterns hidden" aria-hidden="true" aria-label="Baby patterns"></section>
+        <section id="baby-moment-panel" class="baby-tab-panel baby-moment-panel hidden" aria-hidden="true" aria-label="Growth moments">
           <div id="baby-moment-gallery" class="moment-gallery" aria-live="polite"></div>
           <form id="moment-form" class="moment-form" autocomplete="off">
             <div class="section-header">
@@ -314,12 +321,12 @@
             <menu class="floating-window-actions"><button id="moment-reset" type="button" class="ghost-button">Reset</button><button type="submit">Save moment</button></menu>
           </form>
         </section>
-        <aside id="baby-action-log-panel" class="baby-action-log-panel app-floating-panel hidden" role="dialog" aria-hidden="true" aria-label="Baby action log">
-          <div class="section-header"><h3>Action log</h3></div>
+        <aside id="baby-action-log-panel" class="baby-tab-panel baby-action-log-panel hidden" aria-hidden="true" aria-label="Baby history">
+          <div class="section-header"><h3>History</h3></div>
           <div id="baby-action-log" class="task-overview-list"></div>
         </aside>
 
-        <section id="workspace" class="workspace-grid">
+        <section id="workspace" class="workspace-grid baby-tab-panel" aria-hidden="false" aria-label="Baby records">
           <section class="phone-flow">
             <form id="log-form" class="input-panel" autocomplete="off">
               <label for="log-input">Record</label>
