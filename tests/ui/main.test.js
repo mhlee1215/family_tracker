@@ -35,6 +35,33 @@ describe('app/main', () => {
     expect(authPanel.classList.contains('hidden')).toBe(false);
   });
 
+  it('shows a whole-page loading mark while initial family data is loading', async () => {
+    let resolveAuth;
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) {
+        return new Promise((resolve) => {
+          resolveAuth = () => resolve(new Response(JSON.stringify({ user: null }), { status: 200 }));
+        });
+      }
+      return new Response(JSON.stringify({ events: [], tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    const importPromise = import('../../app/main.js?case=initial-loading');
+    await vi.waitFor(() => expect(resolveAuth).toBeTypeOf('function'));
+
+    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(false);
+    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('true');
+
+    resolveAuth();
+    await importPromise;
+
+    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
+  });
+
 
   it('opens dashboard item tooltips and sends the brand back home', async () => {
     global.fetch = vi.fn(async (input, init = {}) => {

@@ -2,6 +2,37 @@ import { test, expect } from '@playwright/test';
 import { AppHarness } from '../helpers/app-harness.js';
 
 test.describe('Family Tracker core flows', () => {
+  test('initial page access shows a whole-page loading mark until family data is ready', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let releaseAuth;
+    await page.route('**/api/auth/me', async (route) => {
+      await new Promise((resolve) => {
+        releaseAuth = resolve;
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: null }),
+      });
+    });
+
+    const pageLoad = page.goto('/');
+    await expect(page.locator('#app-loading')).toBeVisible();
+    await expect(page.locator('#app')).toHaveAttribute('aria-busy', 'true');
+    await app.captureStep('Initial loading mark visible', 'A single whole-page loading mark covers the app while first-load family data is pending.');
+
+    releaseAuth();
+    await pageLoad;
+    await expect(page.locator('#app-loading')).toBeHidden();
+    await expect(page.locator('#app')).toHaveAttribute('aria-busy', 'false');
+    await expect(page.locator('#auth-panel')).toBeVisible();
+    await app.captureStep('Initial loading completed', 'The loading mark clears when the initial data boundary resolves.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('home dashboard renders and top-level navigation works', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin('/');

@@ -96,7 +96,14 @@
       </div>
     </header>
 
-    <main id="app" class="app-shell">
+    <div id="app-loading" class="app-loading" role="status" aria-live="polite" aria-label="Loading family data">
+      <div class="app-loading-card">
+        <span class="app-loading-spinner" aria-hidden="true"></span>
+        <span id="app-loading-text">Loading family data...</span>
+      </div>
+    </div>
+
+    <main id="app" class="app-shell" aria-busy="true">
       <section id="home-view" class="module-view active">
         <header class="top-bar home-hero">
           <img class="home-hero-art" src="/app/icons/family-tracker-icon-512.png" alt="Family Tracker app artwork with family, baby log, task, and meal symbols" width="512" height="512">
