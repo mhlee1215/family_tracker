@@ -517,6 +517,34 @@ export class TursoBabyStore {
   }
 
 
+
+  async getSyncState(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const babyId = options.babyId || defaultBabyId;
+    const [babyActionVersion, rawLogVersion, babyEventVersion, taskActionVersion, taskVersion, assigneeVersion, profileVersion, growthVersion] = await Promise.all([
+      this.getScalar('SELECT MAX(created_at) FROM action_logs WHERE family_id = ? AND module = ? AND baby_id = ?', [familyId, 'baby', babyId]),
+      this.getScalar('SELECT MAX(created_at) FROM raw_logs WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+      this.getScalar('SELECT MAX(created_at) FROM baby_events WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+      this.getScalar('SELECT MAX(created_at) FROM action_logs WHERE family_id = ? AND module = ?', [familyId, 'task']),
+      this.getScalar('SELECT MAX(updated_at) FROM task_items WHERE family_id = ?', [familyId]),
+      this.getScalar('SELECT MAX(updated_at) FROM task_assignees WHERE family_id = ?', [familyId]),
+      this.getScalar('SELECT MAX(updated_at) FROM profiles WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+      this.getScalar('SELECT MAX(created_at) FROM growth_records WHERE family_id = ? AND baby_id = ?', [familyId, babyId]),
+    ]);
+    return buildSyncState({
+      babyVersion: maxIsoValue([babyActionVersion, rawLogVersion, babyEventVersion]),
+      taskVersion: maxIsoValue([taskActionVersion, taskVersion, assigneeVersion]),
+      profileVersion: maxIsoValue([profileVersion, growthVersion]),
+    });
+  }
+
+  async getScalar(sql, args = []) {
+    const result = await this.client.execute({ sql, args });
+    const row = result.rows[0];
+    if (!row) return '';
+    return Object.values(row)[0] || '';
+  }
+
   async appendActionLog(entry) {
     const now = entry.createdAt || new Date().toISOString();
     await this.client.execute({
@@ -713,6 +741,22 @@ export class TursoBabyStore {
     });
     return result.rows.map(rowToTask);
   }
+}
+
+
+function buildSyncState({ babyVersion = '', taskVersion = '', profileVersion = '' } = {}) {
+  return {
+    serverTime: new Date().toISOString(),
+    modules: {
+      baby: { version: babyVersion || '' },
+      task: { version: taskVersion || '' },
+      profile: { version: profileVersion || '' },
+    },
+  };
+}
+
+function maxIsoValue(values = []) {
+  return values.filter(Boolean).sort().at(-1) || '';
 }
 
 function resolveLibsqlClientModule(url = '') {

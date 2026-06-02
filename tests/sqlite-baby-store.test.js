@@ -420,3 +420,51 @@ test('SQLiteBabyStore deletes tasks for undoing task add transactions', () => {
   assert.equal(store.getTask(task.id, { familyId: 'family-admin' }), null);
   store.close();
 });
+
+test('SQLiteBabyStore exposes lightweight sync versions for changed modules', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const initial = store.getSyncState({ familyId: 'family-sync', babyId: 'baby-sync' });
+
+  assert.equal(initial.modules.baby.version, '');
+  assert.equal(initial.modules.task.version, '');
+  assert.equal(initial.modules.profile.version, '');
+
+  store.saveLogWithEvents({
+    id: 'rawlog-sync-001',
+    familyId: 'family-sync',
+    babyId: 'baby-sync',
+    authorId: 'user-sync',
+    rawText: 'milk',
+    inputAt: '2026-06-02T10:00:00.000Z',
+    createdAt: '2026-06-02T10:00:00.000Z',
+    timezone: 'UTC',
+  }, [{
+    id: 'event-sync-001',
+    rawLogId: 'rawlog-sync-001',
+    familyId: 'family-sync',
+    babyId: 'baby-sync',
+    type: 'feeding_milk',
+    occurredAt: createField('2026-06-02T10:00:00.000Z', 'explicit', 'test'),
+    createdAt: '2026-06-02T10:00:00.000Z',
+  }]);
+  store.appendActionLog({
+    id: 'action-sync-task',
+    familyId: 'family-sync',
+    module: 'task',
+    entityType: 'task',
+    entityId: 'task-sync-001',
+    action: 'add',
+    actorId: 'user-sync',
+    message: 'added task',
+    createdAt: '2026-06-02T10:05:00.000Z',
+  });
+  store.saveProfile({ familyId: 'family-sync', babyId: 'baby-sync', babyName: 'Sync Baby' });
+
+  const next = store.getSyncState({ familyId: 'family-sync', babyId: 'baby-sync' });
+  store.close();
+
+  assert.equal(next.modules.baby.version, '2026-06-02T10:00:00.000Z');
+  assert.equal(next.modules.task.version, '2026-06-02T10:05:00.000Z');
+  assert.match(next.modules.profile.version, /^\d{4}-\d{2}-\d{2}T/);
+});

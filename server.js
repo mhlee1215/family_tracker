@@ -235,6 +235,15 @@ async function handleApi(request, response) {
       return;
     }
 
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/sync/state') {
+      const syncState = typeof store.getSyncState === 'function'
+        ? await store.getSyncState(scope)
+        : { serverTime: new Date().toISOString(), modules: {} };
+      sendJson(response, 200, syncState);
+      return;
+    }
+
     if (request.method === 'GET' && requestUrl.pathname === '/api/profile') {
       sendJson(response, 200, {
         profile: await store.getProfile(scope.babyId, { familyId: scope.familyId }),

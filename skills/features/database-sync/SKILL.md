@@ -29,3 +29,8 @@ Changes to SQLite/Turso adapters, persistence schema, hydration, or sync path.
 
 ## When to update this skill
 - Storage backend contracts or sync behavior changes.
+
+## Lightweight refresh sync
+- Automatic browser refresh should use a small sync/version check first (`GET /api/sync/state`) and only reload full module data when a family-scoped module version changes.
+- Keep sync-state queries scoped by `family_id` and `baby_id` where applicable, and preserve SQLite/Turso parity when adding modules to the sync response.
+- Manual refresh and pull-to-refresh may perform full current-tab reloads because they are explicit user actions.

@@ -122,3 +122,8 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - 가능한 추가 검증(프로젝트에 명령이 존재할 경우): `npm run lint`, `npm run typecheck` 등도 포함한다.
 - 일부 테스트가 환경 제약으로 실행 불가하면, 실패로 숨기지 말고 **실행 시도 + 제한 사유**를 최종 보고에 남긴다.
 - "난이도가 낮아서 일부 테스트 생략"은 허용하지 않는다.
+
+## Lightweight Refresh Sync Policy
+- Automatic UI refreshes must use the lightweight sync-state path before reloading data.
+- Full data reloads during background/visible polling should happen only for modules whose sync version changed.
+- Explicit user refresh actions, including the menu Refresh button and pull-to-refresh gesture, may run a current-tab full refresh and then reset the sync baseline.

@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen } from '@testing-library/dom';
 import { readFileSync } from 'node:fs';
 
+const REMOTE_SYNC_TEST_INTERVAL_MS = 60_000;
+
+
+function dispatchTouch(type, clientY, options = {}) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'touches', {
+    configurable: true,
+    value: options.ended ? [] : [{ clientY }],
+  });
+  document.dispatchEvent(event);
+}
+
 function mockFetch() {
   return vi.fn(async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input.url;
@@ -1025,6 +1037,70 @@ describe('app/main', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+
+  it('checks lightweight sync state and reloads only after a module version changes', async () => {
+    vi.useFakeTimers();
+    let babyVersion = 'baby-v1';
+    try {
+      global.fetch = vi.fn(async (input) => {
+        const url = typeof input === 'string' ? input : input.url;
+        if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+        if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+        if (url.startsWith('/api/sync/state')) {
+          return new Response(JSON.stringify({ modules: { baby: { version: babyVersion }, task: { version: 'task-v1' }, profile: { version: 'profile-v1' } } }), { status: 200 });
+        }
+        if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: { babyName: 'Ari' }, growthRecords: [] }), { status: 200 });
+        if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+        return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+      });
+
+      await import('../../app/main.js?case=sync-refresh');
+      const initialTodayCalls = global.fetch.mock.calls.filter(([input]) => String(input).startsWith('/api/logs/today')).length;
+
+      await vi.advanceTimersByTimeAsync(REMOTE_SYNC_TEST_INTERVAL_MS);
+      const unchangedTodayCalls = global.fetch.mock.calls.filter(([input]) => String(input).startsWith('/api/logs/today')).length;
+      expect(unchangedTodayCalls).toBe(initialTodayCalls);
+
+      babyVersion = 'baby-v2';
+      await vi.advanceTimersByTimeAsync(REMOTE_SYNC_TEST_INTERVAL_MS);
+      await vi.waitFor(() => {
+        const changedTodayCalls = global.fetch.mock.calls.filter(([input]) => String(input).startsWith('/api/logs/today')).length;
+        expect(changedTodayCalls).toBeGreaterThan(initialTodayCalls);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+
+  it('supports pull-to-refresh as an explicit user refresh gesture', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.startsWith('/api/sync/state')) {
+        return new Response(JSON.stringify({ modules: { baby: { version: 'b1' }, task: { version: 't1' }, profile: { version: 'p1' } } }), { status: 200 });
+      }
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: { babyName: 'Ari' }, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=pull-refresh');
+    const initialProfileCalls = global.fetch.mock.calls.filter(([input]) => String(input).endsWith('/api/profile')).length;
+
+    dispatchTouch('touchstart', 0);
+    dispatchTouch('touchmove', 180);
+    expect(document.querySelector('#pull-refresh-label').textContent).toBe('Release to refresh');
+    dispatchTouch('touchend', 180, { ended: true });
+
+    await vi.waitFor(() => {
+      const profileCalls = global.fetch.mock.calls.filter(([input]) => String(input).endsWith('/api/profile')).length;
+      expect(profileCalls).toBeGreaterThan(initialProfileCalls);
+    });
+    expect(['Refreshing...', 'Updated']).toContain(document.querySelector('#pull-refresh-label').textContent);
   });
 
 });

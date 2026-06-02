@@ -4,6 +4,10 @@ import { babyActionIconColors, babySummaryLabelColors, colorForBabyEventType, me
 
 const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
+const REMOTE_SYNC_CHECK_INTERVAL_MS = 60_000;
+const REMOTE_SYNC_FOCUS_MIN_INTERVAL_MS = 15_000;
+const PULL_REFRESH_THRESHOLD_PX = 72;
+const PULL_REFRESH_MAX_DISTANCE_PX = 112;
 
 const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
@@ -108,6 +112,10 @@ const state = {
   patternTypes: normalizePatternTypes(localStorage.getItem(storageKeys.patternTypes)),
   patternPeriodDays: normalizePatternPeriodDays(localStorage.getItem(storageKeys.patternPeriodDays)),
   patternStatUnit: normalizePatternStatUnit(localStorage.getItem(storageKeys.patternStatUnit)),
+  syncVersions: null,
+  syncCheckInFlight: false,
+  syncLastCheckedAt: 0,
+  pullRefresh: { active: false, ready: false, refreshing: false, startY: 0, distance: 0 },
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -121,6 +129,8 @@ const elements = {
   homeAttentionStrip: $('#home-attention-strip'),
   homeSummaryGrid: $('#home-summary-grid'),
   brandHome: $('#brand-home'),
+  pullRefresh: $('#pull-refresh'),
+  pullRefreshLabel: $('#pull-refresh-label'),
   settings: document.querySelectorAll('.module-settings'),
   logForm: $('#log-form'),
   logInput: $('#log-input'),
@@ -306,13 +316,18 @@ renderQuickActions();
 if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
 await Promise.all([loadCurrentUser(), loadAppConfig()]);
 state.meals = loadMealsForUser(state.user);
-if (state.user) await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
+if (state.user) {
+  await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
+  await updateRemoteSyncBaseline();
+}
 renderAuthState();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/app/sw.js').catch(() => {});
 }
 startBuildWatcher();
+startRemoteSyncWatcher();
+setupPullToRefresh();
 
 elements.tabs.forEach((tab) => {
   tab.addEventListener('click', () => setActiveTab(tab.dataset.tab, { pushHistory: true }));
@@ -436,7 +451,7 @@ elements.assigneeForm.addEventListener('submit', async (event) => {
   await createAssignee();
 });
 
-elements.refresh.addEventListener('click', refreshActiveTab);
+elements.refresh.addEventListener('click', () => refreshActiveTab({ reason: 'manual' }));
 elements.timelineSort?.addEventListener('change', () => {
   state.timelineSort = normalizeTimelineSort(elements.timelineSort.value);
   localStorage.setItem(storageKeys.timelineSort, state.timelineSort);
@@ -1004,6 +1019,7 @@ async function devLogin() {
   state.meals = loadMealsForUser(state.user);
   renderAuthState();
   await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
+  await updateRemoteSyncBaseline();
 }
 
 async function logout() {
@@ -1018,6 +1034,8 @@ async function logout() {
   state.taskActionLog = [];
   state.taskPanel = 'today';
   state.babyPanel = null;
+  state.syncVersions = null;
+  state.syncLastCheckedAt = 0;
   renderAuthState();
   renderBaby();
   renderTasks();
@@ -1027,6 +1045,8 @@ function handleAuthFailure(response) {
   if (response.status !== 401) return false;
   state.user = null;
   state.meals = loadMealsForUser(null);
+  state.syncVersions = null;
+  state.syncLastCheckedAt = 0;
   renderAuthState();
   renderBaby();
   renderTasks();
@@ -3123,6 +3143,169 @@ async function readBuildFromMetadata() {
   }
 }
 
+async function updateRemoteSyncBaseline() {
+  await checkRemoteChanges({ baselineOnly: true, force: true, minIntervalMs: 0 });
+}
+
+function startRemoteSyncWatcher() {
+  window.setInterval(() => {
+    checkRemoteChanges({ reason: 'interval' });
+  }, REMOTE_SYNC_CHECK_INTERVAL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkRemoteChanges({ reason: 'visible', minIntervalMs: REMOTE_SYNC_FOCUS_MIN_INTERVAL_MS });
+    }
+  });
+  window.addEventListener('focus', () => {
+    checkRemoteChanges({ reason: 'focus', minIntervalMs: REMOTE_SYNC_FOCUS_MIN_INTERVAL_MS });
+  });
+}
+
+async function checkRemoteChanges(options = {}) {
+  const {
+    baselineOnly = false,
+    force = false,
+    minIntervalMs = REMOTE_SYNC_CHECK_INTERVAL_MS,
+  } = options;
+  if (!state.user || state.syncCheckInFlight) return false;
+  if (!force && typeof document !== 'undefined' && document.visibilityState === 'hidden') return false;
+  const now = Date.now();
+  if (!force && minIntervalMs > 0 && now - state.syncLastCheckedAt < minIntervalMs) return false;
+  state.syncCheckInFlight = true;
+  state.syncLastCheckedAt = now;
+  try {
+    const response = await fetch(`/api/sync/state?ts=${Date.now()}`, { cache: 'no-store' });
+    if (handleAuthFailure(response)) return false;
+    if (!response.ok) return false;
+    const payload = await response.json();
+    const nextVersions = normalizeSyncVersions(payload.modules || payload);
+    const previousVersions = state.syncVersions;
+    state.syncVersions = nextVersions;
+    if (baselineOnly || !previousVersions) return false;
+    const changedModules = syncChangedModules(previousVersions, nextVersions);
+    if (!changedModules.length) return false;
+    await refreshChangedModules(changedModules);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    state.syncCheckInFlight = false;
+  }
+}
+
+function normalizeSyncVersions(modules = {}) {
+  return {
+    baby: String(modules.baby?.version || ''),
+    task: String(modules.task?.version || ''),
+    profile: String(modules.profile?.version || ''),
+  };
+}
+
+function syncChangedModules(previous, next) {
+  return Object.keys(next).filter((module) => previous?.[module] !== next[module]);
+}
+
+async function refreshChangedModules(changedModules = []) {
+  if (!state.user) return;
+  const changed = new Set(changedModules);
+  const jobs = [];
+  if (state.activeTab === 'home') {
+    if (changed.has('profile')) jobs.push(loadBabyProfile());
+    if (changed.has('baby')) jobs.push(loadToday());
+    if (changed.has('task')) jobs.push(loadTaskData());
+  } else if (state.activeTab === 'baby') {
+    if (changed.has('profile')) jobs.push(loadBabyProfile());
+    if (changed.has('baby')) jobs.push(loadToday());
+  } else if (state.activeTab === 'task' && changed.has('task')) {
+    jobs.push(loadTaskData());
+  }
+  if (jobs.length) await Promise.all(jobs);
+}
+
+function setupPullToRefresh() {
+  if (!elements.pullRefresh) return;
+  document.addEventListener('touchstart', handlePullRefreshStart, { passive: true });
+  document.addEventListener('touchmove', handlePullRefreshMove, { passive: false });
+  document.addEventListener('touchend', handlePullRefreshEnd, { passive: true });
+  document.addEventListener('touchcancel', resetPullRefresh, { passive: true });
+}
+
+function handlePullRefreshStart(event) {
+  if (!canStartPullRefresh(event)) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  state.pullRefresh = { active: true, ready: false, refreshing: false, startY: touch.clientY, distance: 0 };
+}
+
+function handlePullRefreshMove(event) {
+  if (!state.pullRefresh.active || state.pullRefresh.refreshing) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  const delta = touch.clientY - state.pullRefresh.startY;
+  if (delta <= 0) {
+    resetPullRefresh();
+    return;
+  }
+  if (window.scrollY > 0) return;
+  event.preventDefault();
+  const distance = Math.min(PULL_REFRESH_MAX_DISTANCE_PX, delta * 0.48);
+  state.pullRefresh.distance = distance;
+  state.pullRefresh.ready = distance >= PULL_REFRESH_THRESHOLD_PX;
+  renderPullRefresh();
+}
+
+function handlePullRefreshEnd() {
+  if (!state.pullRefresh.active || state.pullRefresh.refreshing) return;
+  if (!state.pullRefresh.ready) {
+    resetPullRefresh();
+    return;
+  }
+  triggerPullRefresh();
+}
+
+function canStartPullRefresh(event) {
+  if (!state.user || state.pullRefresh.refreshing || window.scrollY > 0) return false;
+  if (!event.touches || event.touches.length !== 1) return false;
+  const target = event.target instanceof Element ? event.target : null;
+  if (target?.closest('input, textarea, select, button, a, dialog, [role="button"], .floating-window, .menu-panel')) return false;
+  return true;
+}
+
+async function triggerPullRefresh() {
+  state.pullRefresh.refreshing = true;
+  state.pullRefresh.distance = PULL_REFRESH_THRESHOLD_PX;
+  renderPullRefresh('Refreshing...');
+  try {
+    await refreshActiveTab({ reason: 'pull' });
+    renderPullRefresh('Updated');
+  } catch {
+    renderPullRefresh('Could not refresh');
+  } finally {
+    window.setTimeout(resetPullRefresh, 650);
+  }
+}
+
+function renderPullRefresh(label) {
+  if (!elements.pullRefresh) return;
+  const { active, ready, refreshing, distance } = state.pullRefresh;
+  const progress = Math.min(1, distance / PULL_REFRESH_THRESHOLD_PX);
+  elements.pullRefresh.style.setProperty('--pull-distance', `${Math.round(distance)}px`);
+  elements.pullRefresh.style.setProperty('--pull-progress', String(progress));
+  elements.pullRefresh.classList.toggle('visible', active || refreshing);
+  elements.pullRefresh.classList.toggle('ready', ready);
+  elements.pullRefresh.classList.toggle('refreshing', refreshing);
+  elements.pullRefresh.setAttribute('aria-hidden', String(!active && !refreshing));
+  if (elements.pullRefreshLabel) {
+    elements.pullRefreshLabel.textContent = label || (refreshing ? 'Refreshing...' : ready ? 'Release to refresh' : 'Pull to refresh');
+  }
+}
+
+function resetPullRefresh() {
+  state.pullRefresh = { active: false, ready: false, refreshing: false, startY: 0, distance: 0 };
+  renderPullRefresh();
+}
+
+
 function startBuildWatcher() {
   const check = async () => {
     try {
@@ -3446,21 +3629,22 @@ function loadRecentBabyLogs() {
   }
 }
 
-function refreshActiveTab() {
-  if (!state.user) return;
+async function refreshActiveTab(options = {}) {
+  if (!state.user) return false;
+  const jobs = [];
   if (state.activeTab === 'home') {
-    loadBabyProfile();
-    loadToday();
-    loadTaskData();
+    jobs.push(loadBabyProfile(), loadToday(), loadTaskData());
     renderMeals();
   } else if (state.activeTab === 'baby') {
-    loadBabyProfile();
-    loadToday();
+    jobs.push(loadBabyProfile(), loadToday());
   } else if (state.activeTab === 'meal') {
     renderMeals();
   } else {
-    loadTaskData();
+    jobs.push(loadTaskData());
   }
+  if (jobs.length) await Promise.all(jobs);
+  if (options.updateSync !== false) await updateRemoteSyncBaseline();
+  return true;
 }
 
 function shiftSelectedDay(days) {
