@@ -610,7 +610,12 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#care-forecast .care-forecast-card').first().click();
     await expect(page.locator('#care-forecast .care-forecast-detail').first()).toContainText('Median interval');
     await expect(page.locator('#care-forecast .care-forecast-detail').first()).toContainText('Last 7 days');
-    await expect(page.locator('#care-forecast .care-forecast-bars').first()).toBeVisible();
+    await expect(page.locator('#care-forecast .care-forecast-explainer').first()).toContainText('How this estimate was made');
+    await expect(page.locator('#care-forecast .care-forecast-explainer').first()).toContainText('typical gap');
+    await expect(page.locator('#care-forecast .care-forecast-scatter').first()).toContainText('Dots are recent gaps over time');
+    await expect(page.locator('#care-forecast .care-forecast-scatter svg').first()).toBeVisible();
+    await expect(page.locator('#care-forecast .care-forecast-prediction').first()).toBeVisible();
+    await expect(page.locator('#care-forecast .care-forecast-chip.median').first()).toBeVisible();
     await app.captureStep('Opened baby care forecast details', 'The summary shows next milk and diaper estimates with a detail view explaining baseline, samples, and intervals.');
 
     await page.locator('#open-baby-settings').click();
