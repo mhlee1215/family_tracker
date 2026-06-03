@@ -2367,6 +2367,24 @@ function patternStatisticMetrics(days) {
       axisLabel: 'Milk ml',
       value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'feeding_milk').reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0),
       format: (value) => `${Math.round(value)} ml`,
+      breakdowns: [
+        {
+          key: 'formulaMilk',
+          label: 'Formula',
+          value: (bucketEvents) => bucketEvents
+            .filter((event) => event.type === 'feeding_milk' && milkFeedingKind(event) === 'formula')
+            .reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0),
+          format: (value) => `${Math.round(value)} ml`,
+        },
+        {
+          key: 'breastMilk',
+          label: 'Breast milk',
+          value: (bucketEvents) => bucketEvents
+            .filter((event) => event.type === 'feeding_milk' && milkFeedingKind(event) === 'breast')
+            .reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0),
+          format: (value) => `${Math.round(value)} ml`,
+        },
+      ],
       companion: {
         key: 'milkFeeds',
         label: 'Feeds',
@@ -2391,6 +2409,7 @@ function patternStatisticBuckets(days, unit) {
   return [...buckets.values()].map((bucket) => {
     metrics.forEach((metric) => {
       bucket[metric.key] = metric.value(bucket.events);
+      metric.breakdowns?.forEach((breakdown) => { bucket[breakdown.key] = breakdown.value(bucket.events); });
       if (metric.companion) bucket[metric.companion.key] = metric.companion.value(bucket.events);
     });
     return bucket;
@@ -2415,7 +2434,10 @@ function patternStatisticLineCharts(buckets, metrics, unitName) {
                 const companion = metric.companion
                   ? `<div><dt>${escapeHtml(metric.companion.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric.companion, bucket[metric.companion.key] || 0))}</dd></div>`
                   : '';
-                return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>${companion}`;
+                const breakdowns = (metric.breakdowns || []).map((breakdown) => (
+                  `<div><dt>${escapeHtml(breakdown.label)}</dt><dd>${escapeHtml(metricsValueLabel(breakdown, bucket[breakdown.key] || 0))}</dd></div>`
+                )).join('');
+                return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>${breakdowns}${companion}`;
               }).join('')}
             </dl>
           </article>
@@ -2478,6 +2500,28 @@ function patternStatisticSingleLineChart(buckets, metric, unitName) {
     };
   }) : [];
   const companionPath = companionPoints.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
+  const breakdownLines = (metric.breakdowns || []).map((breakdown) => {
+    const pointsForBreakdown = buckets.map((bucket, index) => {
+      const value = bucket[breakdown.key] || 0;
+      return {
+        x: xFor(index),
+        y: yFor(value),
+        value,
+        label: metricsValueLabel(breakdown, value),
+      };
+    });
+    const breakdownPath = pointsForBreakdown.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
+    return `
+      <g class="pattern-stat-series pattern-stat-breakdown pattern-stat-breakdown-${breakdown.key}" aria-label="${escapeHtml(breakdown.label)} trend">
+        <path d="${breakdownPath}"></path>
+        ${pointsForBreakdown.map((point, index) => `
+          <circle cx="${roundChartValue(point.x)}" cy="${roundChartValue(point.y)}" r="4">
+            <title>${escapeHtml(`${buckets[index].label} ${breakdown.label}: ${point.label}`)}</title>
+          </circle>
+        `).join('')}
+      </g>
+    `;
+  }).join('');
   const axisLabel = metric.companion ? `${metric.axisLabel} + ${metric.companion.axisLabel}` : metric.axisLabel;
   return `
     <article class="pattern-stat-chart-card pattern-stat-${metric.key}" role="img" aria-label="${escapeHtml(`${unitName} ${metric.label} line chart. Y-axis is ${axisLabel}.`)}">
@@ -2500,6 +2544,7 @@ function patternStatisticSingleLineChart(buckets, metric, unitName) {
             </circle>
           `).join('')}
         </g>
+        ${breakdownLines}
         ${metric.companion ? `
           <g class="pattern-stat-series pattern-stat-companion" aria-label="${escapeHtml(metric.companion.label)} trend">
             <path d="${companionPath}"></path>
@@ -2514,11 +2559,16 @@ function patternStatisticSingleLineChart(buckets, metric, unitName) {
       ${metric.companion ? `
         <div class="pattern-stat-sublegend" aria-label="${escapeHtml(`${metric.label} chart legend`)}">
           <span class="pattern-stat-${metric.key}"><i></i>${escapeHtml(metric.label)} total</span>
+          ${(metric.breakdowns || []).map((breakdown) => `<span class="pattern-stat-breakdown-${breakdown.key}"><i></i>${escapeHtml(breakdown.label)}</span>`).join('')}
           <span class="pattern-stat-companion"><i></i>${escapeHtml(metric.companion.label)}</span>
         </div>
       ` : ''}
     </article>
   `;
+}
+
+function milkFeedingKind(event) {
+  return event?.feedingKind?.value === 'breast' ? 'breast' : 'formula';
 }
 
 function patternStatisticTickLabel(metric, value) {
