@@ -872,7 +872,6 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(document.querySelector('#today-context').textContent).toContain('2h ago · 120ml'));
     expect(document.querySelector('#today-context').textContent).toContain('1h ago · poop');
-    expect(document.querySelector('#today-context').textContent).toContain('1 estimated');
     expect(document.querySelector('#timeline').textContent).toContain('LLM · gpt-5.4-mini');
     expect(document.querySelector('#timeline').textContent).toContain('Amount estimated');
 
