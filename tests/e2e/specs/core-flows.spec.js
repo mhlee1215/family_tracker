@@ -540,17 +540,19 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Opened dashboard detail tooltip', 'Clicking a Home dashboard item opens a visible detail tooltip instead of relying on the browser title.');
 
     await page.locator('#baby-tab').click();
-    await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
-    await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Diaper (pee)']);
+    await expect(page.locator('#timeline-sort')).toHaveValue('desc');
+    await expect(page.locator('#timeline .raw-text')).toHaveText(['wet diaper', 'nap', 'formula']);
+    await expect(page.locator('#timeline .timeline-title')).toHaveText(['Diaper (pee)', 'Sleep', 'Formula']);
     await expect(page.locator('#timeline .swipe-affordance')).toHaveCount(0);
     await page.locator('#timeline .timeline-detail-button').first().click();
     await expect(page.locator('#timeline .timeline-detail-popover').first()).toContainText('Original text');
     await expect(page.locator('#summary .summary-item span')).toHaveText(['Sleep', 'Milk', 'Baby food', 'Diaper']);
-    await app.captureStep('Timeline sorted oldest first', 'The default timeline order follows event time from earliest to latest.');
+    await app.captureStep('Timeline sorted newest first by default', 'The default timeline order shows newest baby records first.');
 
-    await page.locator('#timeline-sort').selectOption('desc');
-    await expect(page.locator('#timeline .raw-text')).toHaveText(['wet diaper', 'nap', 'formula']);
-    await app.captureStep('Timeline sorted newest first', 'The sort control reverses visible logs by event time.');
+    await page.locator('#timeline-sort').selectOption('asc');
+    await expect(page.locator('#timeline .raw-text')).toHaveText(['formula', 'nap', 'wet diaper']);
+    await expect(page.locator('#timeline .timeline-title')).toHaveText(['Formula', 'Sleep', 'Diaper (pee)']);
+    await app.captureStep('Timeline sorted oldest first', 'The sort control can show visible logs from earliest to latest.');
 
     await page.locator('#timeline-filter').selectOption('sleep');
     await expect(page.locator('#timeline .raw-text')).toHaveText(['nap']);

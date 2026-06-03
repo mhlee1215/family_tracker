@@ -69,6 +69,8 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
   - `npm run test:ui`
   - `npm run test:e2e`
   - `npm run test:ci`
+- 에이전트 주도 E2E/브라우저 검증은 별도 지시가 없으면 production 환경 기준으로 관련 시나리오/스모크 테스트를 우선 실행한다. pre-merge 브랜치 검증은 로컬 브랜치 앱을 production env/backend로 띄우고, post-merge/current smoke는 production URL(`https://family-tracker-fex9.onrender.com/`)을 사용한다.
+- production 환경 검증에서는 실제 사용자 데이터에 영향을 줄 수 있는 destructive 전체 E2E를 임의로 실행하지 않는다. 필요한 경우 `admin-test` 격리 계정이나 API route mock이 적용된 안전한 시나리오로 제한한다.
 
 ## Policy Source of Truth
 - 에이전트 작업 정책과 반복 가능한 실행/검증 규칙은 README가 아니라 `.agents/skills/family-tracker-orchestrator/SKILL.md`와 이 팀 스펙을 우선 source of truth로 삼는다.

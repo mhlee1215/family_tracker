@@ -4228,7 +4228,7 @@ function normalizeTheme(value) {
 }
 
 function normalizeTimelineSort(value) {
-  return value === 'desc' ? 'desc' : 'asc';
+  return value === 'asc' ? 'asc' : 'desc';
 }
 
 function normalizeTimelineFilter(value) {
