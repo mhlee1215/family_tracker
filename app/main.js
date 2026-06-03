@@ -258,9 +258,7 @@ const elements = {
   birthDate: $('#birth-date'),
   birthTime: $('#birth-time'),
   babyHeight: $('#baby-height'),
-  babyHead: $('#baby-head'),
   babyWeight: $('#baby-weight'),
-  babyApgar: $('#baby-apgar'),
   growthRecordMode: $('#growth-record-mode'),
   growthRecordDateControl: $('#growth-record-date-control'),
   growthRecordTimeControl: $('#growth-record-time-control'),
@@ -737,9 +735,9 @@ async function saveBabyProfile() {
     birthDate: elements.birthDate.value,
     birthTime: elements.birthTime.value,
     heightCm: numberOrNull(elements.babyHeight.value),
-    headCm: numberOrNull(elements.babyHead.value),
     weightG: numberOrNull(elements.babyWeight.value),
-    apgarPercent: numberOrNull(elements.babyApgar.value),
+    headCm: state.profile?.headCm ?? null,
+    apgarPercent: state.profile?.apgarPercent ?? null,
     milkAmountMlOverride: numberOrNull(elements.milkAmount.value),
     napDurationMinutesOverride: numberOrNull(elements.napDuration.value),
   };
@@ -1303,9 +1301,7 @@ function renderBabySettings() {
   elements.birthDate.value = profile.birthDate || '';
   elements.birthTime.value = profile.birthTime || '';
   elements.babyHeight.value = profile.heightCm ?? '';
-  elements.babyHead.value = profile.headCm ?? '';
   elements.babyWeight.value = profile.weightG ?? '';
-  elements.babyApgar.value = profile.apgarPercent ?? '';
   elements.growthRecordMode.value = 'birth';
   elements.growthRecordDate.value = '';
   elements.growthRecordTime.value = '';
@@ -2172,12 +2168,6 @@ function renderBabyPatterns() {
           ${patternPeriodOptions().map((option) => `<option value="${option.days}"${option.days === days.length ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
         </select>
       </label>
-      <label class="compact-select-control" for="pattern-stat-unit">
-        <span>Statistics</span>
-        <select id="pattern-stat-unit" name="patternStatUnit">
-          ${patternStatUnitOptions().map((option) => `<option value="${escapeHtml(option.value)}"${option.value === state.patternStatUnit ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
-        </select>
-      </label>
     </div>
     <div class="pattern-type-toggles" aria-label="Pattern event filters">
       ${patternEventTypes.map((item) => patternTypeToggle(item, visibleTypes.has(item.type))).join('')}
@@ -2190,6 +2180,7 @@ function renderBabyPatterns() {
     </div>
     <div class="pattern-legend" aria-label="Pattern legend">
       ${patternEventTypes.map((item) => `<span><i class="pattern-swatch pattern-${item.type}"></i>${escapeHtml(item.label)}</span>`).join('')}
+      <span><i class="pattern-swatch pattern-estimated-swatch"></i>Estimated</span>
     </div>
     <section class="pattern-insights" aria-label="Interval insights">
       ${patternInsightCards(days).join('')}
@@ -2330,7 +2321,7 @@ function patternInsightCards(days) {
     insightCard('Milk interval', averageGapLabel(milkEvents), milkEvents.length ? `${milkEvents.length} feeds · last ${timeAgoLabel(eventTimeValue(milkEvents.at(-1)))}` : 'No milk logs in range'),
     insightCard('Sleep rhythm', averageSleepLabel(sleepEvents), sleepEvents.length ? `${sleepEvents.length} sessions · longest ${minutesLabel(Math.max(...sleepEvents.map((event) => Number(event.durationMinutes?.value || 0))))}` : 'No completed sleep logs'),
     insightCard('Diaper rhythm', averageGapLabel(diaperEvents), poopEvents.length ? `Last poop ${timeAgoLabel(eventTimeValue(poopEvents.at(-1)))}` : 'No poop logs in range'),
-    insightCard('Data confidence', `${events.length} logs`, inferredCount ? `${inferredCount} estimated fields shown with soft edges` : 'No estimated fields in range'),
+    insightCard('Data confidence', `${events.length} logs`, inferredCount ? `${inferredCount} estimated fields marked with dashed outlines` : 'No estimated fields in range'),
   ];
 }
 
@@ -2352,15 +2343,21 @@ function renderPatternStatistics(days, unit) {
       <div>
         <span class="eyebrow">Statistics</span>
         <h3>${escapeHtml(unitName[0].toUpperCase() + unitName.slice(1))} comparison</h3>
-        <p>Compare ${escapeHtml(unitName)} totals as grouped multi-bar charts. Tap a group for exact numbers.</p>
+        <p>Compare ${escapeHtml(unitName)} totals as line charts. Each line is scaled to its own highest point so trends are easier to compare.</p>
       </div>
-      <div class="pattern-stat-averages">
-        ${metrics.map((metric) => `<span><strong>${escapeHtml(average(metric))}</strong>${escapeHtml(metric.label)} avg</span>`).join('')}
+      <div class="pattern-statistics-tools">
+        <label class="compact-select-control" for="pattern-stat-unit">
+          <span>Statistics</span>
+          <select id="pattern-stat-unit" name="patternStatUnit">
+            ${patternStatUnitOptions().map((option) => `<option value="${escapeHtml(option.value)}"${option.value === state.patternStatUnit ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+          </select>
+        </label>
+        <div class="pattern-stat-averages">
+          ${metrics.map((metric) => `<span><strong>${escapeHtml(average(metric))}</strong>${escapeHtml(metric.label)} avg</span>`).join('')}
+        </div>
       </div>
     </div>
-    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics grouped multi-bar chart">
-      ${buckets.map((bucket) => patternStatisticBucket(bucket, metrics, metricMaxValues)).join('') || '<p class="empty">No logs to chart yet.</p>'}
-    </div>
+    ${patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName)}
   `;
 }
 
@@ -2388,34 +2385,89 @@ function patternStatisticBuckets(days, unit) {
   });
 }
 
-function patternStatisticBucket(bucket, metrics, metricMaxValues) {
-  const detailId = `pattern-stat-detail-${bucket.key.replace(/[^a-z0-9_-]/gi, '-')}`;
+function patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName) {
+  if (!buckets.length) return '<div class="pattern-stat-chart"><p class="empty">No logs to chart yet.</p></div>';
+  const width = 640;
+  const height = 268;
+  const padding = { top: 20, right: 22, bottom: 58, left: 22 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const xFor = (index) => buckets.length === 1
+    ? padding.left + (plotWidth / 2)
+    : padding.left + ((plotWidth / (buckets.length - 1)) * index);
+  const yFor = (value, metric) => {
+    const max = metricMaxValues[metric.key] || 1;
+    const ratio = Math.max(0, Math.min(1, value / max));
+    return padding.top + ((1 - ratio) * plotHeight);
+  };
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const y = padding.top + ((1 - ratio) * plotHeight);
+    return `<line class="pattern-stat-grid-line" x1="${padding.left}" y1="${roundChartValue(y)}" x2="${width - padding.right}" y2="${roundChartValue(y)}"></line>`;
+  }).join('');
+  const axisLabels = buckets.map((bucket, index) => {
+    const x = xFor(index);
+    return `<text class="pattern-stat-axis-label" x="${roundChartValue(x)}" y="${height - 28}" text-anchor="middle">${escapeHtml(patternStatisticAxisLabel(bucket.label))}</text>`;
+  }).join('');
+  const lines = metrics.map((metric) => {
+    const points = buckets.map((bucket, index) => {
+      const value = bucket[metric.key] || 0;
+      return {
+        x: xFor(index),
+        y: yFor(value, metric),
+        value,
+        label: metricsValueLabel(metric, value),
+      };
+    });
+    const path = points.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
+    return `
+      <g class="pattern-stat-series pattern-stat-${metric.key}" aria-label="${escapeHtml(metric.label)} trend">
+        <path d="${path}"></path>
+        ${points.map((point, index) => `
+          <circle cx="${roundChartValue(point.x)}" cy="${roundChartValue(point.y)}" r="5">
+            <title>${escapeHtml(`${buckets[index].label} ${metric.label}: ${point.label}`)}</title>
+          </circle>
+        `).join('')}
+      </g>
+    `;
+  }).join('');
   return `
-    <details class="pattern-stat-bucket">
-      <summary aria-controls="${escapeHtml(detailId)}">
-        <strong>${escapeHtml(bucket.label)}</strong>
-        <div class="pattern-stat-bars" aria-hidden="true">
-          ${metrics.map((metric) => {
-            const value = bucket[metric.key] || 0;
-            const height = Math.max(value ? 8 : 0, (value / (metricMaxValues[metric.key] || 1)) * 100);
-            const valueLabel = metricsValueLabel(metric, value);
-            return `<span class="pattern-stat-bar pattern-stat-${metric.key}" title="${escapeHtml(metric.label)}: ${escapeHtml(valueLabel)}"><i style="height:${height}%"></i><em>${escapeHtml(metric.label)}</em></span>`;
-          }).join('')}
-        </div>
-        <span class="pattern-stat-tap-hint">Tap for numbers</span>
-      </summary>
-      <dl id="${escapeHtml(detailId)}" class="pattern-stat-detail">
-        ${metrics.map((metric) => {
-          const value = bucket[metric.key] || 0;
-          return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>`;
-        }).join('')}
-      </dl>
-    </details>
+    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics line chart. Lines are normalized per metric for trend comparison.">
+      <svg class="pattern-stat-line-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
+        ${gridLines}
+        <line class="pattern-stat-axis-line" x1="${padding.left}" y1="${padding.top + plotHeight}" x2="${width - padding.right}" y2="${padding.top + plotHeight}"></line>
+        ${axisLabels}
+        ${lines}
+      </svg>
+      <div class="pattern-stat-line-legend" aria-label="Chart legend">
+        ${metrics.map((metric) => `<span class="pattern-stat-${metric.key}"><i></i>${escapeHtml(metric.label)}</span>`).join('')}
+      </div>
+      <div class="pattern-stat-detail">
+        ${buckets.map((bucket) => `
+          <article>
+            <strong>${escapeHtml(bucket.label)}</strong>
+            <dl>
+              ${metrics.map((metric) => {
+                const value = bucket[metric.key] || 0;
+                return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>`;
+              }).join('')}
+            </dl>
+          </article>
+        `).join('')}
+      </div>
+    </div>
   `;
 }
 
 function metricsValueLabel(metric, value) {
   return metric.format ? metric.format(value) : String(Math.round(value));
+}
+
+function patternStatisticAxisLabel(label) {
+  return label.replace(/^Week of /, '').replace(/^Month of /, '');
+}
+
+function roundChartValue(value) {
+  return Math.round(value * 10) / 10;
 }
 
 function patternBucketKey(day, unit) {
@@ -2555,17 +2607,15 @@ function renderGrowthSummary() {
   if (!elements.growthSummary) return;
   const records = [...(state.growthRecords || [])].sort(compareGrowthRecordsDesc);
   if (!records.length) {
-    elements.growthSummary.innerHTML = '<p class="empty">Add height, head size, weight, or Apgar in Baby settings to start a growth history.</p>';
+    elements.growthSummary.innerHTML = '<p class="empty">Add weight or height in Baby settings to start a growth history.</p>';
     return;
   }
 
   const latest = records[0];
   const baseline = [...records].reverse().find((record) => record.recordedFor === 'birth') || records[records.length - 1];
   const metricCards = [
-    growthMetricCard('Height', latest.heightCm, 'cm', deltaValue(latest.heightCm, baseline.heightCm, 'cm')),
-    growthMetricCard('Head', latest.headCm, 'cm', deltaValue(latest.headCm, baseline.headCm, 'cm')),
     growthMetricCard('Weight', latest.weightG, 'g', deltaValue(latest.weightG, baseline.weightG, 'g')),
-    growthMetricCard('Apgar', latest.apgarPercent, '%', latest.apgarPercent == null ? '' : `${latest.apgarPercent}%`),
+    growthMetricCard('Height', latest.heightCm, 'cm', deltaValue(latest.heightCm, baseline.heightCm, 'cm')),
   ];
   const history = records.slice(0, 6).map((record) => `
     <article class="growth-history-item">
@@ -2608,16 +2658,15 @@ function renderGrowthChart(records) {
       <div class="growth-chart-shell">
         <canvas id="growth-trend-chart" class="growth-chart" role="img" aria-label="Growth measurements over time with dates on the x-axis and measured units on the y-axis"></canvas>
       </div>
-      <p class="growth-chart-axis-note">X-axis shows record dates. Y-axis shows each measurement in its own unit: cm for height/head and grams for weight.</p>
+      <p class="growth-chart-axis-note">X-axis shows record dates. Y-axis shows centimeters for height and grams for weight.</p>
     </section>
   `;
 }
 
 function growthChartDatasets(records) {
   return [
-    { key: 'heightCm', label: 'Height (cm)', unit: 'cm', color: '#2997ff', axisID: 'cm' },
-    { key: 'headCm', label: 'Head (cm)', unit: 'cm', color: '#0066cc', axisID: 'cm' },
     { key: 'weightG', label: 'Weight (g)', unit: 'g', color: '#7a7a7a', axisID: 'g' },
+    { key: 'heightCm', label: 'Height (cm)', unit: 'cm', color: '#2997ff', axisID: 'cm' },
   ].map((metric) => ({
     ...metric,
     data: records.map((record) => record[metric.key] == null ? null : Number(record[metric.key])),
@@ -2680,10 +2729,8 @@ function growthMetricCard(label, value, unit, detail) {
 
 function growthRecordMetrics(record) {
   const parts = [];
-  if (record.heightCm != null) parts.push(`Height ${record.heightCm}cm`);
-  if (record.headCm != null) parts.push(`Head ${record.headCm}cm`);
   if (record.weightG != null) parts.push(`Weight ${record.weightG}g`);
-  if (record.apgarPercent != null) parts.push(`Apgar ${record.apgarPercent}%`);
+  if (record.heightCm != null) parts.push(`Height ${record.heightCm}cm`);
   return parts.join(' · ') || 'No measurements';
 }
 
@@ -2726,11 +2773,11 @@ function shouldSaveGrowthRecord(next, previous = {}) {
 }
 
 function hasGrowthValues(profile = {}) {
-  return ['heightCm', 'headCm', 'weightG', 'apgarPercent'].some((key) => profile[key] !== null && profile[key] !== undefined);
+  return ['heightCm', 'weightG'].some((key) => profile[key] !== null && profile[key] !== undefined);
 }
 
 function growthValuesChanged(next, previous = {}) {
-  return ['birthTime', 'heightCm', 'headCm', 'weightG', 'apgarPercent'].some((key) => normalizeComparable(next?.[key]) !== normalizeComparable(previous?.[key]));
+  return ['birthTime', 'heightCm', 'weightG'].some((key) => normalizeComparable(next?.[key]) !== normalizeComparable(previous?.[key]));
 }
 
 function normalizeComparable(value) {
@@ -2751,9 +2798,7 @@ function buildGrowthRecordPayload(profile) {
       : mode === 'now' ? localTime
         : (elements.growthRecordTime.value || ''),
     heightCm: profile.heightCm,
-    headCm: profile.headCm,
     weightG: profile.weightG,
-    apgarPercent: profile.apgarPercent,
   };
 }
 

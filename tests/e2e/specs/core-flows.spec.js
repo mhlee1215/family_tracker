@@ -675,9 +675,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toContainText('Milk interval');
     await expect(page.locator('#baby-patterns')).toContainText('Sleep rhythm');
     await expect(page.locator('#baby-patterns')).toContainText('Week comparison');
-    await expect(page.locator('#baby-patterns')).toContainText('Tap a group for exact numbers');
-    await expect(page.locator('#baby-patterns .pattern-stat-bar').first()).toBeVisible();
-    await page.locator('#baby-patterns .pattern-stat-bucket').first().click();
+    await expect(page.locator('#baby-patterns')).toContainText('line charts');
+    await expect(page.locator('#baby-patterns .pattern-stat-line-chart')).toBeVisible();
+    await expect(page.locator('#baby-patterns .pattern-stat-series').first()).toBeVisible();
+    await expect(page.locator('#baby-patterns .pattern-stat-line-legend')).toContainText('Logs');
     await expect(page.locator('#baby-patterns .pattern-stat-detail').first()).toBeVisible();
     await app.captureStep('Weekly baby pattern rendered', 'The pattern panel opened from the baby menu with seven calendar lanes, interval cards, and statistics.');
 
@@ -690,7 +691,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toContainText('Monthly rhythm');
     await page.locator('#pattern-stat-unit').selectOption('day');
     await expect(page.locator('#baby-patterns')).toContainText('Day comparison');
-    await app.captureStep('Changed pattern period and statistics grouping', 'The same menu panel switches from weekly rhythm to monthly history and daily comparison bars.');
+    await app.captureStep('Changed pattern period and statistics grouping', 'The same menu panel switches from weekly rhythm to monthly history and daily comparison lines.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
@@ -1016,20 +1017,19 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#birth-date').fill('2026-01-01');
     await page.locator('#birth-time').fill('20:06');
     await page.locator('#baby-height').fill('52.1');
-    await page.locator('#baby-head').fill('34');
     await page.locator('#baby-weight').fill('3600');
-    await page.locator('#baby-apgar').fill('99');
     await page.locator('#growth-record-mode').selectOption('birth');
     await page.locator('#baby-settings-form').evaluate((form) => form.requestSubmit());
     await page.locator('#open-baby-summary').click();
 
     await expect(page.locator('#growth-summary')).toContainText('52.1cm');
-    await expect(page.locator('#growth-summary')).toContainText('Apgar 99%');
-    await app.captureStep('Saved birth growth record', 'Growth summary displays the at-birth height, head, weight, and Apgar values.');
+    await expect(page.locator('#growth-summary')).toContainText('3600g');
+    await expect(page.locator('#growth-summary')).not.toContainText('Apgar');
+    await expect(page.locator('#growth-summary')).not.toContainText('Head');
+    await app.captureStep('Saved birth growth record', 'Growth summary displays the at-birth weight and height values.');
 
     await page.locator('#open-baby-settings').click();
     await page.locator('#baby-height').fill('55.2');
-    await page.locator('#baby-head').fill('36');
     await page.locator('#baby-weight').fill('4300');
     await page.locator('#growth-record-mode').selectOption('custom');
     await expect(page.locator('#growth-record-date-control')).toBeVisible();

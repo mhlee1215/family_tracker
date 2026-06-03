@@ -457,6 +457,8 @@ describe('app/main', () => {
     fireEvent.click(document.querySelector('#open-baby-settings'));
     expect(settingsPanel.classList.contains('hidden')).toBe(false);
     expect(document.querySelector('#baby-settings-panel #baby-settings-form')).toBeTruthy();
+    expect(document.querySelector('#baby-head')).toBeNull();
+    expect(document.querySelector('#baby-apgar')).toBeNull();
 
     fireEvent.click(document.querySelector('#open-baby-summary'));
     expect(settingsPanel.classList.contains('hidden')).toBe(true);
@@ -466,6 +468,10 @@ describe('app/main', () => {
     expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(true);
     expect(growthSummary.querySelector('#growth-trend-chart')).toBeTruthy();
     expect(summaryPanel.textContent).toContain('X-axis shows record dates');
+    expect(growthSummary.textContent).toContain('Weight');
+    expect(growthSummary.textContent).toContain('Height');
+    expect(growthSummary.textContent).not.toContain('Head');
+    expect(growthSummary.textContent).not.toContain('Apgar');
 
     fireEvent.pointerDown(document.body);
     expect(summaryPanel.classList.contains('hidden')).toBe(false);
@@ -679,9 +685,11 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns').textContent).toContain('Sleep rhythm');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Statistics');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Week comparison');
-    expect(document.querySelector('#baby-patterns').textContent).toContain('Tap a group for exact numbers');
-    expect(document.querySelectorAll('#baby-patterns .pattern-stat-bar').length).toBeGreaterThan(0);
-    expect(document.querySelector('#baby-patterns .pattern-stat-bucket')?.tagName).toBe('DETAILS');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('line charts');
+    expect(document.querySelector('#baby-patterns .pattern-stat-line-chart')).toBeTruthy();
+    expect(document.querySelectorAll('#baby-patterns .pattern-stat-series').length).toBeGreaterThan(0);
+    expect(document.querySelector('#baby-patterns .pattern-stat-line-legend')?.textContent).toContain('Logs');
+    expect(document.querySelector('#baby-patterns .pattern-legend')?.textContent).toContain('Estimated');
     expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
 
     fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));
