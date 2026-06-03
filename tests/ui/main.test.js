@@ -468,6 +468,13 @@ describe('app/main', () => {
     expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(true);
     expect(growthSummary.querySelector('#growth-trend-chart')).toBeTruthy();
     expect(summaryPanel.textContent).toContain('X-axis shows record dates');
+    expect(growthSummary.querySelector('[data-growth-chart-metric="weightG"]').checked).toBe(true);
+    expect(growthSummary.querySelector('[data-growth-chart-metric="heightCm"]').checked).toBe(false);
+    expect(growthSummary.textContent).toContain('Y-axis shows grams for weight');
+    expect(growthSummary.textContent).not.toContain('centimeters for height');
+    fireEvent.click(growthSummary.querySelector('[data-growth-chart-metric="heightCm"]'));
+    expect(document.querySelector('#growth-summary').querySelector('[data-growth-chart-metric="heightCm"]').checked).toBe(true);
+    expect(document.querySelector('#growth-summary').textContent).toContain('centimeters for height');
     expect(growthSummary.textContent).toContain('Weight');
     expect(growthSummary.textContent).toContain('Height');
     expect(growthSummary.textContent).not.toContain('Head');

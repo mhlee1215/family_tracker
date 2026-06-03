@@ -41,6 +41,11 @@ const babyTrackerTypeSet = new Set(babyTrackerTypes.map((item) => item.type));
 
 const patternEventTypes = babyTrackerTypes.map(({ type, label }) => ({ type, label }));
 
+const growthChartMetricOptions = [
+  { key: 'weightG', label: 'Weight', chartLabel: 'Weight (g)', unit: 'g', color: '#7a7a7a', axisID: 'g' },
+  { key: 'heightCm', label: 'Height', chartLabel: 'Height (cm)', unit: 'cm', color: '#2997ff', axisID: 'cm' },
+];
+
 const storageKeys = {
   theme: 'familyTracker.theme',
   activeTab: 'familyTracker.activeTab',
@@ -51,6 +56,7 @@ const storageKeys = {
   patternTypes: 'familyTracker.patternTypes',
   patternPeriodDays: 'familyTracker.patternPeriodDays',
   patternStatUnit: 'familyTracker.patternStatUnit',
+  growthChartMetrics: 'familyTracker.growthChartMetrics',
   careForecastPeriodDays: 'familyTracker.careForecastPeriodDays',
   babyStatusRange: 'familyTracker.babyStatusRange',
   activeBabyTrackers: 'familyTracker.activeBabyTrackers',
@@ -129,6 +135,7 @@ const state = {
   patternTypes: normalizePatternTypes(localStorage.getItem(storageKeys.patternTypes)),
   patternPeriodDays: normalizePatternPeriodDays(localStorage.getItem(storageKeys.patternPeriodDays)),
   patternStatUnit: normalizePatternStatUnit(localStorage.getItem(storageKeys.patternStatUnit)),
+  growthChartMetrics: normalizeGrowthChartMetrics(localStorage.getItem(storageKeys.growthChartMetrics)),
   careForecastDays: [],
   careForecastLoading: false,
   careForecastError: '',
@@ -2766,46 +2773,106 @@ function renderGrowthSummary() {
     ${renderGrowthChart(records)}
     <div class="growth-history-list">${history}</div>
   `;
+  elements.growthSummary.querySelectorAll('[data-growth-chart-metric]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => changeGrowthChartMetric(checkbox));
+  });
 }
 
 function renderGrowthChart(records) {
   const chartRecords = [...records].sort(compareGrowthRecordsAsc).slice(-8);
   const datasets = growthChartDatasets(chartRecords);
-  if (!datasets.length) {
-    destroyGrowthChart();
-    return '<section class="growth-chart-card"><p class="empty">Add at least two dated growth records to draw a trend chart.</p></section>';
-  }
   const firstLabel = growthRecordDateLabel(chartRecords[0]);
   const lastLabel = growthRecordDateLabel(chartRecords[chartRecords.length - 1]);
-  window.setTimeout(() => renderGrowthChartInstance(chartRecords, datasets), 0);
+  const controls = growthChartMetricControls(chartRecords);
+  if (datasets.length) window.setTimeout(() => renderGrowthChartInstance(chartRecords, datasets), 0);
+  else destroyGrowthChart();
   return `
     <section class="growth-chart-card" aria-label="Growth trend chart">
       <div class="growth-chart-copy">
         <strong>Growth trend</strong>
         <span>${escapeHtml(firstLabel)} → ${escapeHtml(lastLabel)}</span>
       </div>
-      <div class="growth-chart-shell">
-        <canvas id="growth-trend-chart" class="growth-chart" role="img" aria-label="Growth measurements over time with dates on the x-axis and measured units on the y-axis"></canvas>
-      </div>
-      <p class="growth-chart-axis-note">X-axis shows record dates. Y-axis shows centimeters for height and grams for weight.</p>
+      ${controls}
+      ${datasets.length ? `
+        <div class="growth-chart-shell">
+          <canvas id="growth-trend-chart" class="growth-chart" role="img" aria-label="${escapeHtml(growthChartAriaLabel(datasets))}"></canvas>
+        </div>
+        <p class="growth-chart-axis-note">${escapeHtml(growthChartAxisNote(datasets))}</p>
+      ` : '<p class="empty">Select a measurement with at least two dated records to draw a trend chart.</p>'}
     </section>
   `;
 }
 
+function normalizeGrowthChartMetrics(value) {
+  const allowed = new Set(growthChartMetricOptions.map((metric) => metric.key));
+  const selected = String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => allowed.has(item));
+  return selected.length ? selected : ['weightG'];
+}
+
+function changeGrowthChartMetric(checkbox) {
+  const next = new Set(state.growthChartMetrics);
+  if (checkbox.checked) next.add(checkbox.dataset.growthChartMetric);
+  else next.delete(checkbox.dataset.growthChartMetric);
+  if (!next.size) {
+    checkbox.checked = true;
+    return;
+  }
+  state.growthChartMetrics = [...next].filter((key) => growthChartMetricOptions.some((metric) => metric.key === key));
+  localStorage.setItem(storageKeys.growthChartMetrics, state.growthChartMetrics.join(','));
+  renderGrowthSummary();
+}
+
+function growthChartMetricControls(records) {
+  const available = new Set(growthChartDatasetsForKeys(records, growthChartMetricOptions.map((metric) => metric.key)).map((metric) => metric.key));
+  return `
+    <fieldset class="growth-chart-controls" aria-label="Growth chart measurements">
+      ${growthChartMetricOptions.map((metric) => {
+        const disabled = !available.has(metric.key);
+        const checked = state.growthChartMetrics.includes(metric.key) && !disabled;
+        return `
+          <label class="growth-chart-check">
+            <input type="checkbox" data-growth-chart-metric="${escapeHtml(metric.key)}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}>
+            <span>${escapeHtml(metric.label)}</span>
+          </label>
+        `;
+      }).join('')}
+    </fieldset>
+  `;
+}
+
 function growthChartDatasets(records) {
-  return [
-    { key: 'weightG', label: 'Weight (g)', unit: 'g', color: '#7a7a7a', axisID: 'g' },
-    { key: 'heightCm', label: 'Height (cm)', unit: 'cm', color: '#2997ff', axisID: 'cm' },
-  ].map((metric) => ({
+  return growthChartDatasetsForKeys(records, state.growthChartMetrics);
+}
+
+function growthChartDatasetsForKeys(records, keys) {
+  const selected = new Set(keys);
+  return growthChartMetricOptions.filter((metric) => selected.has(metric.key)).map((metric) => ({
     ...metric,
+    label: metric.chartLabel,
     data: records.map((record) => record[metric.key] == null ? null : Number(record[metric.key])),
   })).filter((metric) => metric.data.filter((value) => Number.isFinite(value)).length >= 2);
+}
+
+function growthChartAxisNote(datasets) {
+  const parts = [];
+  if (datasets.some((metric) => metric.axisID === 'g')) parts.push('grams for weight');
+  if (datasets.some((metric) => metric.axisID === 'cm')) parts.push('centimeters for height');
+  return `X-axis shows record dates. Y-axis shows ${parts.join(' and ')}.`;
+}
+
+function growthChartAriaLabel(datasets) {
+  return `Growth ${datasets.map((metric) => metric.label).join(' and ')} over time with record dates on the x-axis.`;
 }
 
 function renderGrowthChartInstance(records, datasets) {
   const canvas = document.getElementById('growth-trend-chart');
   const ChartCtor = window.Chart;
   if (!canvas || !ChartCtor) return;
+  const hasCm = datasets.some((metric) => metric.axisID === 'cm');
+  const hasG = datasets.some((metric) => metric.axisID === 'g');
   destroyGrowthChart();
   growthChartInstance = new ChartCtor(canvas, {
     type: 'line',
@@ -2834,8 +2901,8 @@ function renderGrowthChartInstance(records, datasets) {
       },
       scales: {
         x: { title: { display: true, text: 'Record date' }, grid: { color: '#f0f0f0' } },
-        cm: { type: 'linear', position: 'left', title: { display: true, text: 'Centimeters' }, grid: { color: '#f0f0f0' } },
-        g: { type: 'linear', position: 'right', title: { display: true, text: 'Grams' }, grid: { drawOnChartArea: false } },
+        cm: { display: hasCm, type: 'linear', position: 'left', title: { display: true, text: 'Centimeters' }, grid: { color: '#f0f0f0' } },
+        g: { display: hasG, type: 'linear', position: hasCm ? 'right' : 'left', title: { display: true, text: 'Grams' }, grid: { drawOnChartArea: !hasCm, color: '#f0f0f0' } },
       },
     },
   });

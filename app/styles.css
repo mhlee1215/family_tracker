@@ -2896,6 +2896,37 @@ label {
   font-size: 14px;
 }
 
+.growth-chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.growth-chart-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--on-dark);
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.growth-chart-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-on-dark);
+}
+
+.growth-chart-check:has(input:disabled) {
+  opacity: 0.45;
+}
+
 .growth-chart {
   width: 100%;
   min-height: 220px;
