@@ -691,6 +691,10 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')?.textContent).toContain('Feeds');
     expect(document.querySelector('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')?.textContent).toContain('Formula');
     expect(document.querySelector('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')?.textContent).toContain('Breast milk');
+    expect(document.querySelector('#baby-patterns .pattern-stat-detail-table')?.textContent).toContain('Date');
+    expect(document.querySelector('#baby-patterns .pattern-stat-detail-table')?.textContent).toContain('Formula');
+    expect(document.querySelector('#baby-patterns .pattern-stat-detail-table')?.textContent).toContain('Breast milk');
+    expect(document.querySelector('#baby-patterns .pattern-stat-detail article')).toBeNull();
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-line-chart').length).toBeGreaterThan(1);
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-series').length).toBeGreaterThan(0);
     expect(document.querySelector('#baby-patterns .pattern-legend')?.textContent).toContain('Estimated');

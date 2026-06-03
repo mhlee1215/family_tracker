@@ -1400,50 +1400,85 @@ input {
 }
 
 .pattern-stat-detail {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 8px;
-}
-
-.pattern-stat-detail article {
-  display: grid;
-  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
   border: 1px solid var(--hairline);
   border-radius: 14px;
   background: var(--canvas);
-  padding: 10px;
 }
 
-.pattern-stat-detail article > strong {
-  color: var(--ink);
+.pattern-stat-detail-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+}
+
+.pattern-stat-detail-table th,
+.pattern-stat-detail-table td {
+  border-bottom: 1px solid var(--divider-soft);
+  padding: 11px 12px;
   font-size: 12px;
-}
-
-.pattern-stat-detail dl {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-}
-
-.pattern-stat-detail dl div {
-  display: grid;
-  gap: 2px;
-}
-
-.pattern-stat-detail dt,
-.pattern-stat-detail dd {
-  margin: 0;
-  font-size: 11px;
   line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
 }
 
-.pattern-stat-detail dt {
+.pattern-stat-detail-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+  background: var(--surface-pearl);
+}
+
+.pattern-stat-detail-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--canvas);
+}
+
+.pattern-stat-detail-table td {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.pattern-stat-detail-table tbody tr:last-child th,
+.pattern-stat-detail-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pattern-stat-detail-table tbody tr:nth-child(even) th,
+.pattern-stat-detail-table tbody tr:nth-child(even) td {
+  background: var(--surface-pearl);
+}
+
+.pattern-stat-detail-table tbody tr:nth-child(even) th {
+  background: var(--surface-pearl);
+}
+
+.pattern-stat-detail-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.pattern-stat-detail-table thead th:not(:first-child),
+.pattern-stat-detail-table tbody td {
+  text-align: right;
+}
+
+.pattern-stat-detail-table thead th:first-child,
+.pattern-stat-detail-table tbody th {
+  min-width: 96px;
+}
+
+.pattern-stat-detail-table thead th:not(:first-child) {
   color: var(--muted);
 }
 
-.pattern-stat-detail dd {
-  color: var(--ink);
-  font-weight: 600;
+.pattern-stat-detail-table tbody td:not(:first-child) {
+  font-variant-numeric: tabular-nums;
 }
 
 .pattern-stat-logs { --pattern-stat-color: var(--primary); }

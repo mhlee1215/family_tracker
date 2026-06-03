@@ -2424,25 +2424,35 @@ function patternStatisticLineCharts(buckets, metrics, unitName) {
       <div class="pattern-stat-chart-grid">
         ${charts}
       </div>
-      <div class="pattern-stat-detail">
-        ${buckets.map((bucket) => `
-          <article>
-            <strong>${escapeHtml(bucket.label)}</strong>
-            <dl>
-              ${metrics.map((metric) => {
-                const value = bucket[metric.key] || 0;
-                const companion = metric.companion
-                  ? `<div><dt>${escapeHtml(metric.companion.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric.companion, bucket[metric.companion.key] || 0))}</dd></div>`
-                  : '';
-                const breakdowns = (metric.breakdowns || []).map((breakdown) => (
-                  `<div><dt>${escapeHtml(breakdown.label)}</dt><dd>${escapeHtml(metricsValueLabel(breakdown, bucket[breakdown.key] || 0))}</dd></div>`
-                )).join('');
-                return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>${breakdowns}${companion}`;
-              }).join('')}
-            </dl>
-          </article>
-        `).join('')}
-      </div>
+      ${patternStatisticDetailTable(buckets, metrics)}
+    </div>
+  `;
+}
+
+function patternStatisticDetailTable(buckets, metrics) {
+  const columns = metrics.flatMap((metric) => [
+    metric,
+    ...(metric.breakdowns || []),
+    ...(metric.companion ? [metric.companion] : []),
+  ]);
+  return `
+    <div class="pattern-stat-detail">
+      <table class="pattern-stat-detail-table" aria-label="Exact statistic values">
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            ${columns.map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${buckets.map((bucket) => `
+            <tr>
+              <th scope="row">${escapeHtml(bucket.label)}</th>
+              ${columns.map((column) => `<td>${escapeHtml(metricsValueLabel(column, bucket[column.key] || 0))}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
     </div>
   `;
 }
