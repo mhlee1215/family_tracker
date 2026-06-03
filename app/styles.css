@@ -1318,6 +1318,10 @@ input {
   font-size: 12px;
 }
 
+.pattern-stat-y-tick-right {
+  fill: var(--primary);
+}
+
 .pattern-stat-series path {
   fill: none;
   stroke: var(--pattern-stat-color, var(--primary));
@@ -1332,6 +1336,32 @@ input {
   stroke: var(--pattern-stat-color, var(--primary));
   stroke-width: 4;
   vector-effect: non-scaling-stroke;
+}
+
+.pattern-stat-companion {
+  --pattern-stat-color: var(--primary);
+}
+
+.pattern-stat-sublegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.pattern-stat-sublegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-stat-sublegend i {
+  display: inline-block;
+  width: 16px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--pattern-stat-color, var(--primary));
 }
 
 .pattern-stat-line-legend {

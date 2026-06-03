@@ -2361,7 +2361,20 @@ function patternStatisticMetrics(days) {
   const events = days.flatMap(({ events = [] }) => events).filter((event) => !event.hiddenFromTimeline);
   return [
     { key: 'logs', label: 'Logs', axisLabel: 'Logs count', value: (bucketEvents) => bucketEvents.length, format: (value) => String(Math.round(value)) },
-    { key: 'milk', label: 'Milk', axisLabel: 'Milk ml', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'feeding_milk').reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0), format: (value) => `${Math.round(value)} ml` },
+    {
+      key: 'milk',
+      label: 'Milk',
+      axisLabel: 'Milk ml',
+      value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'feeding_milk').reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0),
+      format: (value) => `${Math.round(value)} ml`,
+      companion: {
+        key: 'milkFeeds',
+        label: 'Feeds',
+        axisLabel: 'Feeds count',
+        value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'feeding_milk').length,
+        format: (value) => `${Math.round(value)} feeds`,
+      },
+    },
     { key: 'sleep', label: 'Sleep', axisLabel: 'Sleep minutes', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'sleep').reduce((sum, event) => sum + Number(event.durationMinutes?.value || 0), 0), format: (value) => minutesLabel(Math.round(value)) },
     { key: 'diapers', label: 'Diapers', axisLabel: 'Diapers count', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'diaper').length, format: (value) => String(Math.round(value)) },
   ].filter((metric) => metric.key === 'logs' || events.some((event) => metric.value([event]) > 0));
@@ -2376,7 +2389,10 @@ function patternStatisticBuckets(days, unit) {
     buckets.get(key).events.push(...events.filter((event) => !event.hiddenFromTimeline));
   });
   return [...buckets.values()].map((bucket) => {
-    metrics.forEach((metric) => { bucket[metric.key] = metric.value(bucket.events); });
+    metrics.forEach((metric) => {
+      bucket[metric.key] = metric.value(bucket.events);
+      if (metric.companion) bucket[metric.companion.key] = metric.companion.value(bucket.events);
+    });
     return bucket;
   });
 }
@@ -2396,7 +2412,10 @@ function patternStatisticLineCharts(buckets, metrics, unitName) {
             <dl>
               ${metrics.map((metric) => {
                 const value = bucket[metric.key] || 0;
-                return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>`;
+                const companion = metric.companion
+                  ? `<div><dt>${escapeHtml(metric.companion.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric.companion, bucket[metric.companion.key] || 0))}</dd></div>`
+                  : '';
+                return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>${companion}`;
               }).join('')}
             </dl>
           </article>
@@ -2409,15 +2428,16 @@ function patternStatisticLineCharts(buckets, metrics, unitName) {
 function patternStatisticSingleLineChart(buckets, metric, unitName) {
   const width = 640;
   const height = 230;
-  const padding = { top: 24, right: 22, bottom: 48, left: 70 };
+  const padding = { top: 24, right: metric.companion ? 70 : 22, bottom: 48, left: 70 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const maxValue = Math.max(1, ...buckets.map((bucket) => bucket[metric.key] || 0));
+  const companionMaxValue = metric.companion ? Math.max(1, ...buckets.map((bucket) => bucket[metric.companion.key] || 0)) : 0;
   const xFor = (index) => buckets.length === 1
     ? padding.left + (plotWidth / 2)
     : padding.left + ((plotWidth / (buckets.length - 1)) * index);
-  const yFor = (value) => {
-    const ratio = Math.max(0, Math.min(1, value / maxValue));
+  const yFor = (value, max = maxValue) => {
+    const ratio = Math.max(0, Math.min(1, value / max));
     return padding.top + ((1 - ratio) * plotHeight);
   };
   const tickRatios = maxValue <= 1 ? [0, 1] : [0, 0.5, 1];
@@ -2429,6 +2449,11 @@ function patternStatisticSingleLineChart(buckets, metric, unitName) {
       <text class="pattern-stat-y-tick" x="${padding.left - 10}" y="${roundChartValue(y + 4)}" text-anchor="end">${escapeHtml(patternStatisticTickLabel(metric, value))}</text>
     `;
   }).join('');
+  const companionTicks = metric.companion ? (companionMaxValue <= 1 ? [0, 1] : [0, 0.5, 1]).map((ratio) => {
+    const y = padding.top + ((1 - ratio) * plotHeight);
+    const value = companionMaxValue * ratio;
+    return `<text class="pattern-stat-y-tick pattern-stat-y-tick-right" x="${width - padding.right + 10}" y="${roundChartValue(y + 4)}">${escapeHtml(patternStatisticTickLabel(metric.companion, value))}</text>`;
+  }).join('') : '';
   const axisLabels = buckets.map((bucket, index) => {
     const x = xFor(index);
     return `<text class="pattern-stat-axis-label" x="${roundChartValue(x)}" y="${height - 28}" text-anchor="middle">${escapeHtml(patternStatisticAxisLabel(bucket.label))}</text>`;
@@ -2443,15 +2468,28 @@ function patternStatisticSingleLineChart(buckets, metric, unitName) {
     };
   });
   const path = points.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
+  const companionPoints = metric.companion ? buckets.map((bucket, index) => {
+    const value = bucket[metric.companion.key] || 0;
+    return {
+      x: xFor(index),
+      y: yFor(value, companionMaxValue),
+      value,
+      label: metricsValueLabel(metric.companion, value),
+    };
+  }) : [];
+  const companionPath = companionPoints.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
+  const axisLabel = metric.companion ? `${metric.axisLabel} + ${metric.companion.axisLabel}` : metric.axisLabel;
   return `
-    <article class="pattern-stat-chart-card pattern-stat-${metric.key}" role="img" aria-label="${escapeHtml(`${unitName} ${metric.label} line chart. Y-axis is ${metric.axisLabel}.`)}">
+    <article class="pattern-stat-chart-card pattern-stat-${metric.key}" role="img" aria-label="${escapeHtml(`${unitName} ${metric.label} line chart. Y-axis is ${axisLabel}.`)}">
       <div class="pattern-stat-chart-title">
         <span><i></i>${escapeHtml(metric.label)}</span>
-        <em>Y-axis: ${escapeHtml(metric.axisLabel)}</em>
+        <em>Y-axis: ${escapeHtml(axisLabel)}</em>
       </div>
       <svg class="pattern-stat-line-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
         ${gridLines}
+        ${companionTicks}
         <line class="pattern-stat-axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + plotHeight}"></line>
+        ${metric.companion ? `<line class="pattern-stat-axis-line" x1="${width - padding.right}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top + plotHeight}"></line>` : ''}
         <line class="pattern-stat-axis-line" x1="${padding.left}" y1="${padding.top + plotHeight}" x2="${width - padding.right}" y2="${padding.top + plotHeight}"></line>
         ${axisLabels}
         <g class="pattern-stat-series" aria-label="${escapeHtml(metric.label)} trend">
@@ -2462,7 +2500,23 @@ function patternStatisticSingleLineChart(buckets, metric, unitName) {
             </circle>
           `).join('')}
         </g>
+        ${metric.companion ? `
+          <g class="pattern-stat-series pattern-stat-companion" aria-label="${escapeHtml(metric.companion.label)} trend">
+            <path d="${companionPath}"></path>
+            ${companionPoints.map((point, index) => `
+              <circle cx="${roundChartValue(point.x)}" cy="${roundChartValue(point.y)}" r="5">
+                <title>${escapeHtml(`${buckets[index].label} ${metric.companion.label}: ${point.label}`)}</title>
+              </circle>
+            `).join('')}
+          </g>
+        ` : ''}
       </svg>
+      ${metric.companion ? `
+        <div class="pattern-stat-sublegend" aria-label="${escapeHtml(`${metric.label} chart legend`)}">
+          <span class="pattern-stat-${metric.key}"><i></i>${escapeHtml(metric.label)} total</span>
+          <span class="pattern-stat-companion"><i></i>${escapeHtml(metric.companion.label)}</span>
+        </div>
+      ` : ''}
     </article>
   `;
 }
