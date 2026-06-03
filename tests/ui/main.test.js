@@ -686,9 +686,10 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns').textContent).toContain('Statistics');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Week comparison');
     expect(document.querySelector('#baby-patterns').textContent).toContain('line charts');
-    expect(document.querySelector('#baby-patterns .pattern-stat-line-chart')).toBeTruthy();
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Y-axis: Logs count');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('Y-axis: Milk ml');
+    expect(document.querySelectorAll('#baby-patterns .pattern-stat-line-chart').length).toBeGreaterThan(1);
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-series').length).toBeGreaterThan(0);
-    expect(document.querySelector('#baby-patterns .pattern-stat-line-legend')?.textContent).toContain('Logs');
     expect(document.querySelector('#baby-patterns .pattern-legend')?.textContent).toContain('Estimated');
     expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
 

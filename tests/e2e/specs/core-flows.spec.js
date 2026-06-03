@@ -676,9 +676,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toContainText('Sleep rhythm');
     await expect(page.locator('#baby-patterns')).toContainText('Week comparison');
     await expect(page.locator('#baby-patterns')).toContainText('line charts');
-    await expect(page.locator('#baby-patterns .pattern-stat-line-chart')).toBeVisible();
+    await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Logs count');
+    await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Milk ml');
+    await expect(page.locator('#baby-patterns .pattern-stat-line-chart')).toHaveCount(4);
     await expect(page.locator('#baby-patterns .pattern-stat-series').first()).toBeVisible();
-    await expect(page.locator('#baby-patterns .pattern-stat-line-legend')).toContainText('Logs');
     await expect(page.locator('#baby-patterns .pattern-stat-detail').first()).toBeVisible();
     await app.captureStep('Weekly baby pattern rendered', 'The pattern panel opened from the baby menu with seven calendar lanes, interval cards, and statistics.');
 
