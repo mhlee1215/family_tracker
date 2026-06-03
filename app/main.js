@@ -258,9 +258,7 @@ const elements = {
   birthDate: $('#birth-date'),
   birthTime: $('#birth-time'),
   babyHeight: $('#baby-height'),
-  babyHead: $('#baby-head'),
   babyWeight: $('#baby-weight'),
-  babyApgar: $('#baby-apgar'),
   growthRecordMode: $('#growth-record-mode'),
   growthRecordDateControl: $('#growth-record-date-control'),
   growthRecordTimeControl: $('#growth-record-time-control'),
@@ -737,9 +735,9 @@ async function saveBabyProfile() {
     birthDate: elements.birthDate.value,
     birthTime: elements.birthTime.value,
     heightCm: numberOrNull(elements.babyHeight.value),
-    headCm: numberOrNull(elements.babyHead.value),
     weightG: numberOrNull(elements.babyWeight.value),
-    apgarPercent: numberOrNull(elements.babyApgar.value),
+    headCm: state.profile?.headCm ?? null,
+    apgarPercent: state.profile?.apgarPercent ?? null,
     milkAmountMlOverride: numberOrNull(elements.milkAmount.value),
     napDurationMinutesOverride: numberOrNull(elements.napDuration.value),
   };
@@ -1303,9 +1301,7 @@ function renderBabySettings() {
   elements.birthDate.value = profile.birthDate || '';
   elements.birthTime.value = profile.birthTime || '';
   elements.babyHeight.value = profile.heightCm ?? '';
-  elements.babyHead.value = profile.headCm ?? '';
   elements.babyWeight.value = profile.weightG ?? '';
-  elements.babyApgar.value = profile.apgarPercent ?? '';
   elements.growthRecordMode.value = 'birth';
   elements.growthRecordDate.value = '';
   elements.growthRecordTime.value = '';
@@ -2611,17 +2607,15 @@ function renderGrowthSummary() {
   if (!elements.growthSummary) return;
   const records = [...(state.growthRecords || [])].sort(compareGrowthRecordsDesc);
   if (!records.length) {
-    elements.growthSummary.innerHTML = '<p class="empty">Add height, head size, weight, or Apgar in Baby settings to start a growth history.</p>';
+    elements.growthSummary.innerHTML = '<p class="empty">Add weight or height in Baby settings to start a growth history.</p>';
     return;
   }
 
   const latest = records[0];
   const baseline = [...records].reverse().find((record) => record.recordedFor === 'birth') || records[records.length - 1];
   const metricCards = [
-    growthMetricCard('Height', latest.heightCm, 'cm', deltaValue(latest.heightCm, baseline.heightCm, 'cm')),
-    growthMetricCard('Head', latest.headCm, 'cm', deltaValue(latest.headCm, baseline.headCm, 'cm')),
     growthMetricCard('Weight', latest.weightG, 'g', deltaValue(latest.weightG, baseline.weightG, 'g')),
-    growthMetricCard('Apgar', latest.apgarPercent, '%', latest.apgarPercent == null ? '' : `${latest.apgarPercent}%`),
+    growthMetricCard('Height', latest.heightCm, 'cm', deltaValue(latest.heightCm, baseline.heightCm, 'cm')),
   ];
   const history = records.slice(0, 6).map((record) => `
     <article class="growth-history-item">
@@ -2664,16 +2658,15 @@ function renderGrowthChart(records) {
       <div class="growth-chart-shell">
         <canvas id="growth-trend-chart" class="growth-chart" role="img" aria-label="Growth measurements over time with dates on the x-axis and measured units on the y-axis"></canvas>
       </div>
-      <p class="growth-chart-axis-note">X-axis shows record dates. Y-axis shows each measurement in its own unit: cm for height/head and grams for weight.</p>
+      <p class="growth-chart-axis-note">X-axis shows record dates. Y-axis shows centimeters for height and grams for weight.</p>
     </section>
   `;
 }
 
 function growthChartDatasets(records) {
   return [
-    { key: 'heightCm', label: 'Height (cm)', unit: 'cm', color: '#2997ff', axisID: 'cm' },
-    { key: 'headCm', label: 'Head (cm)', unit: 'cm', color: '#0066cc', axisID: 'cm' },
     { key: 'weightG', label: 'Weight (g)', unit: 'g', color: '#7a7a7a', axisID: 'g' },
+    { key: 'heightCm', label: 'Height (cm)', unit: 'cm', color: '#2997ff', axisID: 'cm' },
   ].map((metric) => ({
     ...metric,
     data: records.map((record) => record[metric.key] == null ? null : Number(record[metric.key])),
@@ -2736,10 +2729,8 @@ function growthMetricCard(label, value, unit, detail) {
 
 function growthRecordMetrics(record) {
   const parts = [];
-  if (record.heightCm != null) parts.push(`Height ${record.heightCm}cm`);
-  if (record.headCm != null) parts.push(`Head ${record.headCm}cm`);
   if (record.weightG != null) parts.push(`Weight ${record.weightG}g`);
-  if (record.apgarPercent != null) parts.push(`Apgar ${record.apgarPercent}%`);
+  if (record.heightCm != null) parts.push(`Height ${record.heightCm}cm`);
   return parts.join(' · ') || 'No measurements';
 }
 
@@ -2782,11 +2773,11 @@ function shouldSaveGrowthRecord(next, previous = {}) {
 }
 
 function hasGrowthValues(profile = {}) {
-  return ['heightCm', 'headCm', 'weightG', 'apgarPercent'].some((key) => profile[key] !== null && profile[key] !== undefined);
+  return ['heightCm', 'weightG'].some((key) => profile[key] !== null && profile[key] !== undefined);
 }
 
 function growthValuesChanged(next, previous = {}) {
-  return ['birthTime', 'heightCm', 'headCm', 'weightG', 'apgarPercent'].some((key) => normalizeComparable(next?.[key]) !== normalizeComparable(previous?.[key]));
+  return ['birthTime', 'heightCm', 'weightG'].some((key) => normalizeComparable(next?.[key]) !== normalizeComparable(previous?.[key]));
 }
 
 function normalizeComparable(value) {
@@ -2807,9 +2798,7 @@ function buildGrowthRecordPayload(profile) {
       : mode === 'now' ? localTime
         : (elements.growthRecordTime.value || ''),
     heightCm: profile.heightCm,
-    headCm: profile.headCm,
     weightG: profile.weightG,
-    apgarPercent: profile.apgarPercent,
   };
 }
 

@@ -457,6 +457,8 @@ describe('app/main', () => {
     fireEvent.click(document.querySelector('#open-baby-settings'));
     expect(settingsPanel.classList.contains('hidden')).toBe(false);
     expect(document.querySelector('#baby-settings-panel #baby-settings-form')).toBeTruthy();
+    expect(document.querySelector('#baby-head')).toBeNull();
+    expect(document.querySelector('#baby-apgar')).toBeNull();
 
     fireEvent.click(document.querySelector('#open-baby-summary'));
     expect(settingsPanel.classList.contains('hidden')).toBe(true);
@@ -466,6 +468,10 @@ describe('app/main', () => {
     expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(true);
     expect(growthSummary.querySelector('#growth-trend-chart')).toBeTruthy();
     expect(summaryPanel.textContent).toContain('X-axis shows record dates');
+    expect(growthSummary.textContent).toContain('Weight');
+    expect(growthSummary.textContent).toContain('Height');
+    expect(growthSummary.textContent).not.toContain('Head');
+    expect(growthSummary.textContent).not.toContain('Apgar');
 
     fireEvent.pointerDown(document.body);
     expect(summaryPanel.classList.contains('hidden')).toBe(false);
