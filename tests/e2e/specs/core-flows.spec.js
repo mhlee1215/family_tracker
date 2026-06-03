@@ -1053,6 +1053,12 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#growth-summary')).toContainText('+3.1cm from baseline');
     await expect(page.locator('#growth-summary')).toContainText('4300g');
     await expect(page.locator('#growth-summary')).toContainText('Specific date');
+    await expect(page.locator('[data-growth-chart-metric="weightG"]')).toBeChecked();
+    await expect(page.locator('[data-growth-chart-metric="heightCm"]')).not.toBeChecked();
+    await expect(page.locator('#growth-summary')).toContainText('Y-axis shows grams for weight');
+    await page.locator('[data-growth-chart-metric="heightCm"]').check();
+    await expect(page.locator('[data-growth-chart-metric="heightCm"]')).toBeChecked();
+    await expect(page.locator('#growth-summary')).toContainText('centimeters for height');
     await app.captureStep('Saved custom-date growth record', 'Latest custom-date growth record is shown with baseline deltas and history.');
 
     const growthResponse = await page.request.get('/api/growth');
