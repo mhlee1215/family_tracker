@@ -2054,10 +2054,15 @@ label {
   }
 
   .global-brand {
-    max-width: 96px;
+    width: 72px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
+    color: transparent;
+  }
+
+  .global-brand::before {
+    content: "Family";
+    color: var(--on-dark);
   }
 
   .module-tabs {
