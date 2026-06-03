@@ -4134,6 +4134,47 @@ label {
   padding: 11px 22px;
 }
 
+@media (min-width: 681px) {
+  .input-panel {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
+    grid-template-areas:
+      "heading shortcuts"
+      "composer shortcuts"
+      "status shortcuts"
+      "moment shortcuts";
+    column-gap: 24px;
+    row-gap: 12px;
+    align-items: start;
+  }
+
+  .input-panel > label {
+    grid-area: heading;
+    margin-bottom: 0;
+  }
+
+  .input-panel > .composer-row {
+    grid-area: composer;
+  }
+
+  .input-panel > .log-save-status {
+    grid-area: status;
+    justify-self: start;
+    margin-top: 0;
+  }
+
+  .input-panel > .quick-actions {
+    grid-area: shortcuts;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0;
+  }
+
+  .input-panel > .moment-quick-entry {
+    grid-area: moment;
+    width: min(100%, 280px);
+  }
+}
+
 .moment-form {
   display: grid;
   gap: 16px;
