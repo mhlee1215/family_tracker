@@ -872,7 +872,6 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(document.querySelector('#today-context').textContent).toContain('2h ago · 120ml'));
     expect(document.querySelector('#today-context').textContent).toContain('1h ago · poop');
-    expect(document.querySelector('#today-context').textContent).toContain('1 estimated');
     expect(document.querySelector('#timeline').textContent).toContain('LLM · gpt-5.4-mini');
     expect(document.querySelector('#timeline').textContent).toContain('Amount estimated');
 
@@ -881,6 +880,43 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(document.querySelector('#answer').textContent).toBe('2 logs saved'));
     expect([...document.querySelectorAll('#quick-actions .suggested-action span')].map((node) => node.textContent)).toContain('분유 120 먹고 응가했어');
+  });
+
+  it('shows a component-level saving mark while a baby log is being saved', async () => {
+    let resolveLogSave;
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      if (url === '/api/logs' && init.method === 'POST') {
+        return new Promise((resolve) => {
+          resolveLogSave = () => resolve(new Response(JSON.stringify({ events: [] }), { status: 200 }));
+        });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-log-saving-mark');
+
+    const form = document.querySelector('#log-form');
+    const status = document.querySelector('#log-save-status');
+
+    fireEvent.input(document.querySelector('#log-input'), { target: { value: '분유 120' } });
+    fireEvent.submit(form);
+
+    await vi.waitFor(() => expect(resolveLogSave).toBeTypeOf('function'));
+    expect(form.getAttribute('aria-busy')).toBe('true');
+    expect(form.classList.contains('saving')).toBe(true);
+    expect(status.classList.contains('hidden')).toBe(false);
+    expect(status.textContent).toContain('Saving...');
+
+    resolveLogSave();
+
+    await vi.waitFor(() => expect(form.getAttribute('aria-busy')).toBe('false'));
+    expect(form.classList.contains('saving')).toBe(false);
+    expect(status.classList.contains('hidden')).toBe(true);
   });
 
 

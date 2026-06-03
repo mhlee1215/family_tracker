@@ -344,6 +344,10 @@
                 <input id="log-input" name="record" type="text" placeholder="Try: 분유 120 먹고 응가했어" autofocus>
                 <button type="submit">Save</button>
               </div>
+              <div id="log-save-status" class="log-save-status hidden" role="status" aria-live="polite">
+                <span class="inline-loading-spinner" aria-hidden="true"></span>
+                <span>Saving...</span>
+              </div>
               <div id="quick-actions" class="quick-actions" aria-label="Suggested logs"></div>
               <button id="quick-add-moment" type="button" class="moment-quick-entry">+ Growth moment</button>
             </form>

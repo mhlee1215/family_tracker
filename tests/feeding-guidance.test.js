@@ -27,7 +27,7 @@ describe('feeding guidance', () => {
           id: 'yesterday-late',
           type: 'feeding_milk',
           rawText: 'formula late 200ml',
-          occurredAt: { value: '2026-05-29T18:00:00.000Z' },
+          occurredAt: { value: '2026-05-29T18:00:00.000' },
           amountMl: { value: 200 },
         },
       ],
