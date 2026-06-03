@@ -94,7 +94,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-loading-spinner {
+  .app-loading-spinner,
+  .inline-loading-spinner {
     animation: none;
   }
 }
@@ -1438,6 +1439,47 @@ label {
 
 .composer-row.compact {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.log-save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  margin-top: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.29;
+  padding: 6px 12px;
+}
+
+.log-save-status.hidden {
+  display: none;
+}
+
+.inline-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--surface-chip-translucent);
+  border-top-color: var(--primary);
+  border-radius: 9999px;
+  animation: app-loading-spin 0.8s linear infinite;
+}
+
+.input-panel.saving .composer-row {
+  position: relative;
+}
+
+.input-panel.saving .composer-row::after {
+  position: absolute;
+  inset: -6px;
+  border: 1px solid var(--primary);
+  border-radius: 9999px;
+  pointer-events: none;
+  content: "";
 }
 
 .quick-actions {

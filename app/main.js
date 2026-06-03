@@ -169,6 +169,7 @@ const elements = {
   settings: document.querySelectorAll('.module-settings'),
   logForm: $('#log-form'),
   logInput: $('#log-input'),
+  logSaveStatus: $('#log-save-status'),
   askForm: $('#ask-form'),
   askInput: $('#ask-input'),
   answer: $('#answer'),
@@ -614,33 +615,45 @@ async function saveLog(text, options = {}) {
   const cleanText = text.trim();
   if (!cleanText) return;
   elements.logInput.value = '';
-  elements.logInput.placeholder = copy.saving;
-  const response = await fetch('/api/logs', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      text: cleanText,
-      timezone: localTimezone(),
-      parserMode: options.parserMode || 'auto',
-      inputSource: options.inputSource || 'text',
-    }),
-  });
-  const payload = await response.json();
-  elements.logInput.placeholder = copy.logPlaceholder;
-  if (!response.ok) {
-    if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
-      elements.logInput.value = cleanText;
-      showClarificationWarning(payload);
+  setLogSaving(true);
+  try {
+    const response = await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: cleanText,
+        timezone: localTimezone(),
+        parserMode: options.parserMode || 'auto',
+        inputSource: options.inputSource || 'text',
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
+        elements.logInput.value = cleanText;
+        showClarificationWarning(payload);
+        return;
+      }
+      elements.answer.textContent = payload.error || copy.saveFailed;
       return;
     }
-    elements.answer.textContent = payload.error || copy.saveFailed;
-    return;
+    const savedCount = (payload.events || []).filter((event) => !event.hiddenFromTimeline).length;
+    rememberRecentBabyLog(cleanText, payload.events || []);
+    elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
+    state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
+    await loadToday();
+  } catch (error) {
+    elements.answer.textContent = copy.saveFailed;
+  } finally {
+    setLogSaving(false);
   }
-  const savedCount = (payload.events || []).filter((event) => !event.hiddenFromTimeline).length;
-  rememberRecentBabyLog(cleanText, payload.events || []);
-  elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
-  state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
-  await loadToday();
+}
+
+function setLogSaving(isSaving) {
+  elements.logInput.placeholder = isSaving ? copy.saving : copy.logPlaceholder;
+  elements.logForm?.classList.toggle('saving', isSaving);
+  elements.logForm?.setAttribute('aria-busy', String(isSaving));
+  elements.logSaveStatus?.classList.toggle('hidden', !isSaving);
 }
 
 
