@@ -684,6 +684,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns .pattern-stat-line-chart')).toHaveCount(4);
     await expect(page.locator('#baby-patterns .pattern-stat-series').first()).toBeVisible();
     await expect(page.locator('#baby-patterns .pattern-stat-detail').first()).toBeVisible();
+    await expect(page.locator('#baby-patterns .pattern-stat-detail-table')).toBeVisible();
+    await expect(page.locator('#baby-patterns .pattern-stat-detail-table')).toContainText('Formula');
+    await expect(page.locator('#baby-patterns .pattern-stat-detail-table')).toContainText('Breast milk');
+    await expect(page.locator('#baby-patterns .pattern-stat-detail article')).toHaveCount(0);
     await app.captureStep('Weekly baby pattern rendered', 'The pattern panel opened from the baby menu with seven calendar lanes, interval cards, and statistics.');
 
     await page.locator('#baby-patterns .pattern-toggle', { hasText: 'Milk' }).click();
