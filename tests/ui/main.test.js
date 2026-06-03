@@ -697,7 +697,8 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns .pattern-stat-detail article')).toBeNull();
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-line-chart').length).toBeGreaterThan(1);
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-series').length).toBeGreaterThan(0);
-    expect(document.querySelector('#baby-patterns .pattern-legend')?.textContent).toContain('Estimated');
+    expect(document.querySelector('#baby-patterns .pattern-legend')?.textContent).toContain('Assumed by app');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('auto-filled fields marked with dashed outlines');
     expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
 
     fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));

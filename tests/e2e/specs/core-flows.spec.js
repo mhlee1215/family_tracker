@@ -678,6 +678,8 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toContainText('line charts');
     await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Logs count');
     await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Milk ml + Feeds count');
+    await expect(page.locator('#baby-patterns')).toContainText('Assumed by app');
+    await expect(page.locator('#baby-patterns')).toContainText('auto-filled fields marked with dashed outlines');
     await expect(page.locator('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')).toContainText('Feeds');
     await expect(page.locator('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')).toContainText('Formula');
     await expect(page.locator('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')).toContainText('Breast milk');
