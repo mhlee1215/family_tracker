@@ -656,11 +656,11 @@ describe('app/main', () => {
         const day = new URL(url, 'https://example.test').searchParams.get('day') || '2026-05-30';
         const eventsByDay = {
           '2026-05-28': [
-            { id: 'milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+            { id: 'milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, feedingKind: { value: 'formula' }, createdAt: '2026-05-28T08:01:00.000Z' },
             { id: 'sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T10:00:00.000Z' }, endAt: { value: '2026-05-28T11:00:00.000Z' }, durationMinutes: { value: 60 }, createdAt: '2026-05-28T10:00:00.000Z' },
           ],
           '2026-05-29': [
-            { id: 'milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, createdAt: '2026-05-29T08:31:00.000Z' },
+            { id: 'milk-2', type: 'feeding_milk', rawText: 'breast milk', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, feedingKind: { value: 'breast' }, createdAt: '2026-05-29T08:31:00.000Z' },
             { id: 'poop-1', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T12:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T12:00:00.000Z' },
           ],
           '2026-05-30': [
@@ -689,6 +689,8 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns').textContent).toContain('Y-axis: Logs count');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Y-axis: Milk ml + Feeds count');
     expect(document.querySelector('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')?.textContent).toContain('Feeds');
+    expect(document.querySelector('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')?.textContent).toContain('Formula');
+    expect(document.querySelector('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')?.textContent).toContain('Breast milk');
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-line-chart').length).toBeGreaterThan(1);
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-series').length).toBeGreaterThan(0);
     expect(document.querySelector('#baby-patterns .pattern-legend')?.textContent).toContain('Estimated');

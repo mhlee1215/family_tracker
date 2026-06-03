@@ -636,11 +636,11 @@ test.describe('Family Tracker core flows', () => {
     const app = new AppHarness(page, testInfo);
     const eventsByDay = {
       '2026-05-28': [
-        { id: 'pattern-e2e-milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-28T08:01:00.000Z' },
+        { id: 'pattern-e2e-milk-1', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-28T08:00:00.000Z' }, amountMl: { value: 120 }, feedingKind: { value: 'formula' }, createdAt: '2026-05-28T08:01:00.000Z' },
         { id: 'pattern-e2e-sleep-1', type: 'sleep', rawText: 'nap', startAt: { value: '2026-05-28T10:00:00.000Z' }, endAt: { value: '2026-05-28T11:00:00.000Z' }, durationMinutes: { value: 60 }, createdAt: '2026-05-28T10:00:00.000Z' },
       ],
       '2026-05-29': [
-        { id: 'pattern-e2e-milk-2', type: 'feeding_milk', rawText: 'formula', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, createdAt: '2026-05-29T08:31:00.000Z' },
+        { id: 'pattern-e2e-milk-2', type: 'feeding_milk', rawText: 'breast milk', occurredAt: { value: '2026-05-29T08:30:00.000Z' }, amountMl: { value: 130, source: 'inferred' }, feedingKind: { value: 'breast' }, createdAt: '2026-05-29T08:31:00.000Z' },
         { id: 'pattern-e2e-poop-1', type: 'diaper', rawText: 'poop diaper', occurredAt: { value: '2026-05-29T12:00:00.000Z' }, diaperKind: { value: 'dirty' }, createdAt: '2026-05-29T12:00:00.000Z' },
       ],
       '2026-05-30': [
@@ -679,6 +679,8 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Logs count');
     await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Milk ml + Feeds count');
     await expect(page.locator('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')).toContainText('Feeds');
+    await expect(page.locator('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')).toContainText('Formula');
+    await expect(page.locator('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')).toContainText('Breast milk');
     await expect(page.locator('#baby-patterns .pattern-stat-line-chart')).toHaveCount(4);
     await expect(page.locator('#baby-patterns .pattern-stat-series').first()).toBeVisible();
     await expect(page.locator('#baby-patterns .pattern-stat-detail').first()).toBeVisible();

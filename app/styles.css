@@ -1342,6 +1342,18 @@ input {
   --pattern-stat-color: var(--primary);
 }
 
+.pattern-stat-breakdown {
+  opacity: 0.82;
+}
+
+.pattern-stat-breakdown-formulaMilk {
+  --pattern-stat-color: #ff9f0a;
+}
+
+.pattern-stat-breakdown-breastMilk {
+  --pattern-stat-color: #34c759;
+}
+
 .pattern-stat-sublegend {
   display: flex;
   flex-wrap: wrap;
