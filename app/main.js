@@ -2332,10 +2332,6 @@ function insightCard(label, value, detail) {
 function renderPatternStatistics(days, unit) {
   const buckets = patternStatisticBuckets(days, unit);
   const metrics = patternStatisticMetrics(days);
-  const metricMaxValues = Object.fromEntries(metrics.map((metric) => [
-    metric.key,
-    Math.max(1, ...buckets.map((bucket) => bucket[metric.key] || 0)),
-  ]));
   const unitName = { day: 'day', week: 'week', month: 'month' }[unit] || 'day';
   const average = (metric) => buckets.length ? metricsValueLabel(metric, buckets.reduce((sum, bucket) => sum + (bucket[metric.key] || 0), 0) / buckets.length) : 'No data';
   return `
@@ -2343,7 +2339,7 @@ function renderPatternStatistics(days, unit) {
       <div>
         <span class="eyebrow">Statistics</span>
         <h3>${escapeHtml(unitName[0].toUpperCase() + unitName.slice(1))} comparison</h3>
-        <p>Compare ${escapeHtml(unitName)} totals as line charts. Each line is scaled to its own highest point so trends are easier to compare.</p>
+        <p>Compare ${escapeHtml(unitName)} totals as separate line charts with each y-axis labeled by unit.</p>
       </div>
       <div class="pattern-statistics-tools">
         <label class="compact-select-control" for="pattern-stat-unit">
@@ -2357,17 +2353,17 @@ function renderPatternStatistics(days, unit) {
         </div>
       </div>
     </div>
-    ${patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName)}
+    ${patternStatisticLineCharts(buckets, metrics, unitName)}
   `;
 }
 
 function patternStatisticMetrics(days) {
   const events = days.flatMap(({ events = [] }) => events).filter((event) => !event.hiddenFromTimeline);
   return [
-    { key: 'logs', label: 'Logs', value: (bucketEvents) => bucketEvents.length, format: (value) => String(Math.round(value)) },
-    { key: 'milk', label: 'Milk', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'feeding_milk').reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0), format: (value) => `${Math.round(value)} ml` },
-    { key: 'sleep', label: 'Sleep', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'sleep').reduce((sum, event) => sum + Number(event.durationMinutes?.value || 0), 0), format: (value) => minutesLabel(Math.round(value)) },
-    { key: 'diapers', label: 'Diapers', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'diaper').length, format: (value) => String(Math.round(value)) },
+    { key: 'logs', label: 'Logs', axisLabel: 'Logs count', value: (bucketEvents) => bucketEvents.length, format: (value) => String(Math.round(value)) },
+    { key: 'milk', label: 'Milk', axisLabel: 'Milk ml', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'feeding_milk').reduce((sum, event) => sum + Number(event.amountMl?.value || 0), 0), format: (value) => `${Math.round(value)} ml` },
+    { key: 'sleep', label: 'Sleep', axisLabel: 'Sleep minutes', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'sleep').reduce((sum, event) => sum + Number(event.durationMinutes?.value || 0), 0), format: (value) => minutesLabel(Math.round(value)) },
+    { key: 'diapers', label: 'Diapers', axisLabel: 'Diapers count', value: (bucketEvents) => bucketEvents.filter((event) => event.type === 'diaper').length, format: (value) => String(Math.round(value)) },
   ].filter((metric) => metric.key === 'logs' || events.some((event) => metric.value([event]) > 0));
 }
 
@@ -2385,61 +2381,13 @@ function patternStatisticBuckets(days, unit) {
   });
 }
 
-function patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName) {
+function patternStatisticLineCharts(buckets, metrics, unitName) {
   if (!buckets.length) return '<div class="pattern-stat-chart"><p class="empty">No logs to chart yet.</p></div>';
-  const width = 640;
-  const height = 268;
-  const padding = { top: 20, right: 22, bottom: 58, left: 22 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const xFor = (index) => buckets.length === 1
-    ? padding.left + (plotWidth / 2)
-    : padding.left + ((plotWidth / (buckets.length - 1)) * index);
-  const yFor = (value, metric) => {
-    const max = metricMaxValues[metric.key] || 1;
-    const ratio = Math.max(0, Math.min(1, value / max));
-    return padding.top + ((1 - ratio) * plotHeight);
-  };
-  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-    const y = padding.top + ((1 - ratio) * plotHeight);
-    return `<line class="pattern-stat-grid-line" x1="${padding.left}" y1="${roundChartValue(y)}" x2="${width - padding.right}" y2="${roundChartValue(y)}"></line>`;
-  }).join('');
-  const axisLabels = buckets.map((bucket, index) => {
-    const x = xFor(index);
-    return `<text class="pattern-stat-axis-label" x="${roundChartValue(x)}" y="${height - 28}" text-anchor="middle">${escapeHtml(patternStatisticAxisLabel(bucket.label))}</text>`;
-  }).join('');
-  const lines = metrics.map((metric) => {
-    const points = buckets.map((bucket, index) => {
-      const value = bucket[metric.key] || 0;
-      return {
-        x: xFor(index),
-        y: yFor(value, metric),
-        value,
-        label: metricsValueLabel(metric, value),
-      };
-    });
-    const path = points.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
-    return `
-      <g class="pattern-stat-series pattern-stat-${metric.key}" aria-label="${escapeHtml(metric.label)} trend">
-        <path d="${path}"></path>
-        ${points.map((point, index) => `
-          <circle cx="${roundChartValue(point.x)}" cy="${roundChartValue(point.y)}" r="5">
-            <title>${escapeHtml(`${buckets[index].label} ${metric.label}: ${point.label}`)}</title>
-          </circle>
-        `).join('')}
-      </g>
-    `;
-  }).join('');
+  const charts = metrics.map((metric) => patternStatisticSingleLineChart(buckets, metric, unitName)).join('');
   return `
-    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics line chart. Lines are normalized per metric for trend comparison.">
-      <svg class="pattern-stat-line-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
-        ${gridLines}
-        <line class="pattern-stat-axis-line" x1="${padding.left}" y1="${padding.top + plotHeight}" x2="${width - padding.right}" y2="${padding.top + plotHeight}"></line>
-        ${axisLabels}
-        ${lines}
-      </svg>
-      <div class="pattern-stat-line-legend" aria-label="Chart legend">
-        ${metrics.map((metric) => `<span class="pattern-stat-${metric.key}"><i></i>${escapeHtml(metric.label)}</span>`).join('')}
+    <div class="pattern-stat-chart">
+      <div class="pattern-stat-chart-grid">
+        ${charts}
       </div>
       <div class="pattern-stat-detail">
         ${buckets.map((bucket) => `
@@ -2456,6 +2404,73 @@ function patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName) 
       </div>
     </div>
   `;
+}
+
+function patternStatisticSingleLineChart(buckets, metric, unitName) {
+  const width = 640;
+  const height = 230;
+  const padding = { top: 24, right: 22, bottom: 48, left: 70 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const maxValue = Math.max(1, ...buckets.map((bucket) => bucket[metric.key] || 0));
+  const xFor = (index) => buckets.length === 1
+    ? padding.left + (plotWidth / 2)
+    : padding.left + ((plotWidth / (buckets.length - 1)) * index);
+  const yFor = (value) => {
+    const ratio = Math.max(0, Math.min(1, value / maxValue));
+    return padding.top + ((1 - ratio) * plotHeight);
+  };
+  const tickRatios = maxValue <= 1 ? [0, 1] : [0, 0.5, 1];
+  const gridLines = tickRatios.map((ratio) => {
+    const y = padding.top + ((1 - ratio) * plotHeight);
+    const value = maxValue * ratio;
+    return `
+      <line class="pattern-stat-grid-line" x1="${padding.left}" y1="${roundChartValue(y)}" x2="${width - padding.right}" y2="${roundChartValue(y)}"></line>
+      <text class="pattern-stat-y-tick" x="${padding.left - 10}" y="${roundChartValue(y + 4)}" text-anchor="end">${escapeHtml(patternStatisticTickLabel(metric, value))}</text>
+    `;
+  }).join('');
+  const axisLabels = buckets.map((bucket, index) => {
+    const x = xFor(index);
+    return `<text class="pattern-stat-axis-label" x="${roundChartValue(x)}" y="${height - 28}" text-anchor="middle">${escapeHtml(patternStatisticAxisLabel(bucket.label))}</text>`;
+  }).join('');
+  const points = buckets.map((bucket, index) => {
+    const value = bucket[metric.key] || 0;
+    return {
+      x: xFor(index),
+      y: yFor(value),
+      value,
+      label: metricsValueLabel(metric, value),
+    };
+  });
+  const path = points.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
+  return `
+    <article class="pattern-stat-chart-card pattern-stat-${metric.key}" role="img" aria-label="${escapeHtml(`${unitName} ${metric.label} line chart. Y-axis is ${metric.axisLabel}.`)}">
+      <div class="pattern-stat-chart-title">
+        <span><i></i>${escapeHtml(metric.label)}</span>
+        <em>Y-axis: ${escapeHtml(metric.axisLabel)}</em>
+      </div>
+      <svg class="pattern-stat-line-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
+        ${gridLines}
+        <line class="pattern-stat-axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + plotHeight}"></line>
+        <line class="pattern-stat-axis-line" x1="${padding.left}" y1="${padding.top + plotHeight}" x2="${width - padding.right}" y2="${padding.top + plotHeight}"></line>
+        ${axisLabels}
+        <g class="pattern-stat-series" aria-label="${escapeHtml(metric.label)} trend">
+          <path d="${path}"></path>
+          ${points.map((point, index) => `
+            <circle cx="${roundChartValue(point.x)}" cy="${roundChartValue(point.y)}" r="5">
+              <title>${escapeHtml(`${buckets[index].label} ${metric.label}: ${point.label}`)}</title>
+            </circle>
+          `).join('')}
+        </g>
+      </svg>
+    </article>
+  `;
+}
+
+function patternStatisticTickLabel(metric, value) {
+  if (metric.key === 'sleep') return `${Math.round(value)}m`;
+  if (metric.key === 'milk') return `${Math.round(value)}`;
+  return String(Math.round(value));
 }
 
 function metricsValueLabel(metric, value) {

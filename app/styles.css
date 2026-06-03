@@ -1242,12 +1242,58 @@ input {
   overflow: hidden;
 }
 
+.pattern-stat-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.pattern-stat-chart-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--canvas);
+  padding: 12px;
+}
+
+.pattern-stat-chart-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pattern-stat-chart-title span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pattern-stat-chart-title i {
+  display: inline-block;
+  width: 18px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--pattern-stat-color, var(--primary));
+}
+
+.pattern-stat-chart-title em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.25;
+  text-align: right;
+}
+
 .pattern-stat-line-chart {
   display: block;
   width: 100%;
-  min-height: 230px;
-  border: 1px solid var(--hairline);
-  border-radius: 18px;
+  min-height: 170px;
   background: var(--canvas);
   overflow: visible;
 }
@@ -1263,6 +1309,11 @@ input {
 }
 
 .pattern-stat-axis-label {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.pattern-stat-y-tick {
   fill: var(--muted);
   font-size: 12px;
 }
