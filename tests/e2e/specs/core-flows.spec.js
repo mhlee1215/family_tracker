@@ -677,7 +677,8 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#baby-patterns')).toContainText('Week comparison');
     await expect(page.locator('#baby-patterns')).toContainText('line charts');
     await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Logs count');
-    await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Milk ml');
+    await expect(page.locator('#baby-patterns')).toContainText('Y-axis: Milk ml + Feeds count');
+    await expect(page.locator('#baby-patterns .pattern-stat-chart-card.pattern-stat-milk')).toContainText('Feeds');
     await expect(page.locator('#baby-patterns .pattern-stat-line-chart')).toHaveCount(4);
     await expect(page.locator('#baby-patterns .pattern-stat-series').first()).toBeVisible();
     await expect(page.locator('#baby-patterns .pattern-stat-detail').first()).toBeVisible();
