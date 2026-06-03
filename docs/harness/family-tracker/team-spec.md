@@ -23,6 +23,13 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - 하네스 기록, 로컬 메타데이터, `make_pr` 도구 호출은 실제 GitHub PR의 대체물이 아니며, 필요한 경우에도 GitHub PR 생성과 별도로만 취급한다.
 - PR 작업은 커밋 이후 브랜치 push와 `gh pr create` 또는 GitHub API 호출까지 포함한다. 실패하면 실패 상태로 보고하고 완료 처리하지 않는다.
 
+## GitHub Auto-Merge Gate
+- PR 생성 후에는 사용자가 명시적으로 막지 않는 한 `gh pr merge <PR번호> --auto --squash`를 실행해 required CI checks 완료 후 자동 squash merge되도록 예약한다.
+- auto-merge 예약 전에는 `main` 브랜치 보호 또는 ruleset required checks가 적용되어 있는지 확인한다. required check가 없으면 `--auto`가 즉시 머지할 수 있으므로 사용자에게 설정 누락 가능성을 보고하고 확인한다.
+- auto-merge 실행 후 `gh pr view --json state,mergeStateStatus,autoMergeRequest,statusCheckRollup,url`로 상태를 확인한다.
+- 정상적인 CI-gated auto-merge 상태는 PR이 `OPEN`으로 남고 `autoMergeRequest`가 존재하며 required check가 pending/running인 상태다.
+- 최종 보고에는 PR URL, auto-merge 예약 여부, required checks의 현재 상태를 포함한다.
+
 ## GitHub PR Environment Gate
 - PR 생성/제출/업데이트 요청은 환경변수 기반 GitHub 설정을 우선 사용한다.
 - `origin` remote가 비어 있으면 `GITHUB_REPO`를 읽어 `https://github.com/${GITHUB_REPO}.git` remote를 설정한다.
