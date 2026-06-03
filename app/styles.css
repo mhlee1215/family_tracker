@@ -163,7 +163,7 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
+  min-height: 30px;
   border: 0;
   border-radius: 9999px;
   background: transparent;
@@ -171,12 +171,12 @@ select:focus-visible {
   font-size: 12px;
   font-weight: 400;
   letter-spacing: 0;
-  padding: 7px 10px;
+  padding: 2px 3px;
 }
 
 .global-brand img {
   display: block;
-  width: clamp(112px, 14vw, 168px);
+  width: clamp(104px, 13vw, 156px);
   height: auto;
   max-height: 30px;
   object-fit: contain;
@@ -2077,11 +2077,11 @@ label {
 
   .global-brand {
     width: auto;
-    padding: 4px 8px;
+    padding: 1px 2px;
   }
 
   .global-brand img {
-    width: min(116px, 28vw);
+    width: min(104px, 25vw);
     max-height: 30px;
   }
 
