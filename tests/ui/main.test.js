@@ -679,9 +679,10 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns').textContent).toContain('Sleep rhythm');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Statistics');
     expect(document.querySelector('#baby-patterns').textContent).toContain('Week comparison');
-    expect(document.querySelector('#baby-patterns').textContent).toContain('Tap a group for exact numbers');
-    expect(document.querySelectorAll('#baby-patterns .pattern-stat-bar').length).toBeGreaterThan(0);
-    expect(document.querySelector('#baby-patterns .pattern-stat-bucket')?.tagName).toBe('DETAILS');
+    expect(document.querySelector('#baby-patterns').textContent).toContain('line charts');
+    expect(document.querySelector('#baby-patterns .pattern-stat-line-chart')).toBeTruthy();
+    expect(document.querySelectorAll('#baby-patterns .pattern-stat-series').length).toBeGreaterThan(0);
+    expect(document.querySelector('#baby-patterns .pattern-stat-line-legend')?.textContent).toContain('Logs');
     expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
 
     fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));

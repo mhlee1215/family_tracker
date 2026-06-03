@@ -2352,15 +2352,13 @@ function renderPatternStatistics(days, unit) {
       <div>
         <span class="eyebrow">Statistics</span>
         <h3>${escapeHtml(unitName[0].toUpperCase() + unitName.slice(1))} comparison</h3>
-        <p>Compare ${escapeHtml(unitName)} totals as grouped multi-bar charts. Tap a group for exact numbers.</p>
+        <p>Compare ${escapeHtml(unitName)} totals as line charts. Each line is scaled to its own highest point so trends are easier to compare.</p>
       </div>
       <div class="pattern-stat-averages">
         ${metrics.map((metric) => `<span><strong>${escapeHtml(average(metric))}</strong>${escapeHtml(metric.label)} avg</span>`).join('')}
       </div>
     </div>
-    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics grouped multi-bar chart">
-      ${buckets.map((bucket) => patternStatisticBucket(bucket, metrics, metricMaxValues)).join('') || '<p class="empty">No logs to chart yet.</p>'}
-    </div>
+    ${patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName)}
   `;
 }
 
@@ -2388,34 +2386,89 @@ function patternStatisticBuckets(days, unit) {
   });
 }
 
-function patternStatisticBucket(bucket, metrics, metricMaxValues) {
-  const detailId = `pattern-stat-detail-${bucket.key.replace(/[^a-z0-9_-]/gi, '-')}`;
+function patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName) {
+  if (!buckets.length) return '<div class="pattern-stat-chart"><p class="empty">No logs to chart yet.</p></div>';
+  const width = 640;
+  const height = 268;
+  const padding = { top: 20, right: 22, bottom: 58, left: 22 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const xFor = (index) => buckets.length === 1
+    ? padding.left + (plotWidth / 2)
+    : padding.left + ((plotWidth / (buckets.length - 1)) * index);
+  const yFor = (value, metric) => {
+    const max = metricMaxValues[metric.key] || 1;
+    const ratio = Math.max(0, Math.min(1, value / max));
+    return padding.top + ((1 - ratio) * plotHeight);
+  };
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const y = padding.top + ((1 - ratio) * plotHeight);
+    return `<line class="pattern-stat-grid-line" x1="${padding.left}" y1="${roundChartValue(y)}" x2="${width - padding.right}" y2="${roundChartValue(y)}"></line>`;
+  }).join('');
+  const axisLabels = buckets.map((bucket, index) => {
+    const x = xFor(index);
+    return `<text class="pattern-stat-axis-label" x="${roundChartValue(x)}" y="${height - 28}" text-anchor="middle">${escapeHtml(patternStatisticAxisLabel(bucket.label))}</text>`;
+  }).join('');
+  const lines = metrics.map((metric) => {
+    const points = buckets.map((bucket, index) => {
+      const value = bucket[metric.key] || 0;
+      return {
+        x: xFor(index),
+        y: yFor(value, metric),
+        value,
+        label: metricsValueLabel(metric, value),
+      };
+    });
+    const path = points.map((point, index) => `${index ? 'L' : 'M'} ${roundChartValue(point.x)} ${roundChartValue(point.y)}`).join(' ');
+    return `
+      <g class="pattern-stat-series pattern-stat-${metric.key}" aria-label="${escapeHtml(metric.label)} trend">
+        <path d="${path}"></path>
+        ${points.map((point, index) => `
+          <circle cx="${roundChartValue(point.x)}" cy="${roundChartValue(point.y)}" r="5">
+            <title>${escapeHtml(`${buckets[index].label} ${metric.label}: ${point.label}`)}</title>
+          </circle>
+        `).join('')}
+      </g>
+    `;
+  }).join('');
   return `
-    <details class="pattern-stat-bucket">
-      <summary aria-controls="${escapeHtml(detailId)}">
-        <strong>${escapeHtml(bucket.label)}</strong>
-        <div class="pattern-stat-bars" aria-hidden="true">
-          ${metrics.map((metric) => {
-            const value = bucket[metric.key] || 0;
-            const height = Math.max(value ? 8 : 0, (value / (metricMaxValues[metric.key] || 1)) * 100);
-            const valueLabel = metricsValueLabel(metric, value);
-            return `<span class="pattern-stat-bar pattern-stat-${metric.key}" title="${escapeHtml(metric.label)}: ${escapeHtml(valueLabel)}"><i style="height:${height}%"></i><em>${escapeHtml(metric.label)}</em></span>`;
-          }).join('')}
-        </div>
-        <span class="pattern-stat-tap-hint">Tap for numbers</span>
-      </summary>
-      <dl id="${escapeHtml(detailId)}" class="pattern-stat-detail">
-        ${metrics.map((metric) => {
-          const value = bucket[metric.key] || 0;
-          return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>`;
-        }).join('')}
-      </dl>
-    </details>
+    <div class="pattern-stat-chart" role="img" aria-label="${escapeHtml(unitName)} baby statistics line chart. Lines are normalized per metric for trend comparison.">
+      <svg class="pattern-stat-line-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
+        ${gridLines}
+        <line class="pattern-stat-axis-line" x1="${padding.left}" y1="${padding.top + plotHeight}" x2="${width - padding.right}" y2="${padding.top + plotHeight}"></line>
+        ${axisLabels}
+        ${lines}
+      </svg>
+      <div class="pattern-stat-line-legend" aria-label="Chart legend">
+        ${metrics.map((metric) => `<span class="pattern-stat-${metric.key}"><i></i>${escapeHtml(metric.label)}</span>`).join('')}
+      </div>
+      <div class="pattern-stat-detail">
+        ${buckets.map((bucket) => `
+          <article>
+            <strong>${escapeHtml(bucket.label)}</strong>
+            <dl>
+              ${metrics.map((metric) => {
+                const value = bucket[metric.key] || 0;
+                return `<div><dt>${escapeHtml(metric.label)}</dt><dd>${escapeHtml(metricsValueLabel(metric, value))}</dd></div>`;
+              }).join('')}
+            </dl>
+          </article>
+        `).join('')}
+      </div>
+    </div>
   `;
 }
 
 function metricsValueLabel(metric, value) {
   return metric.format ? metric.format(value) : String(Math.round(value));
+}
+
+function patternStatisticAxisLabel(label) {
+  return label.replace(/^Week of /, '').replace(/^Month of /, '');
+}
+
+function roundChartValue(value) {
+  return Math.round(value * 10) / 10;
 }
 
 function patternBucketKey(day, unit) {
