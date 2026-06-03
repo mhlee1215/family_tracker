@@ -2172,12 +2172,6 @@ function renderBabyPatterns() {
           ${patternPeriodOptions().map((option) => `<option value="${option.days}"${option.days === days.length ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
         </select>
       </label>
-      <label class="compact-select-control" for="pattern-stat-unit">
-        <span>Statistics</span>
-        <select id="pattern-stat-unit" name="patternStatUnit">
-          ${patternStatUnitOptions().map((option) => `<option value="${escapeHtml(option.value)}"${option.value === state.patternStatUnit ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
-        </select>
-      </label>
     </div>
     <div class="pattern-type-toggles" aria-label="Pattern event filters">
       ${patternEventTypes.map((item) => patternTypeToggle(item, visibleTypes.has(item.type))).join('')}
@@ -2355,8 +2349,16 @@ function renderPatternStatistics(days, unit) {
         <h3>${escapeHtml(unitName[0].toUpperCase() + unitName.slice(1))} comparison</h3>
         <p>Compare ${escapeHtml(unitName)} totals as line charts. Each line is scaled to its own highest point so trends are easier to compare.</p>
       </div>
-      <div class="pattern-stat-averages">
-        ${metrics.map((metric) => `<span><strong>${escapeHtml(average(metric))}</strong>${escapeHtml(metric.label)} avg</span>`).join('')}
+      <div class="pattern-statistics-tools">
+        <label class="compact-select-control" for="pattern-stat-unit">
+          <span>Statistics</span>
+          <select id="pattern-stat-unit" name="patternStatUnit">
+            ${patternStatUnitOptions().map((option) => `<option value="${escapeHtml(option.value)}"${option.value === state.patternStatUnit ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+          </select>
+        </label>
+        <div class="pattern-stat-averages">
+          ${metrics.map((metric) => `<span><strong>${escapeHtml(average(metric))}</strong>${escapeHtml(metric.label)} avg</span>`).join('')}
+        </div>
       </div>
     </div>
     ${patternStatisticLineChart(buckets, metrics, metricMaxValues, unitName)}

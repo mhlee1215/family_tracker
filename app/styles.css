@@ -1006,7 +1006,7 @@ input {
 
 .pattern-controls {
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .pattern-controls .compact-select-control {
@@ -1210,6 +1210,16 @@ input {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.pattern-statistics-tools {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.pattern-statistics-tools .compact-select-control {
+  width: min(220px, 100%);
 }
 
 .pattern-stat-averages span {
