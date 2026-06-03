@@ -1134,6 +1134,11 @@ input {
   background: var(--pattern-color, var(--primary));
 }
 
+.pattern-estimated-swatch {
+  border: 1px dashed color-mix(in srgb, var(--muted) 70%, white);
+  background: transparent;
+}
+
 .pattern-insights {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

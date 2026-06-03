@@ -683,6 +683,7 @@ describe('app/main', () => {
     expect(document.querySelector('#baby-patterns .pattern-stat-line-chart')).toBeTruthy();
     expect(document.querySelectorAll('#baby-patterns .pattern-stat-series').length).toBeGreaterThan(0);
     expect(document.querySelector('#baby-patterns .pattern-stat-line-legend')?.textContent).toContain('Logs');
+    expect(document.querySelector('#baby-patterns .pattern-legend')?.textContent).toContain('Estimated');
     expect(document.querySelector('#baby-patterns .pattern-poop')?.textContent).toBe('💩');
 
     fireEvent.click(screen.getByText('Milk', { selector: '#baby-patterns .pattern-toggle' }));

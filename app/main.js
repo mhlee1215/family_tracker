@@ -2190,6 +2190,7 @@ function renderBabyPatterns() {
     </div>
     <div class="pattern-legend" aria-label="Pattern legend">
       ${patternEventTypes.map((item) => `<span><i class="pattern-swatch pattern-${item.type}"></i>${escapeHtml(item.label)}</span>`).join('')}
+      <span><i class="pattern-swatch pattern-estimated-swatch"></i>Estimated</span>
     </div>
     <section class="pattern-insights" aria-label="Interval insights">
       ${patternInsightCards(days).join('')}
@@ -2330,7 +2331,7 @@ function patternInsightCards(days) {
     insightCard('Milk interval', averageGapLabel(milkEvents), milkEvents.length ? `${milkEvents.length} feeds · last ${timeAgoLabel(eventTimeValue(milkEvents.at(-1)))}` : 'No milk logs in range'),
     insightCard('Sleep rhythm', averageSleepLabel(sleepEvents), sleepEvents.length ? `${sleepEvents.length} sessions · longest ${minutesLabel(Math.max(...sleepEvents.map((event) => Number(event.durationMinutes?.value || 0))))}` : 'No completed sleep logs'),
     insightCard('Diaper rhythm', averageGapLabel(diaperEvents), poopEvents.length ? `Last poop ${timeAgoLabel(eventTimeValue(poopEvents.at(-1)))}` : 'No poop logs in range'),
-    insightCard('Data confidence', `${events.length} logs`, inferredCount ? `${inferredCount} estimated fields shown with soft edges` : 'No estimated fields in range'),
+    insightCard('Data confidence', `${events.length} logs`, inferredCount ? `${inferredCount} estimated fields marked with dashed outlines` : 'No estimated fields in range'),
   ];
 }
 
