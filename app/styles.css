@@ -3458,10 +3458,17 @@ label {
   display: grid;
   justify-items: start;
   gap: clamp(6px, 1.4dvh, 12px);
+  inline-size: min(100%, clamp(303px, 46vw, 430px));
 }
 
 .tracker-hero-content .date-heading {
   justify-content: flex-start;
+}
+
+.tracker-hero-content::after {
+  content: "";
+  display: block;
+  height: clamp(20px, 3.2vw, 28px);
 }
 
 .home-dashboard {
