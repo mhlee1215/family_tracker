@@ -160,6 +160,9 @@ select:focus-visible {
 }
 
 .global-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 32px;
   border: 0;
   border-radius: 9999px;
@@ -169,6 +172,14 @@ select:focus-visible {
   font-weight: 400;
   letter-spacing: 0;
   padding: 7px 10px;
+}
+
+.global-brand img {
+  display: block;
+  width: clamp(112px, 14vw, 168px);
+  height: auto;
+  max-height: 30px;
+  object-fit: contain;
 }
 
 .global-brand:hover,
@@ -2043,6 +2054,17 @@ label {
     width: min(22vw, 150px);
   }
 
+  .tracker-hero {
+    min-height: clamp(128px, 18dvh, 180px);
+    grid-template-columns: minmax(112px, 0.32fr) minmax(0, 1fr);
+    gap: clamp(16px, 3vw, 36px);
+    padding: clamp(18px, 3dvh, 32px) min(44px, 5vw);
+  }
+
+  .tracker-hero-art {
+    width: min(22vw, 150px);
+  }
+
   .home-deck {
     font-size: 17px;
   }
@@ -2054,15 +2076,13 @@ label {
   }
 
   .global-brand {
-    width: 72px;
-    overflow: hidden;
-    white-space: nowrap;
-    color: transparent;
+    width: auto;
+    padding: 4px 8px;
   }
 
-  .global-brand::before {
-    content: "Family";
-    color: var(--on-dark);
+  .global-brand img {
+    width: min(116px, 28vw);
+    max-height: 30px;
   }
 
   .module-tabs {
@@ -3419,6 +3439,31 @@ label {
   line-height: 1.35;
 }
 
+.tracker-hero {
+  grid-template-columns: minmax(180px, 0.55fr) minmax(280px, 1fr);
+  min-height: clamp(180px, 28dvh, 310px);
+  gap: clamp(24px, 5vw, 80px);
+  padding: clamp(28px, 5dvh, 62px) min(76px, 7vw);
+  text-align: left;
+}
+
+.tracker-hero-art {
+  width: min(100%, 320px);
+  height: auto;
+  justify-self: end;
+  filter: drop-shadow(var(--product-shadow));
+}
+
+.tracker-hero-content {
+  display: grid;
+  justify-items: start;
+  gap: clamp(6px, 1.4dvh, 12px);
+}
+
+.tracker-hero-content .date-heading {
+  justify-content: flex-start;
+}
+
 .home-dashboard {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -3847,6 +3892,17 @@ label {
     width: min(22dvh, 180px);
   }
 
+  .tracker-hero {
+    grid-template-columns: minmax(120px, 0.34fr) minmax(280px, 1fr);
+    min-height: clamp(120px, 18dvh, 168px);
+    gap: clamp(18px, 4vw, 48px);
+    padding: clamp(16px, 3dvh, 28px) min(56px, 5vw);
+  }
+
+  .tracker-hero-art {
+    width: min(22dvh, 180px);
+  }
+
   .home-heading {
     gap: 4px;
   }
@@ -3856,6 +3912,10 @@ label {
   }
 
   .home-hero .day-label {
+    font-size: clamp(36px, 6dvh, 48px);
+  }
+
+  .tracker-hero .day-label {
     font-size: clamp(36px, 6dvh, 48px);
   }
 
@@ -3898,11 +3958,25 @@ label {
     justify-self: center;
   }
 
+  .tracker-hero {
+    grid-template-columns: minmax(72px, 0.38fr) minmax(0, 1fr);
+    min-height: clamp(108px, 19dvh, 150px);
+    gap: 12px;
+    padding: clamp(12px, 3dvh, 24px) 12px;
+    text-align: left;
+  }
+
+  .tracker-hero-art {
+    width: min(28vw, 116px);
+    justify-self: center;
+  }
+
   .home-heading {
     justify-items: start;
   }
 
   .home-hero .eyebrow,
+  .tracker-hero .eyebrow,
   .home-dashboard-header .eyebrow {
     display: none;
   }

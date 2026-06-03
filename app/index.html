@@ -15,7 +15,9 @@
   <body>
     <header class="global-nav">
       <div class="global-nav-inner">
-        <button id="brand-home" type="button" class="global-brand" aria-label="Go to Home">Family Tracker</button>
+        <button id="brand-home" type="button" class="global-brand" aria-label="Go to Home">
+          <img src="/app/icons/logo_family_tracker.png" alt="Family Tracker" width="1774" height="887">
+        </button>
         <nav class="module-tabs" aria-label="Trackers">
           <button id="home-tab" type="button" class="module-tab active" data-tab="home">Home</button>
           <button id="baby-tab" type="button" class="module-tab" data-tab="baby">Baby</button>
@@ -152,27 +154,30 @@
       </section>
 
       <section id="baby-view" class="module-view">
-        <header class="top-bar">
-          <p class="eyebrow">Baby Tracker</p>
-          <div class="date-heading">
-            <button id="previous-day" type="button" class="date-step" aria-label="Previous day">‹</button>
-            <div class="date-picker-label">
-              <h1 id="day-label" class="day-label">Today</h1>
-              <input id="day-picker" class="day-picker" type="date" aria-label="Browse day">
-              <div class="date-quick-actions" aria-label="Baby date shortcuts">
-                <button id="baby-today" type="button" class="today-jump" aria-label="Jump to today"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3.75a8.25 8.25 0 1 0 0 16.5 8.25 8.25 0 0 0 0-16.5Z"></path><path d="M12 8.25v3.9l2.6 1.55"></path></svg></button>
-                <button id="baby-calendar-toggle" type="button" class="calendar-toggle" aria-label="Open baby calendar" aria-expanded="false" aria-controls="baby-calendar-popover"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3.75v3"></path><path d="M17 3.75v3"></path><path d="M4.75 8.25h14.5"></path><path d="M6.25 5.25h11.5a1.5 1.5 0 0 1 1.5 1.5v10.75a1.5 1.5 0 0 1-1.5 1.5H6.25a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5Z"></path><path d="M8.25 11.5h.01M12 11.5h.01M15.75 11.5h.01M8.25 15h.01M12 15h.01M15.75 15h.01"></path></svg></button>
-              </div>
-              <div id="baby-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Baby calendar">
-                <div class="task-calendar-header">
-                  <button id="baby-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
-                  <strong id="baby-calendar-month"></strong>
-                  <button id="baby-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+        <header class="top-bar tracker-hero">
+          <img class="tracker-hero-art" src="/app/icons/image_baby_tracker.png" alt="Baby tracker" width="1254" height="1254">
+          <div class="tracker-hero-content">
+            <p class="eyebrow">Baby Tracker</p>
+            <div class="date-heading">
+              <button id="previous-day" type="button" class="date-step" aria-label="Previous day">‹</button>
+              <div class="date-picker-label">
+                <h1 id="day-label" class="day-label">Today</h1>
+                <input id="day-picker" class="day-picker" type="date" aria-label="Browse day">
+                <div class="date-quick-actions" aria-label="Baby date shortcuts">
+                  <button id="baby-today" type="button" class="today-jump" aria-label="Jump to today"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3.75a8.25 8.25 0 1 0 0 16.5 8.25 8.25 0 0 0 0-16.5Z"></path><path d="M12 8.25v3.9l2.6 1.55"></path></svg></button>
+                  <button id="baby-calendar-toggle" type="button" class="calendar-toggle" aria-label="Open baby calendar" aria-expanded="false" aria-controls="baby-calendar-popover"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3.75v3"></path><path d="M17 3.75v3"></path><path d="M4.75 8.25h14.5"></path><path d="M6.25 5.25h11.5a1.5 1.5 0 0 1 1.5 1.5v10.75a1.5 1.5 0 0 1-1.5 1.5H6.25a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5Z"></path><path d="M8.25 11.5h.01M12 11.5h.01M15.75 11.5h.01M8.25 15h.01M12 15h.01M15.75 15h.01"></path></svg></button>
                 </div>
-                <div id="baby-calendar-grid" class="task-calendar-grid"></div>
+                <div id="baby-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Baby calendar">
+                  <div class="task-calendar-header">
+                    <button id="baby-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
+                    <strong id="baby-calendar-month"></strong>
+                    <button id="baby-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+                  </div>
+                  <div id="baby-calendar-grid" class="task-calendar-grid"></div>
+                </div>
               </div>
+              <button id="next-day" type="button" class="date-step" aria-label="Next day">›</button>
             </div>
-            <button id="next-day" type="button" class="date-step" aria-label="Next day">›</button>
           </div>
         </header>
 
@@ -395,27 +400,30 @@
       </section>
 
       <section id="task-view" class="module-view">
-        <header class="top-bar task-hero">
-          <p class="eyebrow">Task Tracker</p>
-          <div class="date-heading">
-            <button id="previous-task-day" type="button" class="date-step" aria-label="Previous task day">‹</button>
-            <div class="date-picker-label">
-              <h1 id="task-day-label" class="day-label">Today</h1>
-              <div class="date-quick-actions" aria-label="Task date shortcuts">
-                <button id="task-today" type="button" class="today-jump" aria-label="Jump to today"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3.75a8.25 8.25 0 1 0 0 16.5 8.25 8.25 0 0 0 0-16.5Z"></path><path d="M12 8.25v3.9l2.6 1.55"></path></svg></button>
-                <button id="task-calendar-toggle" type="button" class="calendar-toggle" aria-label="Open task calendar" aria-expanded="false" aria-controls="task-calendar-popover"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3.75v3"></path><path d="M17 3.75v3"></path><path d="M4.75 8.25h14.5"></path><path d="M6.25 5.25h11.5a1.5 1.5 0 0 1 1.5 1.5v10.75a1.5 1.5 0 0 1-1.5 1.5H6.25a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5Z"></path><path d="M8.25 11.5h.01M12 11.5h.01M15.75 11.5h.01M8.25 15h.01M12 15h.01M15.75 15h.01"></path></svg></button>
-              </div>
-              <input id="task-day-picker" class="day-picker" type="date" aria-label="Browse task day">
-              <div id="task-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Task calendar">
-                <div class="task-calendar-header">
-                  <button id="task-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
-                  <strong id="task-calendar-month"></strong>
-                  <button id="task-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+        <header class="top-bar task-hero tracker-hero">
+          <img class="tracker-hero-art" src="/app/icons/image_task_tracker.png" alt="Task tracker" width="1254" height="1254">
+          <div class="tracker-hero-content">
+            <p class="eyebrow">Task Tracker</p>
+            <div class="date-heading">
+              <button id="previous-task-day" type="button" class="date-step" aria-label="Previous task day">‹</button>
+              <div class="date-picker-label">
+                <h1 id="task-day-label" class="day-label">Today</h1>
+                <div class="date-quick-actions" aria-label="Task date shortcuts">
+                  <button id="task-today" type="button" class="today-jump" aria-label="Jump to today"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3.75a8.25 8.25 0 1 0 0 16.5 8.25 8.25 0 0 0 0-16.5Z"></path><path d="M12 8.25v3.9l2.6 1.55"></path></svg></button>
+                  <button id="task-calendar-toggle" type="button" class="calendar-toggle" aria-label="Open task calendar" aria-expanded="false" aria-controls="task-calendar-popover"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3.75v3"></path><path d="M17 3.75v3"></path><path d="M4.75 8.25h14.5"></path><path d="M6.25 5.25h11.5a1.5 1.5 0 0 1 1.5 1.5v10.75a1.5 1.5 0 0 1-1.5 1.5H6.25a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5Z"></path><path d="M8.25 11.5h.01M12 11.5h.01M15.75 11.5h.01M8.25 15h.01M12 15h.01M15.75 15h.01"></path></svg></button>
                 </div>
-                <div id="task-calendar-grid" class="task-calendar-grid"></div>
+                <input id="task-day-picker" class="day-picker" type="date" aria-label="Browse task day">
+                <div id="task-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Task calendar">
+                  <div class="task-calendar-header">
+                    <button id="task-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
+                    <strong id="task-calendar-month"></strong>
+                    <button id="task-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+                  </div>
+                  <div id="task-calendar-grid" class="task-calendar-grid"></div>
+                </div>
               </div>
+              <button id="next-task-day" type="button" class="date-step" aria-label="Next task day">›</button>
             </div>
-            <button id="next-task-day" type="button" class="date-step" aria-label="Next task day">›</button>
           </div>
         </header>
 
@@ -487,27 +495,30 @@
       </section>
 
       <section id="meal-view" class="module-view">
-        <header class="top-bar task-hero">
-          <p class="eyebrow">Meal Planner</p>
-          <div class="date-heading">
-            <button id="previous-meal-day" type="button" class="date-step" aria-label="Previous meal day">‹</button>
-            <div class="date-picker-label">
-              <h1 id="meal-day-label" class="day-label">Meals</h1>
-              <input id="meal-day-picker" class="day-picker" type="date" aria-label="Browse meal day">
-              <div class="date-quick-actions" aria-label="Meal date shortcuts">
-                <button id="meal-today" type="button" class="today-jump" aria-label="Jump to today"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3.75a8.25 8.25 0 1 0 0 16.5 8.25 8.25 0 0 0 0-16.5Z"></path><path d="M12 8.25v3.9l2.6 1.55"></path></svg></button>
-                <button id="meal-calendar-toggle" type="button" class="calendar-toggle" aria-label="Open meal calendar" aria-expanded="false" aria-controls="meal-calendar-popover"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3.75v3"></path><path d="M17 3.75v3"></path><path d="M4.75 8.25h14.5"></path><path d="M6.25 5.25h11.5a1.5 1.5 0 0 1 1.5 1.5v10.75a1.5 1.5 0 0 1-1.5 1.5H6.25a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5Z"></path><path d="M8.25 11.5h.01M12 11.5h.01M15.75 11.5h.01M8.25 15h.01M12 15h.01M15.75 15h.01"></path></svg></button>
-              </div>
-              <div id="meal-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Meal calendar">
-                <div class="task-calendar-header">
-                  <button id="meal-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
-                  <strong id="meal-calendar-month"></strong>
-                  <button id="meal-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+        <header class="top-bar task-hero tracker-hero">
+          <img class="tracker-hero-art" src="/app/icons/image_meal_tracker.png" alt="Meal tracker" width="1254" height="1254">
+          <div class="tracker-hero-content">
+            <p class="eyebrow">Meal Planner</p>
+            <div class="date-heading">
+              <button id="previous-meal-day" type="button" class="date-step" aria-label="Previous meal day">‹</button>
+              <div class="date-picker-label">
+                <h1 id="meal-day-label" class="day-label">Meals</h1>
+                <input id="meal-day-picker" class="day-picker" type="date" aria-label="Browse meal day">
+                <div class="date-quick-actions" aria-label="Meal date shortcuts">
+                  <button id="meal-today" type="button" class="today-jump" aria-label="Jump to today"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3.75a8.25 8.25 0 1 0 0 16.5 8.25 8.25 0 0 0 0-16.5Z"></path><path d="M12 8.25v3.9l2.6 1.55"></path></svg></button>
+                  <button id="meal-calendar-toggle" type="button" class="calendar-toggle" aria-label="Open meal calendar" aria-expanded="false" aria-controls="meal-calendar-popover"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3.75v3"></path><path d="M17 3.75v3"></path><path d="M4.75 8.25h14.5"></path><path d="M6.25 5.25h11.5a1.5 1.5 0 0 1 1.5 1.5v10.75a1.5 1.5 0 0 1-1.5 1.5H6.25a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5Z"></path><path d="M8.25 11.5h.01M12 11.5h.01M15.75 11.5h.01M8.25 15h.01M12 15h.01M15.75 15h.01"></path></svg></button>
                 </div>
-                <div id="meal-calendar-grid" class="task-calendar-grid"></div>
+                <div id="meal-calendar-popover" class="task-calendar-popover hidden" role="dialog" aria-label="Meal calendar">
+                  <div class="task-calendar-header">
+                    <button id="meal-calendar-prev" type="button" class="calendar-nav" aria-label="Previous month">‹</button>
+                    <strong id="meal-calendar-month"></strong>
+                    <button id="meal-calendar-next" type="button" class="calendar-nav" aria-label="Next month">›</button>
+                  </div>
+                  <div id="meal-calendar-grid" class="task-calendar-grid"></div>
+                </div>
               </div>
+              <button id="next-meal-day" type="button" class="date-step" aria-label="Next meal day">›</button>
             </div>
-            <button id="next-meal-day" type="button" class="date-step" aria-label="Next meal day">›</button>
           </div>
         </header>
         <nav class="app-section-menu" aria-label="Meal tracker menu">
