@@ -799,15 +799,17 @@ describe('app/main', () => {
     await vi.waitFor(() => expect(document.querySelectorAll('#timeline .timeline-item')).toHaveLength(3));
     const timelineTexts = () => [...document.querySelectorAll('#timeline .raw-text')].map((node) => node.textContent);
 
-    expect(timelineTexts()).toEqual(['formula', 'nap', 'wet diaper']);
-    expect([...document.querySelectorAll('#timeline .timeline-title')].map((node) => node.textContent)).toEqual(['Formula', 'Sleep', 'Diaper (pee)']);
+    expect(document.querySelector('#timeline-sort').value).toBe('desc');
+    expect(timelineTexts()).toEqual(['wet diaper', 'nap', 'formula']);
+    expect([...document.querySelectorAll('#timeline .timeline-title')].map((node) => node.textContent)).toEqual(['Diaper (pee)', 'Sleep', 'Formula']);
     expect([...document.querySelectorAll('#summary .summary-item span')].map((node) => node.textContent)).toEqual(['Sleep', 'Milk', 'Baby food', 'Diaper']);
     expect(document.querySelector('#timeline-filter option[value=\"feeding_solid\"]').textContent).toBe('Baby food');
     expect(document.querySelector('#timeline-filter option[value=\"diaper\"]').textContent).toBe('Diaper');
     expect(document.querySelector('#event-count').textContent).toBe('3 of 3 items');
 
-    fireEvent.change(document.querySelector('#timeline-sort'), { target: { value: 'desc' } });
-    expect(timelineTexts()).toEqual(['wet diaper', 'nap', 'formula']);
+    fireEvent.change(document.querySelector('#timeline-sort'), { target: { value: 'asc' } });
+    expect(timelineTexts()).toEqual(['formula', 'nap', 'wet diaper']);
+    expect([...document.querySelectorAll('#timeline .timeline-title')].map((node) => node.textContent)).toEqual(['Formula', 'Sleep', 'Diaper (pee)']);
 
     fireEvent.change(document.querySelector('#timeline-filter'), { target: { value: 'sleep' } });
     expect(timelineTexts()).toEqual(['nap']);

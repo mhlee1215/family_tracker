@@ -102,6 +102,8 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 추가 규칙:
 - 로컬 기본 검증은 항상 `npm test`가 통과해야 한다.
 - CI 동등 검증은 `npm run test:ci` (`npm run test:node && npm run test:ui`)로 수행한다.
+- 에이전트가 직접 E2E 또는 브라우저 검증을 실행할 때는 별도 지시가 없으면 production 환경을 기준으로 관련 시나리오/스모크 테스트를 우선 실행한다. pre-merge 브랜치 검증은 로컬 브랜치 앱을 production env/backend로 띄우고, post-merge/current smoke는 production URL(`https://family-tracker-fex9.onrender.com/`)을 사용한다.
+- production 환경 검증에서는 실제 사용자 데이터에 영향을 줄 수 있는 destructive 전체 E2E를 임의로 실행하지 말고, `admin-test` 격리 계정 또는 API route mock이 적용된 안전한 시나리오만 실행한다.
 - 테스트 명령 정책이 바뀌면 README가 아니라 이 하네스 문서를 우선 갱신한다.
 
 ## Enforcement (Must-follow)
