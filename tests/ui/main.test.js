@@ -661,6 +661,15 @@ describe('app/main', () => {
     await vi.waitFor(() => expect(document.querySelector('#quick-actions').textContent).toContain('Feed formula'));
     expect(document.querySelector('.record-form-actions')).toBeTruthy();
     expect(document.querySelector('.record-form-actions .record-save-button').textContent).toBe('Save');
+
+    fireEvent.input(document.querySelector('#log-input'), { target: { value: 'manual note' } });
+    expect(document.querySelector('#quick-actions').getAttribute('aria-disabled')).toBe('true');
+    expect([...document.querySelectorAll('#quick-actions button')].every((button) => button.disabled)).toBe(true);
+
+    fireEvent.click(document.querySelector('#reset-log-form'));
+    expect(document.querySelector('#quick-actions').getAttribute('aria-disabled')).toBe('false');
+    expect([...document.querySelectorAll('.quick-picker-activity .quick-action-button')].every((button) => button.disabled)).toBe(false);
+
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
     expect(document.querySelector('#log-input').value).toBe('formula 90 ml');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);

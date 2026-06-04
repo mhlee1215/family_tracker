@@ -1558,7 +1558,7 @@ input {
 
 .input-panel {
   background: var(--canvas);
-  padding: 80px min(80px, 7vw);
+  padding: 72px min(80px, 7vw) 32px;
 }
 
 .timeline-section {
@@ -1639,7 +1639,8 @@ label {
 .record-entry-section,
 .heuristic-entry-section {
   display: grid;
-  gap: 16px;
+  align-content: start;
+  gap: 12px;
 }
 
 .recent-actions {
@@ -1671,14 +1672,24 @@ label {
   border-radius: 8px;
   background: transparent;
   padding: 0 8px;
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+.quick-actions[aria-disabled="true"] {
+  cursor: not-allowed;
+  filter: saturate(0.2);
+  opacity: 0.34;
 }
 
 .quick-actions::before {
   position: absolute;
   inset: 50% 8px auto;
   height: 46px;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 28%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface-pearl) 92%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 22%, var(--hairline)),
+    0 1px 0 color-mix(in srgb, var(--canvas) 84%, transparent);
   transform: translateY(-50%);
   pointer-events: none;
   content: "";
@@ -1751,6 +1762,7 @@ label {
   box-shadow: none;
   font-size: 14px;
   padding: 12px 16px;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, opacity 0.16s ease;
 }
 
 .recent-actions button {
@@ -1792,8 +1804,10 @@ label {
 }
 
 .quick-actions button[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--tracker-accent, var(--primary)) 18%, var(--canvas));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tracker-accent, var(--primary)) 55%, var(--hairline));
+  background: color-mix(in srgb, var(--tracker-accent, var(--primary)) 16%, var(--surface-pearl));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tracker-accent, var(--primary)) 44%, var(--hairline)),
+    0 1px 2px color-mix(in srgb, var(--ink) 7%, transparent);
 }
 
 .quick-value-option {
@@ -1813,7 +1827,7 @@ label {
 
 .quick-actions button:hover,
 .recent-actions button:hover {
-  background: var(--surface-pearl);
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface-pearl));
 }
 
 .quick-actions .quick-action-button,
@@ -1821,7 +1835,7 @@ label {
   width: 100%;
   min-width: 0;
   min-height: 43px;
-  border-radius: 8px;
+  border-radius: 11px;
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
@@ -1843,18 +1857,25 @@ label {
 
 .record-form-actions button {
   min-height: 46px;
-  border-radius: 8px;
+  border-radius: 9999px;
   font-weight: 600;
+  padding: 11px 22px;
 }
 
 .record-reset-button {
-  background: #ff8a84;
-  color: var(--ink);
+  border: 1px solid var(--hairline);
+  background: var(--surface-pearl);
+  color: var(--ink-muted-80);
 }
 
 .record-save-button {
-  background: #0ea5e9;
+  background: var(--primary);
   color: var(--on-primary);
+}
+
+.record-secondary-actions {
+  background: var(--canvas);
+  padding: 0 min(80px, 7vw) 40px;
 }
 
 .ask-panel {
@@ -2500,7 +2521,11 @@ label {
   .timeline-section,
   .ask-panel,
   .task-section {
-    padding: 48px 16px;
+    padding: 48px 16px 24px;
+  }
+
+  .record-secondary-actions {
+    padding: 0 16px 36px;
   }
 
   .record-entry-section > label {
@@ -4488,14 +4513,13 @@ label {
 @media (min-width: 681px) {
   .input-panel {
     display: grid;
-    grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
+    grid-template-columns: minmax(280px, 0.9fr) minmax(340px, 1.1fr);
     grid-template-areas:
       "record shortcuts"
       "status shortcuts"
-      "moment shortcuts"
       "actions actions";
     column-gap: 24px;
-    row-gap: 12px;
+    row-gap: 16px;
     align-items: start;
   }
 
@@ -4517,9 +4541,8 @@ label {
     grid-area: actions;
   }
 
-  .input-panel > .moment-quick-entry {
-    grid-area: moment;
-    width: min(100%, 280px);
+  .record-secondary-actions {
+    padding-top: 0;
   }
 }
 

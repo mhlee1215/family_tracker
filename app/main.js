@@ -397,6 +397,7 @@ elements.logForm.addEventListener('submit', async (event) => {
 
 elements.logInput?.addEventListener('input', () => {
   delete elements.logInput.dataset.parserMode;
+  updateRecordInputMode();
 });
 
 elements.resetLogForm?.addEventListener('click', () => {
@@ -1377,7 +1378,11 @@ function renderQuickActions() {
     makeQuickLogAmountColumn(selectedAction),
     makeQuickLogTimeColumn(),
   );
-  requestAnimationFrame(() => hydrateQuickLogWheels(activeActions, selectedAction));
+  updateRecordInputMode();
+  requestAnimationFrame(() => {
+    hydrateQuickLogWheels(activeActions, selectedAction);
+    updateRecordInputMode();
+  });
 }
 
 function resolveSleepAction(action, openSleep) {
@@ -1396,6 +1401,7 @@ function makeRecentSuggestionButton(item) {
   button.addEventListener('click', () => {
     elements.logInput.value = item.text;
     delete elements.logInput.dataset.parserMode;
+    updateRecordInputMode();
     elements.logInput.focus();
   });
   return button;
@@ -1508,7 +1514,7 @@ function hydrateQuickLogWheel(kind, selectedIndex, onChange, options = {}) {
   if (!shell) return;
   shell.addEventListener('click', (event) => {
     const button = event.target.closest('button');
-    if (!button || button.disabled) return;
+    if (!button || button.disabled || isTextRecordMode()) return;
     const buttons = [...shell.querySelectorAll('button')];
     const index = buttons.indexOf(button);
     if (index < 0) return;
@@ -1544,7 +1550,7 @@ function hydrateQuickLogWheel(kind, selectedIndex, onChange, options = {}) {
   });
   instance.on('wheelIndexChanged', (index) => onChange(index));
   instance.on('scrollEnd', () => onChange(instance.getSelectedIndex?.()));
-  if (options.disabled) instance.disable();
+  if (options.disabled || isTextRecordMode()) instance.disable();
   instance.wheelTo?.(normalizedIndex, 0);
   quickWheelInstances.set(kind, instance);
 }
@@ -1568,6 +1574,7 @@ function selectQuickLogAmount(amount, options = {}) {
   localStorage.setItem(storageKeys.quickMilkAmountMl, String(amount));
   updateQuickLogInputFromPicker();
   updateQuickWheelPressedState('amount', String(amount));
+  updateRecordInputMode();
   if (!options.fromWheel) quickWheelInstances.get('amount')?.wheelTo?.(quickMilkAmountOptions().indexOf(amount), 180);
 }
 
@@ -1575,6 +1582,7 @@ function selectQuickLogTime(minutes, options = {}) {
   state.quickLog.offsetMinutes = minutes;
   updateQuickLogInputFromPicker();
   updateQuickWheelPressedState('time', String(minutes));
+  updateRecordInputMode();
   if (!options.fromWheel) quickWheelInstances.get('time')?.wheelTo?.(quickTimeOptions().indexOf(minutes), 180);
 }
 
@@ -1616,6 +1624,7 @@ function resetQuickLogPicker() {
   elements.logInput.value = '';
   delete elements.logInput.dataset.parserMode;
   renderQuickActions();
+  updateRecordInputMode();
   elements.logInput.focus();
 }
 
@@ -1631,7 +1640,31 @@ function updateQuickLogInputFromPicker() {
   if (selectedTime.inputText) parts.push(selectedTime.inputText);
   elements.logInput.value = parts.join(' ');
   elements.logInput.dataset.parserMode = 'heuristic';
+  updateRecordInputMode();
   elements.logInput.focus();
+}
+
+function isTextRecordMode() {
+  return Boolean(elements.logInput?.value.trim()) && elements.logInput.dataset.parserMode !== 'heuristic';
+}
+
+function updateRecordInputMode() {
+  if (!elements.quickActions) return;
+  const textMode = isTextRecordMode();
+  elements.quickActions.classList.toggle('quick-actions-disabled', textMode);
+  elements.quickActions.setAttribute('aria-disabled', String(textMode));
+  elements.quickActions.querySelectorAll('.quick-wheel-shell').forEach((shell) => {
+    const shellDisabled = textMode || shell.getAttribute('aria-disabled') === 'true';
+    shell.querySelectorAll('button').forEach((button) => {
+      button.disabled = shellDisabled;
+    });
+  });
+  quickWheelInstances.forEach((instance, kind) => {
+    const shell = elements.quickActions.querySelector(`[data-wheel="${kind}"]`);
+    const shellDisabled = textMode || shell?.getAttribute('aria-disabled') === 'true';
+    if (shellDisabled) instance.disable?.();
+    else instance.enable?.();
+  });
 }
 
 function defaultQuickMilkAmountMl() {
