@@ -1576,7 +1576,7 @@ label {
   line-height: 1.24;
 }
 
-.input-panel > label {
+.record-entry-section > label {
   display: block;
   margin-bottom: 18px;
   font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -1635,14 +1635,67 @@ label {
   content: "";
 }
 
-.quick-actions {
+.record-entry-section,
+.heuristic-entry-section {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  gap: 16px;
 }
 
-.quick-actions button {
+.recent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.quick-picker-column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-height: 260px;
+}
+
+.quick-picker-column h3 {
+  margin: 0;
+  color: var(--ink-muted-48);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.quick-picker-options {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-pearl);
+}
+
+.quick-activity-options {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 8px;
+}
+
+.quick-value-picker {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 8px;
+  scroll-snap-type: y mandatory;
+}
+
+.quick-value-picker[aria-disabled="true"] {
+  opacity: 0.42;
+}
+
+.quick-actions button,
+.recent-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1655,6 +1708,7 @@ label {
 }
 
 .quick-actions button svg,
+.recent-actions button svg,
 .sleep-status-action svg {
   color: var(--tracker-accent, currentColor);
   width: 18px;
@@ -1662,10 +1716,24 @@ label {
   flex: 0 0 auto;
 }
 
-.quick-actions button.sleep-active,
-.quick-actions button.suggested-action,
+.quick-actions button[aria-pressed="true"],
+.recent-actions button.suggested-action,
 .sleep-status-action {
   color: var(--primary);
+}
+
+.quick-actions button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--primary) 7%, var(--canvas));
+  box-shadow: inset 0 0 0 1px var(--primary), inset 0 3px 0 var(--tracker-accent, var(--primary));
+}
+
+.quick-value-option {
+  min-height: 42px;
+  scroll-snap-align: center;
+}
+
+.quick-value-option:disabled {
+  cursor: not-allowed;
 }
 
 .sleep-status-action {
@@ -1675,7 +1743,8 @@ label {
   gap: 8px;
 }
 
-.quick-actions button:hover {
+.quick-actions button:hover,
+.recent-actions button:hover {
   background: var(--surface-pearl);
 }
 
@@ -2325,7 +2394,7 @@ label {
     padding: 48px 16px;
   }
 
-  .input-panel > label {
+  .record-entry-section > label {
     font-size: 34px;
   }
 
@@ -2341,7 +2410,7 @@ label {
   }
 
   .quick-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .timeline-header {
@@ -4304,8 +4373,7 @@ label {
     display: grid;
     grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
     grid-template-areas:
-      "heading shortcuts"
-      "composer shortcuts"
+      "record shortcuts"
       "status shortcuts"
       "moment shortcuts";
     column-gap: 24px;
@@ -4313,13 +4381,8 @@ label {
     align-items: start;
   }
 
-  .input-panel > label {
-    grid-area: heading;
-    margin-bottom: 0;
-  }
-
-  .input-panel > .composer-row {
-    grid-area: composer;
+  .input-panel > .record-entry-section {
+    grid-area: record;
   }
 
   .input-panel > .log-save-status {
@@ -4328,10 +4391,8 @@ label {
     margin-top: 0;
   }
 
-  .input-panel > .quick-actions {
+  .input-panel > .heuristic-entry-section {
     grid-area: shortcuts;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 0;
   }
 
   .input-panel > .moment-quick-entry {

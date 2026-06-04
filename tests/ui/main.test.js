@@ -594,17 +594,17 @@ describe('app/main', () => {
     await import('../../app/main.js?case=baby-sleep-buttons');
 
     await vi.waitFor(() => expect(document.querySelector('#sleep-status')?.classList.contains('hidden')).toBe(false));
-    const quickActions = Array.from(document.querySelectorAll('#quick-actions button'));
+    const quickActions = Array.from(document.querySelectorAll('#quick-actions .quick-activity-options button'));
     expect(quickActions.every((button) => button.querySelector('svg'))).toBe(true);
-    expect(quickActions.find((button) => button.textContent.includes('Formula')).style.getPropertyValue('--tracker-accent')).toBe('#0ea5e9');
+    expect(quickActions.find((button) => button.textContent.includes('Feed formula')).style.getPropertyValue('--tracker-accent')).toBe('#0ea5e9');
     expect(quickActions.find((button) => button.textContent.includes('Wake')).style.getPropertyValue('--tracker-accent')).toBe('#6366f1');
-    expect(quickActions.find((button) => button.textContent.includes('Diaper (poop)')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
+    expect(quickActions.find((button) => button.textContent.includes('Diaper - poop')).style.getPropertyValue('--tracker-accent')).toBe('#22c55e');
     expect(quickActions.find((button) => button.textContent.includes('Baby food')).style.getPropertyValue('--tracker-accent')).toBe('#f59e0b');
     expect(document.querySelector('#quick-actions').textContent).toContain('Wake');
-    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (poop)');
-    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper (pee)');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper - poop');
+    expect(document.querySelector('#quick-actions').textContent).toContain('Diaper - pee');
     expect(document.querySelector('#quick-actions').textContent).toContain('Baby food');
-    expect(document.querySelector('#quick-actions').textContent).not.toContain('Nap start');
+    expect(document.querySelector('#quick-actions').textContent).not.toContain('Sleep');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Dirty');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Wet');
     expect(document.querySelector('#quick-actions').textContent).not.toContain('Solids');
@@ -612,7 +612,8 @@ describe('app/main', () => {
     expect(screen.queryByText('Tablet board')).toBeNull();
     expect(document.querySelector('#sleep-status button')?.querySelector('svg')).toBeTruthy();
 
-    fireEvent.click(screen.getAllByText('Wake')[0].closest('button'));
+    fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Wake')));
+    fireEvent.submit(document.querySelector('#log-form'));
 
     await vi.waitFor(() => {
       const post = requests.find((request) => request.url === '/api/logs' && request.init.method === 'POST');
@@ -634,6 +635,51 @@ describe('app/main', () => {
       expect(screen.getByText('8 hours')).toBeTruthy();
     });
     expect(global.fetch).toHaveBeenCalledWith('/api/ask', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('builds heuristic baby logs from activity, scroll volume, and scroll time pickers', async () => {
+    const requests = [];
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      requests.push({ url, init });
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [],
+          summary: {},
+          context: { lastMilk: { label: '20m ago', amountMl: 90 }, lastDiaper: null, sleep: null, inferredFieldCount: 0, correctedFieldCount: 0 },
+        }), { status: 200 });
+      }
+      if (url === '/api/logs' && init.method === 'POST') return new Response(JSON.stringify({ events: [] }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-heuristic-picker');
+
+    await vi.waitFor(() => expect(document.querySelector('#quick-actions').textContent).toContain('Feed formula'));
+    fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
+    expect(document.querySelector('#log-input').value).toBe('formula 90 ml');
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);
+
+    const timeOptions = [...document.querySelectorAll('.quick-picker-time .quick-value-option')];
+    fireEvent.click(timeOptions[timeOptions.length - 2]);
+    expect(document.querySelector('#log-input').value).toMatch(/^formula 90 ml at .+ today$/);
+
+    fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Diaper - pee')));
+    expect(document.querySelector('#log-input').value).toMatch(/^pee diaper at .+ today$/);
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].every((button) => button.disabled)).toBe(true);
+
+    fireEvent.submit(document.querySelector('#log-form'));
+
+    await vi.waitFor(() => {
+      const post = requests.find((request) => request.url === '/api/logs' && request.init.method === 'POST');
+      expect(post).toBeTruthy();
+      const body = JSON.parse(post.init.body);
+      expect(body).toMatchObject({ parserMode: 'heuristic', inputSource: 'button' });
+      expect(body.text).toMatch(/^pee diaper at .+ today$/);
+    });
   });
 
   it('jumps every date control back to today with compact icon controls', async () => {
@@ -797,7 +843,7 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(localStorage.getItem('familyTracker.activeBabyTrackers')).toBe('sleep,diaper'));
     await vi.waitFor(() => expect([...document.querySelectorAll('#summary .summary-item span')].map((node) => node.textContent)).toEqual(['Sleep', 'Diaper']));
-    expect([...document.querySelectorAll('#quick-actions .quick-action-button span')].map((node) => node.textContent)).toEqual(['Nap start', 'Diaper (poop)', 'Diaper (pee)']);
+    expect([...document.querySelectorAll('#quick-actions .quick-action-button span')].map((node) => node.textContent)).toEqual(['Diaper - pee', 'Diaper - poop', 'Sleep']);
     expect(document.querySelector('#today-context').textContent).toContain('Last diaper');
     expect(document.querySelector('#today-context').textContent).not.toContain('Last milk');
     expect(document.querySelector('#timeline-filter option[value="feeding_milk"]').disabled).toBe(true);
@@ -946,7 +992,7 @@ describe('app/main', () => {
     fireEvent.submit(document.querySelector('#log-form'));
 
     await vi.waitFor(() => expect(document.querySelector('#answer').textContent).toBe('2 logs saved'));
-    expect([...document.querySelectorAll('#quick-actions .suggested-action span')].map((node) => node.textContent)).toContain('분유 120 먹고 응가했어');
+    expect([...document.querySelectorAll('#recent-actions .suggested-action span')].map((node) => node.textContent)).toContain('분유 120 먹고 응가했어');
   });
 
   it('shows a component-level saving mark while a baby log is being saved', async () => {

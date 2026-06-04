@@ -787,7 +787,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#today-context')).toContainText('0m ago · 120ml');
     await expect(page.locator('#today-context')).toContainText('0m ago · poop');
     await expect(page.locator('#timeline .parser-badge-llm').first()).toContainText('LLM');
-    await expect(page.locator('#quick-actions .suggested-action')).toContainText('분유 120 먹고 응가했어');
+    await expect(page.locator('#recent-actions .suggested-action')).toContainText('분유 120 먹고 응가했어');
     await app.captureStep('Saved mixed baby log with context', 'A mixed natural-language log produced two visible records, updated Today Context, and became a recent suggestion.');
 
     app.assertNoRuntimeErrors();
@@ -880,14 +880,15 @@ test.describe('Family Tracker core flows', () => {
     });
 
     await app.loginAsDevAdmin();
-    await expect(page.locator('#quick-actions')).toContainText('Nap start');
-    await app.captureStep('Opened baby log shortcuts', 'Nap start appears under the Log input before an open sleep session exists.');
+    await expect(page.locator('#quick-actions')).toContainText('Sleep');
+    await app.captureStep('Opened baby log shortcuts', 'Sleep appears under the Log input before an open sleep session exists.');
 
-    await page.locator('#quick-actions button', { hasText: 'Nap start' }).click();
+    await page.locator('#quick-actions button', { hasText: 'Sleep' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.locator('#sleep-status')).toContainText('Napping now');
     await expect(page.locator('#quick-actions')).toContainText('Wake');
-    await expect(page.locator('#quick-actions')).not.toContainText('Nap start');
+    await expect(page.locator('#quick-actions')).not.toContainText('Sleep');
     expect(shortcutPayload).toMatchObject({ text: 'nap', parserMode: 'heuristic', inputSource: 'button' });
     await app.captureStep('Nap shortcut toggled to Wake', 'Open sleep status is visible and the Log shortcut is now a Wake action.');
 
