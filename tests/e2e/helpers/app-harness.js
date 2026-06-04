@@ -27,36 +27,21 @@ export class AppHarness {
 
   async captureStep(title, detail = '') {
     const index = this.stepArtifacts.length + 1;
-    const safe = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const fileName = `step-${String(index).padStart(2, '0')}-${safe || 'step'}.png`;
-    const screenshotPath = this.testInfo.outputPath(fileName);
-    await this.page.screenshot({ path: screenshotPath, fullPage: true });
-
-    const attachmentName = `step-${String(index).padStart(2, '0')} ${title}`;
-    await this.testInfo.attach(attachmentName, {
-      path: screenshotPath,
-      contentType: 'image/png',
-    });
-
     this.stepArtifacts.push({
       index,
       title,
       detail,
-      attachmentName,
-      fileName,
     });
   }
 
   async attachScenarioNarrative() {
     const lines = ['# E2E Scenario Steps', ''];
     if (!this.stepArtifacts.length) {
-      lines.push('- No step screenshots were captured.');
+      lines.push('- No steps were captured.');
     } else {
       for (const step of this.stepArtifacts) {
         lines.push(`## ${step.index}. ${step.title}`);
         if (step.detail) lines.push(step.detail);
-        lines.push(`- Screenshot attachment: ${step.attachmentName}`);
-        lines.push(`- Screenshot file: ${step.fileName}`);
         lines.push('');
       }
     }
