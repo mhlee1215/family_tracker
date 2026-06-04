@@ -247,5 +247,5 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-Artifacts are saved under `test-results/e2e/` (HTML report, trace, screenshot, and video on failures).
-Each E2E spec also attaches per-step screenshots and a `scenario-steps` markdown narrative for PR review.
+Artifacts are saved under `test-results/e2e/` (HTML report, trace, and video on failures).
+Each E2E spec also attaches a `scenario-steps` markdown narrative for PR review.

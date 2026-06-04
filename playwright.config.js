@@ -14,7 +14,7 @@ export default defineConfig({
     baseURL: BASE_URL,
     headless: true,
     trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    screenshot: 'off',
     video: 'retain-on-failure',
   },
   webServer: {
