@@ -1577,11 +1577,12 @@ label {
 }
 
 .record-entry-section > label {
-  display: block;
-  margin-bottom: 18px;
-  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 40px;
-  line-height: 1.1;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .composer-row {
@@ -1648,45 +1649,72 @@ label {
 }
 
 .quick-actions {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(160px, 1.45fr) minmax(76px, 0.65fr) minmax(80px, 0.7fr);
+  gap: 8px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: var(--canvas);
+  padding: 0 8px;
+}
+
+.quick-actions::before {
+  position: absolute;
+  inset: 50% 8px auto;
+  height: 50px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent);
+  transform: translateY(-50%);
+  pointer-events: none;
+  content: "";
 }
 
 .quick-picker-column {
+  position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  min-height: 260px;
+  min-height: 132px;
+  isolation: isolate;
 }
 
 .quick-picker-column h3 {
-  margin: 0;
-  color: var(--ink-muted-48);
-  font-size: 14px;
-  font-weight: 600;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .quick-picker-options {
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  background: var(--surface-pearl);
+  position: relative;
+  z-index: 1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%);
 }
 
 .quick-activity-options {
   display: grid;
   align-content: start;
-  gap: 8px;
-  padding: 8px;
+  gap: 7px;
+  max-height: 132px;
+  overflow-y: auto;
+  padding: 36px 0;
+  scroll-snap-type: y mandatory;
 }
 
 .quick-value-picker {
   display: grid;
   align-content: start;
-  gap: 6px;
-  max-height: 220px;
+  gap: 7px;
+  max-height: 132px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 36px 0;
   scroll-snap-type: y mandatory;
 }
 
@@ -1702,12 +1730,11 @@ label {
   gap: 8px;
   background: var(--canvas);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 3px 0 var(--tracker-accent, transparent);
+  box-shadow: none;
   font-size: 14px;
   padding: 12px 16px;
 }
 
-.quick-actions button svg,
 .recent-actions button svg,
 .sleep-status-action svg {
   color: var(--tracker-accent, currentColor);
@@ -1716,19 +1743,23 @@ label {
   flex: 0 0 auto;
 }
 
+.quick-actions button svg {
+  display: none;
+}
+
 .quick-actions button[aria-pressed="true"],
 .recent-actions button.suggested-action,
 .sleep-status-action {
-  color: var(--primary);
+  color: var(--ink);
 }
 
 .quick-actions button[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--primary) 7%, var(--canvas));
-  box-shadow: inset 0 0 0 1px var(--primary), inset 0 3px 0 var(--tracker-accent, var(--primary));
+  background: color-mix(in srgb, var(--tracker-accent, var(--primary)) 18%, var(--canvas));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tracker-accent, var(--primary)) 55%, var(--hairline));
 }
 
 .quick-value-option {
-  min-height: 42px;
+  min-height: 43px;
   scroll-snap-align: center;
 }
 
@@ -1746,6 +1777,46 @@ label {
 .quick-actions button:hover,
 .recent-actions button:hover {
   background: var(--surface-pearl);
+}
+
+.quick-actions .quick-action-button,
+.quick-actions .quick-value-option {
+  min-width: 0;
+  min-height: 43px;
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.15;
+  padding: 7px 10px;
+  text-align: center;
+}
+
+.quick-value-picker[aria-disabled="true"] .quick-value-option {
+  background: color-mix(in srgb, var(--surface-chip-translucent) 45%, var(--canvas));
+  color: var(--ink-muted-48);
+}
+
+.record-form-actions {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.5fr) minmax(0, 1.5fr);
+  gap: 10px;
+}
+
+.record-form-actions button {
+  min-height: 46px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.record-reset-button {
+  background: #ff8a84;
+  color: var(--ink);
+}
+
+.record-save-button {
+  background: #0ea5e9;
+  color: var(--on-primary);
 }
 
 .ask-panel {
@@ -2410,7 +2481,15 @@ label {
   }
 
   .quick-actions {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(132px, 1.35fr) minmax(66px, 0.65fr) minmax(72px, 0.7fr);
+    gap: 6px;
+    padding: 0 6px;
+  }
+
+  .quick-actions .quick-action-button,
+  .quick-actions .quick-value-option {
+    font-size: 12px;
+    padding: 7px 6px;
   }
 
   .timeline-header {
@@ -4375,7 +4454,8 @@ label {
     grid-template-areas:
       "record shortcuts"
       "status shortcuts"
-      "moment shortcuts";
+      "moment shortcuts"
+      "actions actions";
     column-gap: 24px;
     row-gap: 12px;
     align-items: start;
@@ -4393,6 +4473,10 @@ label {
 
   .input-panel > .heuristic-entry-section {
     grid-area: shortcuts;
+  }
+
+  .input-panel > .record-form-actions {
+    grid-area: actions;
   }
 
   .input-panel > .moment-quick-entry {
