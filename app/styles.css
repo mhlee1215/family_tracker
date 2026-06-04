@@ -1644,8 +1644,20 @@ label {
 
 .recent-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 0 2px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.recent-actions:empty {
+  display: none;
+}
+
+.recent-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .quick-actions {
@@ -1655,19 +1667,28 @@ label {
   gap: 8px;
   align-items: center;
   overflow: hidden;
-  border: 1px solid var(--ink);
+  border: 0;
   border-radius: 8px;
-  background: var(--canvas);
+  background: transparent;
   padding: 0 8px;
 }
 
 .quick-actions::before {
   position: absolute;
   inset: 50% 8px auto;
-  height: 50px;
+  height: 46px;
   border-radius: 8px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 28%, transparent);
   transform: translateY(-50%);
+  pointer-events: none;
+  content: "";
+}
+
+.quick-actions::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, var(--canvas) 0, color-mix(in srgb, var(--canvas) 86%, transparent) 22%, transparent 40%, transparent 60%, color-mix(in srgb, var(--canvas) 86%, transparent) 78%, var(--canvas) 100%);
   pointer-events: none;
   content: "";
 }
@@ -1691,35 +1712,32 @@ label {
 .quick-picker-options {
   position: relative;
   z-index: 1;
+  height: 132px;
+  overflow: hidden;
   border: 0;
   border-radius: 0;
   background: transparent;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%);
+  touch-action: pan-y;
 }
 
-.quick-activity-options {
-  display: grid;
-  align-content: start;
-  gap: 7px;
-  max-height: 132px;
-  overflow-y: auto;
-  padding: 36px 0;
-  scroll-snap-type: y mandatory;
+.quick-wheel-list {
+  display: block;
+  margin: 44px 0 0;
+  padding: 0;
+  list-style: none;
+  will-change: transform;
 }
 
-.quick-value-picker {
-  display: grid;
-  align-content: start;
-  gap: 7px;
-  max-height: 132px;
-  overflow-y: auto;
-  padding: 36px 0;
-  scroll-snap-type: y mandatory;
+.quick-wheel-item {
+  display: flex;
+  height: 43px;
+  overflow: hidden;
+  transform-origin: center;
 }
 
-.quick-value-picker[aria-disabled="true"] {
+.quick-wheel-shell[aria-disabled="true"] {
   opacity: 0.42;
+  pointer-events: none;
 }
 
 .quick-actions button,
@@ -1733,6 +1751,26 @@ label {
   box-shadow: none;
   font-size: 14px;
   padding: 12px 16px;
+}
+
+.recent-actions button {
+  flex: 0 0 auto;
+  max-width: min(280px, 74vw);
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--hairline));
+  border-radius: 9999px;
+  background: var(--canvas);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  padding: 8px 12px;
+}
+
+.recent-actions button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recent-actions button svg,
@@ -1760,7 +1798,6 @@ label {
 
 .quick-value-option {
   min-height: 43px;
-  scroll-snap-align: center;
 }
 
 .quick-value-option:disabled {
@@ -1781,6 +1818,7 @@ label {
 
 .quick-actions .quick-action-button,
 .quick-actions .quick-value-option {
+  width: 100%;
   min-width: 0;
   min-height: 43px;
   border-radius: 8px;
@@ -1792,7 +1830,7 @@ label {
   text-align: center;
 }
 
-.quick-value-picker[aria-disabled="true"] .quick-value-option {
+.quick-wheel-shell[aria-disabled="true"] .quick-value-option {
   background: color-mix(in srgb, var(--surface-chip-translucent) 45%, var(--canvas));
   color: var(--ink-muted-48);
 }
