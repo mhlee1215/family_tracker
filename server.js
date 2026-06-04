@@ -23,6 +23,7 @@ import {
 import { createBabyStore, getStorageConfig } from './src/server/db/store-factory.js';
 import { getMediaStorageConfig, publicMediaStorageConfig } from './src/server/media-config.js';
 import { createId } from './src/utils/ids.js';
+import { localDateKeyFromIso, normalizeTimeZone } from './src/utils/time.js';
 import { colorForBabyEventType } from './src/utils/tracker-colors.js';
 
 const port = Number(process.env.PORT || 4174);
@@ -262,8 +263,10 @@ async function handleApi(request, response) {
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/profile') {
       const body = await readJson(request);
+      const timezone = normalizeTimeZone((body.profile || body).timezone || requestUrl.searchParams.get('timezone') || '', '');
       const profile = await store.saveProfile({
         ...(body.profile || body),
+        timezone,
         familyId: scope.familyId,
         babyId: scope.babyId,
       });
@@ -273,6 +276,7 @@ async function handleApi(request, response) {
           authorId: session.user.id || defaultAuthorId,
           birthDate: profile.birthDate,
           birthTime: profile.birthTime,
+          timezone: profile.timezone || timezone,
         });
         await store.saveGrowthRecord(growthRecord);
       }
@@ -307,8 +311,8 @@ async function handleApi(request, response) {
     }
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/logs/today') {
-      const today = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
-      const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
+      const timezone = await resolveTimeZone(scope, requestUrl.searchParams.get('timezone'));
+      const today = requestUrl.searchParams.get('day') || localTodayKey(timezone);
       const now = new Date();
       if (requestUrl.searchParams.get('range') === 'recent24h') {
         const allEvents = await store.listEvents({ ...scope, limit: 1000 });
@@ -331,8 +335,8 @@ async function handleApi(request, response) {
       return;
     }
     if (request.method === 'GET' && requestUrl.pathname === '/api/logs/calendar') {
-      const month = requestUrl.searchParams.get('month') || new Date().toISOString().slice(0, 7);
-      const timezone = requestUrl.searchParams.get('timezone') || 'UTC';
+      const timezone = await resolveTimeZone(scope, requestUrl.searchParams.get('timezone'));
+      const month = requestUrl.searchParams.get('month') || localTodayKey(timezone).slice(0, 7);
       const events = await store.listEvents({ ...scope, limit: 2000 });
       const days = {};
       for (const event of events) {
@@ -351,6 +355,7 @@ async function handleApi(request, response) {
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/moments') {
       const body = await readJson(request);
+      const timezone = await resolveTimeZone(scope, body.timezone);
       const title = String(body.title || '').trim();
       if (!title || title.length > 120) {
         sendJson(response, 400, { error: 'Moment title is required and must be <= 120 chars.' });
@@ -367,7 +372,7 @@ async function handleApi(request, response) {
         authorId: session.user.id || defaultAuthorId,
         rawText,
         inputAt,
-        timezone: body.timezone || 'UTC',
+        timezone,
         inputSource: 'moment',
         parserMode: 'system',
       };
@@ -395,6 +400,7 @@ async function handleApi(request, response) {
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/logs') {
       const body = await readJson(request);
+      const timezone = await resolveTimeZone(scope, body.timezone);
       const now = body.now ? new Date(body.now) : new Date();
       const rawText = String(body.text || '').trim();
       if (!rawText) {
@@ -410,7 +416,7 @@ async function handleApi(request, response) {
         authorId: session.user.id || defaultAuthorId,
         rawText,
         inputAt,
-        timezone: body.timezone || 'UTC',
+        timezone,
         inputSource: body.inputSource || 'text',
         parserMode: body.parserMode || 'auto',
       };
@@ -479,8 +485,9 @@ async function handleApi(request, response) {
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/ask') {
       const body = await readJson(request);
-      const day = body.day || new Date().toISOString().slice(0, 10);
-      const events = await store.listEventsForDay(day, { ...scope, timezone: body.timezone || 'UTC' });
+      const timezone = await resolveTimeZone(scope, body.timezone);
+      const day = body.day || localTodayKey(timezone);
+      const events = await store.listEventsForDay(day, { ...scope, timezone });
       sendJson(response, 200, {
         answer: answerSimpleQuestion(body.question, events),
         summary: buildTodaySummary(events),
@@ -578,7 +585,8 @@ async function handleApi(request, response) {
     }
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/today') {
-      const day = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
+      const timezone = await resolveTimeZone(scope, requestUrl.searchParams.get('timezone'));
+      const day = requestUrl.searchParams.get('day') || localTodayKey(timezone);
       await store.ensureDefaultTaskAssignees(scope.familyId);
       sendJson(response, 200, { tasks: await store.listTasksForDay(day, scope) });
       return;
@@ -586,8 +594,9 @@ async function handleApi(request, response) {
 
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/events/summary') {
+      const timezone = await resolveTimeZone(scope, requestUrl.searchParams.get('timezone'));
       const period = requestUrl.searchParams.get('period') || 'week';
-      const day = requestUrl.searchParams.get('day') || new Date().toISOString().slice(0, 10);
+      const day = requestUrl.searchParams.get('day') || localTodayKey(timezone);
       const tasks = await store.listAllTasks(scope);
       const events = await store.listEvents({ ...scope, limit: 1000 });
       const summary = buildEventSummary(period, day, tasks, events);
@@ -596,12 +605,14 @@ async function handleApi(request, response) {
     }
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/overview') {
-      sendJson(response, 200, { tasks: await store.listTaskOverview({ ...scope, limit: 40 }) });
+      const timezone = await resolveTimeZone(scope, requestUrl.searchParams.get('timezone'));
+      sendJson(response, 200, { tasks: await store.listTaskOverview({ ...scope, limit: 40, timezone }) });
       return;
     }
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/calendar') {
-      const month = requestUrl.searchParams.get('month') || new Date().toISOString().slice(0, 7);
+      const timezone = await resolveTimeZone(scope, requestUrl.searchParams.get('timezone'));
+      const month = requestUrl.searchParams.get('month') || localTodayKey(timezone).slice(0, 7);
       const tasks = await store.listAllTasks(scope);
       const days = {};
       for (const task of tasks) {
@@ -617,6 +628,7 @@ async function handleApi(request, response) {
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/tasks') {
       const body = await readJson(request);
+      const timezone = await resolveTimeZone(scope, body.timezone);
       const title = String(body.title || '').trim();
       const assigneeId = String(body.assigneeId || '').trim();
       if (!title || !assigneeId) {
@@ -630,7 +642,7 @@ async function handleApi(request, response) {
         title,
         assigneeId,
         dueMode,
-        dueDate: body.dueDate || new Date().toISOString().slice(0, 10),
+        dueDate: body.dueDate || localTodayKey(timezone),
       });
       await appendActionLog(store, scope, { module: 'task', entityType: 'task', entityId: task.id, action: 'add', actorId: session.user.id || defaultAuthorId, message: `added task "${summarizeActionText(task.title)}"`, metadata: { after: { task } } });
       sendJson(response, 200, { task });
@@ -920,9 +932,20 @@ async function createSessionForUser(userId) {
   return store.createSession({ sessionId, userId, expiresAt });
 }
 
+async function resolveTimeZone(scope, requestedTimeZone = '') {
+  const normalizedRequestTimeZone = normalizeTimeZone(requestedTimeZone, '');
+  if (normalizedRequestTimeZone) return normalizedRequestTimeZone;
+  const profile = await store.getProfile(scope.babyId, { familyId: scope.familyId });
+  return normalizeTimeZone(profile?.timezone || 'UTC');
+}
+
+function localTodayKey(timeZone, now = new Date()) {
+  return localDateKeyFromIso(now, timeZone);
+}
+
 function normalizeGrowthRecord(record, context) {
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const today = localTodayKey(context.timezone || 'UTC', now);
   const recordedFor = ['birth', 'now', 'custom'].includes(record.recordedFor) ? record.recordedFor : 'custom';
   const occurredDate = recordedFor === 'birth' ? (context.birthDate || record.occurredDate || today)
     : String(record.occurredDate || today).slice(0, 10);
@@ -1036,7 +1059,7 @@ async function readAlexaIntegrationRequest(request, response) {
     requestId,
     requestedAt: validIsoOrNow(body.requestedAt),
     locale: String(body.locale || 'en-US').slice(0, 20),
-    timezone: String(body.timezone || 'UTC').slice(0, 80),
+    timezone: normalizeTimeZone(body.timezone, ''),
     alexaUserId,
     familyId: resolveAlexaFamilyId(alexaUserId),
   };
@@ -1062,6 +1085,7 @@ async function createAlexaBabyLog(alexaRequest) {
     familyId: alexaRequest.familyId,
     babyId: `${alexaRequest.familyId}-baby`,
   };
+  const timezone = await resolveTimeZone(scope, alexaRequest.timezone);
   const authorId = defaultAuthorId;
   const rawLog = {
     id: createId('rawlog'),
@@ -1070,7 +1094,7 @@ async function createAlexaBabyLog(alexaRequest) {
     authorId,
     rawText: alexaRequest.text,
     inputAt: now.toISOString(),
-    timezone: alexaRequest.timezone || 'UTC',
+    timezone,
     inputSource: 'alexa',
     parserMode: 'auto',
   };
@@ -1167,17 +1191,6 @@ function buildLLMConfigPayload() {
       active: item.id === provider,
     })),
   };
-}
-
-function localDateKeyFromIso(value, timezone) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone || 'UTC',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(value));
-  const get = (type) => parts.find((part) => part.type === type)?.value;
-  return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
 function buildEventSummary(period, day, tasks, events) {

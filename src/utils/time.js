@@ -1,7 +1,8 @@
 export function utcRangeForLocalDay(day, timeZone = 'UTC') {
+  const safeTimeZone = normalizeTimeZone(timeZone);
   const [year, month, date] = String(day).split('-').map(Number);
   if (!year || !month || !date) throw new Error('Day must be formatted as YYYY-MM-DD.');
-  const start = zonedTimeToUtc({ year, month, date, hour: 0, minute: 0, second: 0, millisecond: 0 }, timeZone);
+  const start = zonedTimeToUtc({ year, month, date, hour: 0, minute: 0, second: 0, millisecond: 0 }, safeTimeZone);
   const nextDay = new Date(Date.UTC(year, month - 1, date + 1));
   const end = zonedTimeToUtc({
     year: nextDay.getUTCFullYear(),
@@ -11,8 +12,36 @@ export function utcRangeForLocalDay(day, timeZone = 'UTC') {
     minute: 0,
     second: 0,
     millisecond: 0,
-  }, timeZone);
+  }, safeTimeZone);
   return { start: start.toISOString(), end: end.toISOString() };
+}
+
+export function localDateKeyFromIso(value, timeZone = 'UTC') {
+  const date = value instanceof Date ? value : new Date(value || Date.now());
+  const safeTimeZone = normalizeTimeZone(timeZone);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: safeTimeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+export function normalizeTimeZone(value, fallback = 'UTC') {
+  const candidate = String(value || '').trim();
+  if (candidate) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: candidate }).format(new Date(0));
+      return candidate.slice(0, 80);
+    } catch {
+      // Fall through to the validated fallback.
+    }
+  }
+  if (fallback === '') return '';
+  if (fallback && fallback !== value) return normalizeTimeZone(fallback, 'UTC');
+  return 'UTC';
 }
 
 function zonedTimeToUtc(target, timeZone) {

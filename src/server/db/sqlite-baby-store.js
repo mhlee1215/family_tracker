@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseEvent, serializeEvent } from '../../domain/baby-events.js';
 import { createDefaultProfile, defaultBabyId, defaultFamilyId } from '../../domain/profile-defaults.js';
-import { utcRangeForLocalDay } from '../../utils/time.js';
+import { localDateKeyFromIso, utcRangeForLocalDay } from '../../utils/time.js';
 
 export const defaultDatabasePath = join(process.cwd(), '.family-tracker', 'family-tracker.sqlite');
 
@@ -56,6 +56,7 @@ export class SQLiteBabyStore {
         baby_name TEXT NOT NULL DEFAULT '',
         birth_date TEXT NOT NULL DEFAULT '',
         birth_time TEXT NOT NULL DEFAULT '',
+        timezone TEXT NOT NULL DEFAULT '',
         height_cm REAL,
         head_cm REAL,
         weight_g INTEGER,
@@ -159,6 +160,7 @@ export class SQLiteBabyStore {
     try { this.db.exec(`ALTER TABLE action_logs ADD COLUMN undone_at TEXT;`); } catch {}
     try { this.db.exec(`ALTER TABLE action_logs ADD COLUMN undone_by TEXT;`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN birth_time TEXT NOT NULL DEFAULT '';`); } catch {}
+    try { this.db.exec(`ALTER TABLE profiles ADD COLUMN timezone TEXT NOT NULL DEFAULT '';`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN height_cm REAL;`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN head_cm REAL;`); } catch {}
     try { this.db.exec(`ALTER TABLE profiles ADD COLUMN weight_g INTEGER;`); } catch {}
@@ -301,6 +303,7 @@ export class SQLiteBabyStore {
       babyName: row.baby_name,
       birthDate: row.birth_date,
       birthTime: row.birth_time,
+      timezone: row.timezone || '',
       heightCm: row.height_cm,
       headCm: row.head_cm,
       weightG: row.weight_g,
@@ -318,15 +321,16 @@ export class SQLiteBabyStore {
     const now = new Date().toISOString();
     this.db.prepare(`
       INSERT INTO profiles (
-        baby_id, family_id, baby_name, birth_date, birth_time, height_cm, head_cm, weight_g, apgar_percent,
+        baby_id, family_id, baby_name, birth_date, birth_time, timezone, height_cm, head_cm, weight_g, apgar_percent,
         milk_amount_ml_override, nap_duration_minutes_override, solid_amount_override, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(baby_id) DO UPDATE SET
         family_id = excluded.family_id,
         baby_name = excluded.baby_name,
         birth_date = excluded.birth_date,
         birth_time = excluded.birth_time,
+        timezone = excluded.timezone,
         height_cm = excluded.height_cm,
         head_cm = excluded.head_cm,
         weight_g = excluded.weight_g,
@@ -341,6 +345,7 @@ export class SQLiteBabyStore {
       next.babyName,
       next.birthDate,
       next.birthTime,
+      next.timezone,
       next.heightCm,
       next.headCm,
       next.weightG,
@@ -795,7 +800,7 @@ export class SQLiteBabyStore {
   listTaskOverview(options = {}) {
     const familyId = options.familyId || defaultFamilyId;
     const limit = Number.isInteger(options.limit) ? options.limit : 40;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKeyFromIso(options.now || new Date(), options.timezone || 'UTC');
     return this.db.prepare(`
       SELECT task_items.*, task_assignees.name AS assignee_name, task_assignees.color AS assignee_color
       FROM task_items
