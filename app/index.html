@@ -336,16 +336,21 @@
         <section id="workspace" class="workspace-grid baby-tab-panel" aria-hidden="false" aria-label="Baby records">
           <section class="phone-flow">
             <form id="log-form" class="input-panel" autocomplete="off">
-              <label for="log-input">Record</label>
-              <div class="composer-row">
-                <input id="log-input" name="record" type="text" placeholder="Try: 분유 120 먹고 응가했어" autofocus>
-                <button type="submit">Save</button>
-              </div>
+              <section class="record-entry-section" aria-label="Text record">
+                <label for="log-input">Record</label>
+                <div class="composer-row">
+                  <input id="log-input" name="record" type="text" placeholder="Try: 분유 120 먹고 응가했어" autofocus>
+                  <button type="submit">Save</button>
+                </div>
+                <div id="recent-actions" class="recent-actions" aria-label="Recent logs"></div>
+              </section>
               <div id="log-save-status" class="log-save-status hidden" role="status" aria-live="polite">
                 <span class="inline-loading-spinner" aria-hidden="true"></span>
                 <span>Saving...</span>
               </div>
-              <div id="quick-actions" class="quick-actions" aria-label="Suggested logs"></div>
+              <section class="heuristic-entry-section" aria-label="Heuristic record">
+                <div id="quick-actions" class="quick-actions" aria-label="Heuristic logs"></div>
+              </section>
               <button id="quick-add-moment" type="button" class="moment-quick-entry">+ Growth moment</button>
             </form>
 

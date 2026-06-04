@@ -60,6 +60,7 @@ const storageKeys = {
   careForecastPeriodDays: 'familyTracker.careForecastPeriodDays',
   babyStatusRange: 'familyTracker.babyStatusRange',
   activeBabyTrackers: 'familyTracker.activeBabyTrackers',
+  quickMilkAmountMl: 'familyTracker.quickMilkAmountMl',
 };
 
 const copy = {
@@ -75,11 +76,11 @@ const copy = {
   emptyTasks: 'No tasks for this day.',
   emptyOverview: 'No completed tasks yet.',
   quickActions: [
-    { label: 'Formula', value: 'formula', icon: 'formula', trackerType: 'feeding_milk' },
-    { label: 'Breast', value: 'breast milk', icon: 'breast', trackerType: 'feeding_milk' },
-    { label: 'Nap start', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake', trackerType: 'sleep' },
-    { label: 'Diaper (poop)', value: 'poop diaper', icon: 'dirty', trackerType: 'diaper' },
-    { label: 'Diaper (pee)', value: 'pee diaper', icon: 'wet', trackerType: 'diaper' },
+    { label: 'Feed breastmilk', value: 'breast milk', icon: 'breast', trackerType: 'feeding_milk', amountEnabled: true },
+    { label: 'Feed formula', value: 'formula', icon: 'formula', trackerType: 'feeding_milk', amountEnabled: true },
+    { label: 'Diaper - pee', value: 'pee diaper', icon: 'wet', trackerType: 'diaper' },
+    { label: 'Diaper - poop', value: 'poop diaper', icon: 'dirty', trackerType: 'diaper' },
+    { label: 'Sleep', value: 'nap', wakeLabel: 'Wake', wakeValue: 'woke up', icon: 'sleep', wakeIcon: 'wake', trackerType: 'sleep' },
     { label: 'Baby food', value: 'baby food eaten', icon: 'solids', trackerType: 'feeding_solid' },
   ],
 };
@@ -112,6 +113,11 @@ const state = {
   theme: normalizeTheme(localStorage.getItem(storageKeys.theme)),
   activeTab: normalizeTab(getInitialTab()),
   selectedDay: getInitialSharedDay(),
+  quickLog: {
+    actionValue: null,
+    amountMl: normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl)),
+    offsetMinutes: 0,
+  },
   homeCalendarMonth: null,
   homeCalendarDots: {},
   taskCalendarMonth: null,
@@ -214,6 +220,7 @@ const elements = {
   quickAddMoment: $('#quick-add-moment'),
   babyActionLogPanel: $('#baby-action-log-panel'),
   babyActionLog: $('#baby-action-log'),
+  recentActions: $('#recent-actions'),
   quickActions: $('#quick-actions'),
   eventCount: $('#event-count'),
   timelineSort: $('#timeline-sort'),
@@ -380,7 +387,13 @@ elements.homeSummaryGrid?.addEventListener('click', (event) => {
 
 elements.logForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  await saveLog(elements.logInput.value);
+  const parserMode = elements.logInput.dataset.parserMode === 'heuristic' ? 'heuristic' : 'auto';
+  const inputSource = parserMode === 'heuristic' ? 'button' : 'text';
+  await saveLog(elements.logInput.value, { parserMode, inputSource });
+});
+
+elements.logInput?.addEventListener('input', () => {
+  delete elements.logInput.dataset.parserMode;
 });
 
 elements.askForm.addEventListener('submit', async (event) => {
@@ -620,6 +633,7 @@ async function saveLog(text, options = {}) {
   const cleanText = text.trim();
   if (!cleanText) return;
   elements.logInput.value = '';
+  delete elements.logInput.dataset.parserMode;
   setLogSaving(true);
   try {
     const response = await fetch('/api/logs', {
@@ -1339,11 +1353,22 @@ function isBabyTrackerActive(type) {
 
 function renderQuickActions() {
   const openSleep = currentOpenSleep();
-  const baseButtons = copy.quickActions.filter((action) => isBabyTrackerActive(action.trackerType)).map((action) => (
-    makeBabyActionButton(resolveSleepAction(action, openSleep), 'quick-action-button')
-  ));
+  const activeActions = copy.quickActions
+    .filter((action) => isBabyTrackerActive(action.trackerType))
+    .map((action) => resolveSleepAction(action, openSleep));
+  const selectedAction = selectedQuickLogAction(activeActions);
   const suggestionButtons = state.recentBabyLogs.slice(0, 3).map(makeRecentSuggestionButton);
-  elements.quickActions.replaceChildren(...baseButtons, ...suggestionButtons);
+  elements.recentActions?.replaceChildren(...suggestionButtons);
+  if (!elements.quickActions) return;
+  if (!activeActions.length) {
+    elements.quickActions.replaceChildren();
+    return;
+  }
+  elements.quickActions.replaceChildren(
+    makeQuickLogActivityColumn(activeActions, selectedAction),
+    makeQuickLogAmountColumn(selectedAction),
+    makeQuickLogTimeColumn(),
+  );
 }
 
 function resolveSleepAction(action, openSleep) {
@@ -1361,9 +1386,90 @@ function makeRecentSuggestionButton(item) {
   button.title = 'Suggested recent log';
   button.addEventListener('click', () => {
     elements.logInput.value = item.text;
+    delete elements.logInput.dataset.parserMode;
     elements.logInput.focus();
   });
   return button;
+}
+
+function selectedQuickLogAction(actions) {
+  const current = actions.find((action) => action.value === state.quickLog.actionValue);
+  const selected = current || actions[0] || null;
+  state.quickLog.actionValue = selected?.value || null;
+  return selected;
+}
+
+function makeQuickLogActivityColumn(actions, selectedAction) {
+  const section = document.createElement('section');
+  section.className = 'quick-picker-column quick-picker-activity';
+  section.innerHTML = '<h3>Activity</h3>';
+  const options = document.createElement('div');
+  options.className = 'quick-picker-options quick-activity-options';
+  actions.forEach((action) => {
+    const button = makeBabyActionButton(action, 'quick-action-button');
+    button.setAttribute('aria-pressed', String(action.value === selectedAction?.value));
+    button.addEventListener('click', () => {
+      state.quickLog.actionValue = action.value;
+      updateQuickLogInputFromPicker();
+      renderQuickActions();
+    });
+    options.append(button);
+  });
+  section.append(options);
+  return section;
+}
+
+function makeQuickLogAmountColumn(selectedAction) {
+  const section = document.createElement('section');
+  section.className = 'quick-picker-column quick-picker-amount';
+  section.innerHTML = '<h3>Volume</h3>';
+  const options = document.createElement('div');
+  const enabled = Boolean(selectedAction?.amountEnabled);
+  const selectedAmount = state.quickLog.amountMl || defaultQuickMilkAmountMl();
+  options.className = 'quick-picker-options quick-value-picker';
+  options.setAttribute('aria-disabled', String(!enabled));
+  quickMilkAmountOptions().forEach((amount) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'quick-value-option';
+    button.textContent = `${amount} ml`;
+    button.disabled = !enabled;
+    button.setAttribute('aria-pressed', String(enabled && amount === selectedAmount));
+    button.addEventListener('click', () => {
+      state.quickLog.amountMl = amount;
+      localStorage.setItem(storageKeys.quickMilkAmountMl, String(amount));
+      updateQuickLogInputFromPicker();
+      renderQuickActions();
+    });
+    options.append(button);
+  });
+  section.append(options);
+  requestAnimationFrame(() => scrollSelectedQuickPickerOption(options));
+  return section;
+}
+
+function makeQuickLogTimeColumn() {
+  const section = document.createElement('section');
+  section.className = 'quick-picker-column quick-picker-time';
+  section.innerHTML = '<h3>Time</h3>';
+  const options = document.createElement('div');
+  options.className = 'quick-picker-options quick-value-picker';
+  quickTimeOptions().forEach((minutes) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'quick-value-option';
+    button.textContent = quickTimeLabel(minutes);
+    button.setAttribute('aria-pressed', String(minutes === state.quickLog.offsetMinutes));
+    button.addEventListener('click', () => {
+      state.quickLog.offsetMinutes = minutes;
+      updateQuickLogInputFromPicker();
+      renderQuickActions();
+    });
+    options.append(button);
+  });
+  section.append(options);
+  requestAnimationFrame(() => scrollSelectedQuickPickerOption(options));
+  return section;
 }
 
 function makeBabyActionButton(action, className) {
@@ -1374,12 +1480,74 @@ function makeBabyActionButton(action, className) {
   if (accentColor) button.style.setProperty('--tracker-accent', accentColor);
   if (action.activeSleep) button.classList.add('sleep-active');
   button.innerHTML = `${actionIcon(action.icon)}<span>${escapeHtml(action.label)}</span>`;
-  if (action.value) {
-    button.addEventListener('click', () => saveLog(action.value, { parserMode: 'heuristic', inputSource: 'button' }));
-  } else {
-    button.addEventListener('click', () => elements.logInput.focus());
-  }
   return button;
+}
+
+function updateQuickLogInputFromPicker() {
+  const action = copy.quickActions
+    .map((item) => resolveSleepAction(item, currentOpenSleep()))
+    .find((item) => item.value === state.quickLog.actionValue);
+  if (!action) return;
+  const parts = [action.value];
+  if (action.amountEnabled) {
+    const amount = state.quickLog.amountMl || defaultQuickMilkAmountMl();
+    parts.push(`${amount} ml`);
+  }
+  const selectedTime = quickTimeForOffset(state.quickLog.offsetMinutes);
+  if (selectedTime.inputText) parts.push(selectedTime.inputText);
+  elements.logInput.value = parts.join(' ');
+  elements.logInput.dataset.parserMode = 'heuristic';
+  elements.logInput.focus();
+}
+
+function defaultQuickMilkAmountMl() {
+  const contextAmount = Number(state.todayContext?.lastMilk?.amountMl);
+  if (Number.isFinite(contextAmount) && contextAmount > 0) return contextAmount;
+  const latestMilk = latestClientEvent(state.events.filter((event) => event.type === 'feeding_milk' && event.amountMl?.value != null));
+  const latestAmount = Number(latestMilk?.amountMl?.value);
+  if (Number.isFinite(latestAmount) && latestAmount > 0) return latestAmount;
+  const storedAmount = normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl));
+  return storedAmount || 120;
+}
+
+function normalizeQuickMilkAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return Math.round(amount);
+}
+
+function quickMilkAmountOptions() {
+  const selected = state.quickLog.amountMl || defaultQuickMilkAmountMl();
+  const values = new Set();
+  for (let amount = 30; amount <= 240; amount += 10) values.add(amount);
+  values.add(selected);
+  return [...values].sort((a, b) => a - b);
+}
+
+function quickTimeOptions() {
+  const values = [];
+  for (let minutes = 300; minutes >= 0; minutes -= 5) values.push(minutes);
+  return values;
+}
+
+function quickTimeLabel(minutes) {
+  if (!minutes) return 'Now';
+  return quickTimeForOffset(minutes).label;
+}
+
+function quickTimeForOffset(minutes) {
+  const date = new Date(Date.now() - minutes * 60000);
+  const label = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const inputTime = label.toLowerCase().replace(/\s+/g, ' ');
+  return {
+    label,
+    inputText: minutes ? `at ${inputTime} today` : '',
+  };
+}
+
+function scrollSelectedQuickPickerOption(container) {
+  const selected = container.querySelector('[aria-pressed="true"]');
+  if (typeof selected?.scrollIntoView === 'function') selected.scrollIntoView({ block: 'center' });
 }
 
 
