@@ -34,13 +34,17 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 ## GitHub PR Semantics Policy
 - 사용자가 "PR 생성", "PR 만들기", "PR 올리기", "피알 만들어"라고 요청하면 이는 하네스 기록이나 로컬 PR 메타데이터가 아니라 **GitHub 원격 저장소에 실제 Pull Request를 생성/업데이트**하라는 뜻이다.
 - 코드 변경을 커밋한 뒤에는 브랜치를 GitHub remote에 push하고 `gh pr create` 또는 GitHub API로 실제 PR URL/번호를 확보해야 완료로 간주한다.
+- PR 생성/업데이트 전에 최신 `origin/main`을 fetch하고 작업 브랜치를 rebase해야 한다. 충돌 또는 rebase 실패가 있으면 완료 처리하지 말고 원인과 남은 작업을 보고한다.
 - `make_pr` 같은 로컬/하네스 기록 도구는 GitHub PR 생성을 대체하지 못한다. 사용해야 하는 상위 지시가 있더라도, 별도로 실제 GitHub PR 생성까지 수행하고 최종 보고에 URL을 남긴다.
 - 인증/권한/네트워크 문제로 실제 GitHub PR 생성이 불가능하면 완료라고 말하지 말고, 실패한 명령과 원인을 명시한다.
 
 ## GitHub Auto-Merge Policy
-- PR 생성까지 완료한 뒤에는 사용자가 별도로 금지하지 않는 한 `gh pr merge <PR번호> --auto --squash`로 GitHub auto-merge를 예약한다.
+- PR 생성까지 완료한 뒤에는 사용자가 별도로 금지하지 않는 한 GitHub auto-merge를 예약해야 하며, auto-merge 예약까지 끝나야 PR 작업을 완료로 간주한다.
+- auto-merge 예약 전에는 작업 브랜치가 최신 `origin/main` 위에 rebase되어 있어야 한다.
+- GitHub CLI를 사용할 수 있으면 `gh pr merge <PR번호> --auto --squash`를 실행한다. `gh`가 없거나 사용할 수 없으면 GitHub API/MCP의 auto-merge enable 기능을 사용한다.
 - auto-merge 예약은 required CI checks가 끝난 뒤 자동으로 squash merge되도록 하는 것이 목적이다. 브랜치 보호나 required checks가 없어 즉시 머지될 수 있는 상태라면, auto-merge를 실행하기 전에 설정 누락 가능성을 사용자에게 알리고 확인한다.
 - auto-merge 실행 후에는 `gh pr view --json state,mergeStateStatus,autoMergeRequest,statusCheckRollup,url`로 실제 상태를 확인한다.
+- GitHub API/MCP를 사용한 경우에도 PR metadata, merge state, check rollup/status, 또는 auto-merge 요청 상태를 다시 조회해 예약 여부를 검증한다.
 - 기대 상태는 PR이 `OPEN`이고 `autoMergeRequest`가 존재하며 pending required check 때문에 `BLOCKED` 또는 대기 상태로 남는 것이다. 이미 `MERGED`라면 즉시 머지된 이유를 보고한다.
 - 최종 보고에는 PR URL, auto-merge 예약 여부, required checks 상태를 함께 남긴다.
 

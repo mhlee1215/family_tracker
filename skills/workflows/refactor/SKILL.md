@@ -13,7 +13,7 @@ Behavior-preserving refactors.
 - Validate tests before and after.
 - Run `npm test` after changes.
 - Run `npm run test:e2e` locally before PR.
-- After code changes, always proceed to PR workflow: if no PR exists, create one; if a PR already exists, update that existing PR instead of creating a new one.
+- After code changes, always proceed to PR workflow before the final response: commit only intended changes, fetch latest `origin/main`, rebase the work branch onto it, push the branch, create a new PR or update the existing PR, enable auto-merge unless explicitly forbidden, and report the PR URL plus auto-merge status. If blocked, state the exact blocker and what remains.
 
 ## Checklist
 - Define unchanged behavior contract.
@@ -21,7 +21,7 @@ Behavior-preserving refactors.
 - Keep tests green throughout.
 - Run `npm run test:e2e`.
 - Avoid hidden behavior changes.
-- Complete PR workflow (create new PR or update existing PR).
+- Complete PR workflow: fetch latest `origin/main`, rebase, push, create or update PR, enable auto-merge unless explicitly forbidden, and report PR URL plus auto-merge status.
 
 ## When to update this skill
 - Refactor safety practices are updated.
