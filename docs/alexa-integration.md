@@ -38,7 +38,8 @@ Authorization: Bearer <ALEXA_INTEGRATION_TOKEN>
   "requestId": "amzn1.echo-api.request.123",
   "requestedAt": "2026-05-26T12:34:56.000Z",
   "locale": "en-US",
-  "timezone": "America/Los_Angeles"
+  "timezone": "America/Los_Angeles",
+  "alexaUserId": "amzn1.ask.account.example"
 }
 ```
 
@@ -49,6 +50,7 @@ Authorization: Bearer <ALEXA_INTEGRATION_TOKEN>
 - `requestedAt`: optional ISO timestamp (defaults to now when absent).
 - `locale`: optional string, default `en-US`.
 - `timezone`: optional string, default `UTC`.
+- `alexaUserId`: optional Alexa user identifier, max 300 chars. Used only for server-side family mapping.
 
 ### Response body (success)
 
@@ -80,9 +82,19 @@ Authorization: Bearer <ALEXA_INTEGRATION_TOKEN>
 
 - Family Tracker server:
   - `ALEXA_INTEGRATION_TOKEN`
+  - `ALEXA_FAMILY_ID` (optional fallback; use `family-admin-test` for pre-deploy integration tests)
+  - `ALEXA_USER_FAMILY_MAP` (optional JSON object mapping Alexa user IDs to Family Tracker family IDs)
 - Alexa Lambda:
   - `FAMILY_TRACKER_API_URL`
   - `FAMILY_TRACKER_API_TOKEN`
+
+Example `ALEXA_USER_FAMILY_MAP`:
+
+```json
+{
+  "amzn1.ask.account.example": "family-admin-test"
+}
+```
 
 ## Alexa interaction model (minimum)
 

@@ -166,6 +166,7 @@ async function handleApi(request, response) {
       const body = await readJson(request);
       const text = String(body.text || '').trim();
       const requestId = String(body.requestId || '').trim();
+      const alexaUserId = String(body.alexaUserId || '').trim();
       if (!text || text.length > 300) {
         sendJson(response, 400, { error: 'Field \"text\" is required and must be <= 300 chars.' });
         return;
@@ -174,12 +175,16 @@ async function handleApi(request, response) {
         sendJson(response, 400, { error: 'Field \"requestId\" is required and must be <= 200 chars.' });
         return;
       }
+      if (alexaUserId.length > 300) {
+        sendJson(response, 400, { error: 'Field \"alexaUserId\" must be <= 300 chars.' });
+        return;
+      }
       if (processedAlexaRequestIds.has(requestId)) {
         sendJson(response, 409, { error: 'Duplicate requestId.' });
         return;
       }
 
-      const familyId = String(process.env.ALEXA_FAMILY_ID || 'family-admin-dev');
+      const familyId = resolveAlexaFamilyId(alexaUserId);
       const assignees = await store.ensureDefaultTaskAssignees(familyId);
       const assigneeId = assignees[0]?.id;
       if (!assigneeId) {
@@ -193,7 +198,7 @@ async function handleApi(request, response) {
         title: text,
         assigneeId,
         dueMode: 'asap',
-        dueDate: null,
+        dueDate: '',
       });
       processedAlexaRequestIds.add(requestId);
       if (processedAlexaRequestIds.size > 5000) processedAlexaRequestIds.clear();
@@ -1017,6 +1022,24 @@ function readJson(request) {
 function sendJson(response, status, payload, extraHeaders = {}) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', ...extraHeaders });
   response.end(JSON.stringify(payload));
+}
+
+function resolveAlexaFamilyId(alexaUserId = '') {
+  const fallbackFamilyId = String(process.env.ALEXA_FAMILY_ID || 'family-admin-dev');
+  const userMap = parseAlexaUserFamilyMap();
+  return alexaUserId && userMap[alexaUserId] ? String(userMap[alexaUserId]) : fallbackFamilyId;
+}
+
+function parseAlexaUserFamilyMap() {
+  const rawMap = String(process.env.ALEXA_USER_FAMILY_MAP || '').trim();
+  if (!rawMap) return {};
+  try {
+    const parsed = JSON.parse(rawMap);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    console.warn('Ignoring invalid ALEXA_USER_FAMILY_MAP JSON.');
+    return {};
+  }
 }
 
 function loadEnv() {
