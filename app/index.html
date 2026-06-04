@@ -340,7 +340,6 @@
                 <label for="log-input">Record</label>
                 <div class="composer-row">
                   <input id="log-input" name="record" type="text" placeholder="Try: 분유 120 먹고 응가했어" autofocus>
-                  <button type="submit">Save</button>
                 </div>
                 <div id="recent-actions" class="recent-actions" aria-label="Recent logs"></div>
               </section>
@@ -351,6 +350,10 @@
               <section class="heuristic-entry-section" aria-label="Heuristic record">
                 <div id="quick-actions" class="quick-actions" aria-label="Heuristic logs"></div>
               </section>
+              <div class="record-form-actions">
+                <button id="reset-log-form" type="button" class="record-reset-button">Reset</button>
+                <button type="submit" class="record-save-button">Save</button>
+              </div>
               <button id="quick-add-moment" type="button" class="moment-quick-entry">+ Growth moment</button>
             </form>
 

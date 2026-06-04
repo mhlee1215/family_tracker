@@ -183,6 +183,7 @@ const elements = {
   logForm: $('#log-form'),
   logInput: $('#log-input'),
   logSaveStatus: $('#log-save-status'),
+  resetLogForm: $('#reset-log-form'),
   askForm: $('#ask-form'),
   askInput: $('#ask-input'),
   answer: $('#answer'),
@@ -394,6 +395,10 @@ elements.logForm.addEventListener('submit', async (event) => {
 
 elements.logInput?.addEventListener('input', () => {
   delete elements.logInput.dataset.parserMode;
+});
+
+elements.resetLogForm?.addEventListener('click', () => {
+  resetQuickLogPicker();
 });
 
 elements.askForm.addEventListener('submit', async (event) => {
@@ -1416,6 +1421,7 @@ function makeQuickLogActivityColumn(actions, selectedAction) {
     options.append(button);
   });
   section.append(options);
+  requestAnimationFrame(() => scrollSelectedQuickPickerOption(options));
   return section;
 }
 
@@ -1481,6 +1487,16 @@ function makeBabyActionButton(action, className) {
   if (action.activeSleep) button.classList.add('sleep-active');
   button.innerHTML = `${actionIcon(action.icon)}<span>${escapeHtml(action.label)}</span>`;
   return button;
+}
+
+function resetQuickLogPicker() {
+  state.quickLog.actionValue = null;
+  state.quickLog.amountMl = normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl));
+  state.quickLog.offsetMinutes = 0;
+  elements.logInput.value = '';
+  delete elements.logInput.dataset.parserMode;
+  renderQuickActions();
+  elements.logInput.focus();
 }
 
 function updateQuickLogInputFromPicker() {

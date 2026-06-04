@@ -659,6 +659,8 @@ describe('app/main', () => {
     await import('../../app/main.js?case=baby-heuristic-picker');
 
     await vi.waitFor(() => expect(document.querySelector('#quick-actions').textContent).toContain('Feed formula'));
+    expect(document.querySelector('.record-form-actions')).toBeTruthy();
+    expect(document.querySelector('.record-form-actions .record-save-button').textContent).toBe('Save');
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
     expect(document.querySelector('#log-input').value).toBe('formula 90 ml');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);
@@ -671,6 +673,11 @@ describe('app/main', () => {
     expect(document.querySelector('#log-input').value).toMatch(/^pee diaper at .+ today$/);
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].every((button) => button.disabled)).toBe(true);
 
+    fireEvent.click(document.querySelector('#reset-log-form'));
+    expect(document.querySelector('#log-input').value).toBe('');
+    expect(document.querySelector('#log-input').dataset.parserMode).toBeUndefined();
+
+    fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Diaper - pee')));
     fireEvent.submit(document.querySelector('#log-form'));
 
     await vi.waitFor(() => {
@@ -678,7 +685,7 @@ describe('app/main', () => {
       expect(post).toBeTruthy();
       const body = JSON.parse(post.init.body);
       expect(body).toMatchObject({ parserMode: 'heuristic', inputSource: 'button' });
-      expect(body.text).toMatch(/^pee diaper at .+ today$/);
+      expect(body.text).toBe('pee diaper');
     });
   });
 
