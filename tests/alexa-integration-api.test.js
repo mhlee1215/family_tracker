@@ -124,6 +124,7 @@ test('Alexa record endpoint routes formula speech to the baby log parser', async
   assert.equal(response.body.events.length, 1);
   assert.equal(response.body.events[0].type, 'feeding_milk');
   assert.equal(response.body.events[0].rawText, 'formula 60 milliliters');
+  assert.equal(response.body.events[0].inputSource, 'alexa');
 });
 
 test('Alexa record endpoint falls back to task creation for household speech', async () => {

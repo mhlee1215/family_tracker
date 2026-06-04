@@ -71,11 +71,14 @@ Authorization: Bearer <ALEXA_INTEGRATION_TOKEN>
   },
   "events": [
     {
-      "type": "feeding_milk"
+      "type": "feeding_milk",
+      "inputSource": "alexa"
     }
   ]
 }
 ```
+
+Alexa-created baby events are stored with `inputSource: "alexa"` so the timeline can label them as `Added by Alexa`.
 
 ### Response body (success: task)
 

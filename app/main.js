@@ -3378,7 +3378,7 @@ function renderEvent(event) {
 
   const badges = document.createElement('div');
   badges.className = 'badges';
-  badges.replaceChildren(parserBadge(event), ...inferredBadges(event));
+  badges.replaceChildren(...sourceBadges(event), parserBadge(event), ...inferredBadges(event));
 
   const detailButton = document.createElement('button');
   detailButton.type = 'button';
@@ -4327,6 +4327,15 @@ function parserBadgeTitle(event) {
   const base = info.label || event.parser || 'Unknown parser';
   if (info.fallbackFrom) return `${base}; fallback from ${info.fallbackFrom.provider} ${info.fallbackFrom.model}: ${info.fallbackFrom.reason}`;
   return base;
+}
+
+function sourceBadges(event) {
+  if (event.inputSource !== 'alexa') return [];
+  const badge = document.createElement('span');
+  badge.className = 'source-badge source-badge-alexa';
+  badge.textContent = 'Added by Alexa';
+  badge.title = 'Recorded through Alexa';
+  return [badge];
 }
 
 function inferredBadges(event) {
