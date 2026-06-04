@@ -25,6 +25,8 @@
     "test:ci": "npm run test:node && npm run test:ui"
   },
   "dependencies": {
+    "@better-scroll/core": "^2.5.1",
+    "@better-scroll/wheel": "^2.5.1",
     "@libsql/client": "^0.15.15",
     "chart.js": "^4.5.1",
     "sortablejs": "^1.15.7",

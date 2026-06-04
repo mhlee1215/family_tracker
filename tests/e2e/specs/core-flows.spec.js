@@ -852,7 +852,7 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
-  test('baby nap shortcut toggles to Wake while using heuristic button parsing', async ({ page }, testInfo) => {
+  test('baby shortcut wheel disables volume for diaper and toggles Sleep to Wake', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let hasOpenSleep = false;
     let shortcutPayload = null;
@@ -886,10 +886,24 @@ test.describe('Family Tracker core flows', () => {
     });
 
     await app.loginAsDevAdmin();
+    const chooseShortcut = async (label) => {
+      await page.locator('#quick-actions .quick-action-button', { hasText: label }).evaluate((button) => button.click());
+    };
     await expect(page.locator('#quick-actions')).toContainText('Sleep');
     await app.captureStep('Opened baby log shortcuts', 'Sleep appears under the Log input before an open sleep session exists.');
 
-    await page.locator('#quick-actions button', { hasText: 'Sleep' }).click();
+    await chooseShortcut('Diaper - pee');
+    await expect(page.locator('#log-input')).toHaveValue('pee diaper');
+    await expect(page.locator('.quick-wheel-amount')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('.quick-picker-amount .quick-value-option').first()).toBeDisabled();
+    await app.captureStep('Diaper shortcut disables volume', 'Choosing a diaper shortcut removes milk volume from the generated text and disables the volume wheel.');
+
+    await chooseShortcut('Feed formula');
+    await expect(page.locator('#log-input')).toHaveValue(/formula \d+ ml/);
+    await expect(page.locator('.quick-wheel-amount')).toHaveAttribute('aria-disabled', 'false');
+    await app.captureStep('Milk shortcut enables volume', 'Choosing a milk shortcut re-enables the volume wheel and includes ml in the generated text.');
+
+    await chooseShortcut('Sleep');
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.locator('#sleep-status')).toContainText('Napping now');

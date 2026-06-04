@@ -25,10 +25,12 @@ const PULL_REFRESH_BLOCKING_SELECTOR = [
 
 const mealSortableInstances = new Map();
 const mealThumbnailCache = new Map();
+const quickWheelInstances = new Map();
 const swipeState = { openItem: null, nextId: 0 };
 let openTimelineDetail = null;
 let openHomeTooltip = null;
 let growthChartInstance = null;
+let quickWheelPluginRegistered = false;
 
 const babyTrackerTypes = [
   { type: 'sleep', label: 'Sleep' },
@@ -1365,6 +1367,7 @@ function renderQuickActions() {
   const suggestionButtons = state.recentBabyLogs.slice(0, 3).map(makeRecentSuggestionButton);
   elements.recentActions?.replaceChildren(...suggestionButtons);
   if (!elements.quickActions) return;
+  destroyQuickWheelInstances();
   if (!activeActions.length) {
     elements.quickActions.replaceChildren();
     return;
@@ -1374,6 +1377,7 @@ function renderQuickActions() {
     makeQuickLogAmountColumn(selectedAction),
     makeQuickLogTimeColumn(),
   );
+  requestAnimationFrame(() => hydrateQuickLogWheels(activeActions, selectedAction));
 }
 
 function resolveSleepAction(action, openSleep) {
@@ -1408,20 +1412,15 @@ function makeQuickLogActivityColumn(actions, selectedAction) {
   const section = document.createElement('section');
   section.className = 'quick-picker-column quick-picker-activity';
   section.innerHTML = '<h3>Activity</h3>';
-  const options = document.createElement('div');
-  options.className = 'quick-picker-options quick-activity-options';
+  const options = makeQuickWheelShell('activity');
   actions.forEach((action) => {
     const button = makeBabyActionButton(action, 'quick-action-button');
+    button.dataset.value = action.value;
     button.setAttribute('aria-pressed', String(action.value === selectedAction?.value));
-    button.addEventListener('click', () => {
-      state.quickLog.actionValue = action.value;
-      updateQuickLogInputFromPicker();
-      renderQuickActions();
-    });
-    options.append(button);
+    button.addEventListener('click', () => selectQuickLogActivity(action.value));
+    options.querySelector('.quick-wheel-list').append(makeQuickWheelItem(button, action.value === selectedAction?.value));
   });
   section.append(options);
-  requestAnimationFrame(() => scrollSelectedQuickPickerOption(options));
   return section;
 }
 
@@ -1429,28 +1428,22 @@ function makeQuickLogAmountColumn(selectedAction) {
   const section = document.createElement('section');
   section.className = 'quick-picker-column quick-picker-amount';
   section.innerHTML = '<h3>Volume</h3>';
-  const options = document.createElement('div');
   const enabled = Boolean(selectedAction?.amountEnabled);
   const selectedAmount = state.quickLog.amountMl || defaultQuickMilkAmountMl();
-  options.className = 'quick-picker-options quick-value-picker';
+  const options = makeQuickWheelShell('amount', { disabled: !enabled });
   options.setAttribute('aria-disabled', String(!enabled));
   quickMilkAmountOptions().forEach((amount) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'quick-value-option';
+    button.dataset.value = String(amount);
     button.textContent = `${amount} ml`;
     button.disabled = !enabled;
     button.setAttribute('aria-pressed', String(enabled && amount === selectedAmount));
-    button.addEventListener('click', () => {
-      state.quickLog.amountMl = amount;
-      localStorage.setItem(storageKeys.quickMilkAmountMl, String(amount));
-      updateQuickLogInputFromPicker();
-      renderQuickActions();
-    });
-    options.append(button);
+    button.addEventListener('click', () => selectQuickLogAmount(amount));
+    options.querySelector('.quick-wheel-list').append(makeQuickWheelItem(button, enabled && amount === selectedAmount));
   });
   section.append(options);
-  requestAnimationFrame(() => scrollSelectedQuickPickerOption(options));
   return section;
 }
 
@@ -1458,24 +1451,151 @@ function makeQuickLogTimeColumn() {
   const section = document.createElement('section');
   section.className = 'quick-picker-column quick-picker-time';
   section.innerHTML = '<h3>Time</h3>';
-  const options = document.createElement('div');
-  options.className = 'quick-picker-options quick-value-picker';
+  const options = makeQuickWheelShell('time');
   quickTimeOptions().forEach((minutes) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'quick-value-option';
+    button.dataset.value = String(minutes);
     button.textContent = quickTimeLabel(minutes);
     button.setAttribute('aria-pressed', String(minutes === state.quickLog.offsetMinutes));
-    button.addEventListener('click', () => {
-      state.quickLog.offsetMinutes = minutes;
-      updateQuickLogInputFromPicker();
-      renderQuickActions();
-    });
-    options.append(button);
+    button.addEventListener('click', () => selectQuickLogTime(minutes));
+    options.querySelector('.quick-wheel-list').append(makeQuickWheelItem(button, minutes === state.quickLog.offsetMinutes));
   });
   section.append(options);
-  requestAnimationFrame(() => scrollSelectedQuickPickerOption(options));
   return section;
+}
+
+function makeQuickWheelShell(kind, options = {}) {
+  const shell = document.createElement('div');
+  const compatibilityClass = kind === 'activity' ? 'quick-activity-options' : 'quick-value-picker';
+  shell.className = `quick-picker-options quick-wheel-shell quick-wheel-${kind} ${compatibilityClass}`;
+  shell.dataset.wheel = kind;
+  shell.setAttribute('aria-disabled', String(Boolean(options.disabled)));
+  const list = document.createElement('ul');
+  list.className = 'quick-wheel-list wheel-scroll';
+  shell.append(list);
+  return shell;
+}
+
+function makeQuickWheelItem(control, selected = false) {
+  const item = document.createElement('li');
+  item.className = 'quick-wheel-item wheel-item';
+  if (selected) item.classList.add('selected');
+  item.append(control);
+  return item;
+}
+
+function hydrateQuickLogWheels(actions, selectedAction) {
+  if (!elements.quickActions?.isConnected) return;
+  const selectedAmount = state.quickLog.amountMl || defaultQuickMilkAmountMl();
+  hydrateQuickLogWheel('activity', actions.findIndex((action) => action.value === selectedAction?.value), (index) => {
+    const action = actions[index];
+    if (action) selectQuickLogActivity(action.value, { fromWheel: true });
+  });
+  hydrateQuickLogWheel('amount', quickMilkAmountOptions().indexOf(selectedAmount), (index) => {
+    const amount = quickMilkAmountOptions()[index];
+    if (amount != null) selectQuickLogAmount(amount, { fromWheel: true });
+  }, { disabled: !selectedAction?.amountEnabled });
+  hydrateQuickLogWheel('time', quickTimeOptions().indexOf(state.quickLog.offsetMinutes), (index) => {
+    const minutes = quickTimeOptions()[index];
+    if (minutes != null) selectQuickLogTime(minutes, { fromWheel: true });
+  });
+}
+
+function hydrateQuickLogWheel(kind, selectedIndex, onChange, options = {}) {
+  const shell = elements.quickActions?.querySelector(`[data-wheel="${kind}"]`);
+  if (!shell) return;
+  shell.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button || button.disabled) return;
+    const buttons = [...shell.querySelectorAll('button')];
+    const index = buttons.indexOf(button);
+    if (index < 0) return;
+    quickWheelInstances.get(kind)?.wheelTo?.(index, 180);
+    onChange(index);
+    event.stopPropagation();
+  }, { capture: true });
+  const scrollCtor = window.BScroll;
+  const wheelPlugin = window.Wheel;
+  const normalizedIndex = Math.max(0, selectedIndex);
+  if (!scrollCtor || !wheelPlugin) {
+    centerSelectedQuickWheelItem(shell);
+    return;
+  }
+  if (!quickWheelPluginRegistered && typeof scrollCtor.use === 'function') {
+    scrollCtor.use(wheelPlugin);
+    quickWheelPluginRegistered = true;
+  }
+  const instance = scrollCtor(shell, {
+    wheel: {
+      selectedIndex: normalizedIndex,
+      rotate: 0,
+      adjustTime: 180,
+      wheelWrapperClass: 'wheel-scroll',
+      wheelItemClass: 'wheel-item',
+      wheelDisabledItemClass: 'wheel-disabled-item',
+    },
+    click: true,
+    tap: true,
+    bounce: false,
+    probeType: 3,
+    preventDefaultException: { tagName: /^(INPUT|TEXTAREA|BUTTON|SELECT|AUDIO)$/ },
+  });
+  instance.on('wheelIndexChanged', (index) => onChange(index));
+  instance.on('scrollEnd', () => onChange(instance.getSelectedIndex?.()));
+  if (options.disabled) instance.disable();
+  instance.wheelTo?.(normalizedIndex, 0);
+  quickWheelInstances.set(kind, instance);
+}
+
+function destroyQuickWheelInstances() {
+  quickWheelInstances.forEach((instance) => instance.destroy?.());
+  quickWheelInstances.clear();
+}
+
+function selectQuickLogActivity(value, options = {}) {
+  if (state.quickLog.actionValue === value && options.fromWheel) return;
+  state.quickLog.actionValue = value;
+  updateQuickLogInputFromPicker();
+  renderQuickActions();
+}
+
+function selectQuickLogAmount(amount, options = {}) {
+  const action = currentQuickLogAction();
+  if (!action?.amountEnabled) return;
+  state.quickLog.amountMl = amount;
+  localStorage.setItem(storageKeys.quickMilkAmountMl, String(amount));
+  updateQuickLogInputFromPicker();
+  updateQuickWheelPressedState('amount', String(amount));
+  if (!options.fromWheel) quickWheelInstances.get('amount')?.wheelTo?.(quickMilkAmountOptions().indexOf(amount), 180);
+}
+
+function selectQuickLogTime(minutes, options = {}) {
+  state.quickLog.offsetMinutes = minutes;
+  updateQuickLogInputFromPicker();
+  updateQuickWheelPressedState('time', String(minutes));
+  if (!options.fromWheel) quickWheelInstances.get('time')?.wheelTo?.(quickTimeOptions().indexOf(minutes), 180);
+}
+
+function currentQuickLogAction() {
+  return copy.quickActions
+    .map((item) => resolveSleepAction(item, currentOpenSleep()))
+    .find((item) => item.value === state.quickLog.actionValue);
+}
+
+function updateQuickWheelPressedState(kind, value) {
+  const shell = elements.quickActions?.querySelector(`[data-wheel="${kind}"]`);
+  shell?.querySelectorAll('button').forEach((button) => {
+    const selected = button.dataset.value === value;
+    button.setAttribute('aria-pressed', String(selected));
+    button.closest('.quick-wheel-item')?.classList.toggle('selected', selected);
+  });
+}
+
+function centerSelectedQuickWheelItem(shell) {
+  const selected = shell.querySelector('[aria-pressed="true"]');
+  if (typeof selected?.scrollIntoView === 'function') selected.scrollIntoView({ block: 'center' });
 }
 
 function makeBabyActionButton(action, className) {
@@ -1500,9 +1620,7 @@ function resetQuickLogPicker() {
 }
 
 function updateQuickLogInputFromPicker() {
-  const action = copy.quickActions
-    .map((item) => resolveSleepAction(item, currentOpenSleep()))
-    .find((item) => item.value === state.quickLog.actionValue);
+  const action = currentQuickLogAction();
   if (!action) return;
   const parts = [action.value];
   if (action.amountEnabled) {
@@ -1562,8 +1680,7 @@ function quickTimeForOffset(minutes) {
 }
 
 function scrollSelectedQuickPickerOption(container) {
-  const selected = container.querySelector('[aria-pressed="true"]');
-  if (typeof selected?.scrollIntoView === 'function') selected.scrollIntoView({ block: 'center' });
+  centerSelectedQuickWheelItem(container);
 }
 
 
