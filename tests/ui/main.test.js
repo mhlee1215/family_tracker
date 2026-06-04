@@ -317,6 +317,45 @@ describe('app/main', () => {
     }));
   });
 
+  it('lets task checkboxes complete tasks inside swipe cards', async () => {
+    const patchBodies = [];
+    let completed = false;
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.endsWith('/api/task-assignees')) return new Response(JSON.stringify({ assignees: [{ id: 'a1', name: 'Mom', color: '#0066cc' }] }), { status: 200 });
+      if (url === '/api/tasks/t1' && init.method === 'PATCH') {
+        patchBodies.push(JSON.parse(init.body));
+        completed = true;
+        return new Response(JSON.stringify({ task: { id: 't1', status: 'done' } }), { status: 200 });
+      }
+      if (url.startsWith('/api/tasks/today')) {
+        return new Response(JSON.stringify({ tasks: [
+          { id: 't1', title: 'Wash bottles', status: completed ? 'done' : 'open', assigneeId: 'a1', assigneeName: 'Mom', assigneeColor: '#0066cc', dueMode: 'on_date', dueDate: '2026-05-28' },
+        ] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=task-checkbox-complete');
+    fireEvent.click(document.querySelector('#task-tab'));
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Complete Wash bottles' });
+    const swipeCard = checkbox.closest('.task-item');
+    const swipePointerDown = vi.fn();
+    swipeCard.addEventListener('pointerdown', swipePointerDown);
+
+    fireEvent.pointerDown(checkbox);
+    expect(swipePointerDown).not.toHaveBeenCalled();
+
+    fireEvent.click(checkbox);
+
+    await vi.waitFor(() => expect(patchBodies).toEqual([{ status: 'done' }]));
+    await vi.waitFor(() => expect(screen.getByRole('checkbox', { name: 'Reopen Wash bottles' }).checked).toBe(true));
+  });
+
 
   it('closes floating meal log and summary when clicking outside', async () => {
     await import('../../app/main.js?case=meal-panels');

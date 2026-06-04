@@ -4253,6 +4253,9 @@ function renderTask(task) {
   checkbox.type = 'checkbox';
   checkbox.checked = task.status === 'done';
   checkbox.setAttribute('aria-label', `${task.status === 'done' ? 'Reopen' : 'Complete'} ${task.title}`);
+  ['pointerdown', 'mousedown', 'touchstart'].forEach((eventName) => {
+    checkbox.addEventListener(eventName, (event) => event.stopPropagation());
+  });
   checkbox.addEventListener('click', (event) => event.stopPropagation());
   checkbox.addEventListener('change', () => toggleTask(task));
   const marker = document.createElement('span');
