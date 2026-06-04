@@ -23,6 +23,7 @@ export function createDefaultProfile(options = {}) {
     babyName: options.babyName || '',
     birthDate: options.birthDate || '',
     birthTime: options.birthTime || '',
+    timezone: options.timezone || '',
     heightCm: optionalNumber(options.heightCm),
     headCm: optionalNumber(options.headCm),
     weightG: optionalNumber(options.weightG),

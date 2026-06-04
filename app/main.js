@@ -765,6 +765,7 @@ async function saveBabyProfile() {
     babyName: elements.babyName.value.trim(),
     birthDate: elements.birthDate.value,
     birthTime: elements.birthTime.value,
+    timezone: localTimezone(),
     heightCm: numberOrNull(elements.babyHeight.value),
     weightG: numberOrNull(elements.babyWeight.value),
     headCm: state.profile?.headCm ?? null,
@@ -791,12 +792,15 @@ async function saveBabyProfile() {
 
 async function loadTaskData() {
   await loadAssignees();
-  const params = new URLSearchParams({ day: state.selectedDay });
+  const timezone = localTimezone();
+  const params = new URLSearchParams({ day: state.selectedDay, timezone });
+  const timezoneParams = new URLSearchParams({ timezone });
   const period = elements.summaryPeriod?.value || 'week';
+  const summaryParams = new URLSearchParams({ period, day: state.selectedDay, timezone });
   const [todayResponse, overviewResponse, summaryResponse, actionLogResponse] = await Promise.all([
     fetch(`/api/tasks/today?${params.toString()}`),
-    fetch('/api/tasks/overview'),
-    fetch(`/api/events/summary?period=${encodeURIComponent(period)}&day=${encodeURIComponent(state.selectedDay)}`),
+    fetch(`/api/tasks/overview?${timezoneParams.toString()}`),
+    fetch(`/api/events/summary?${summaryParams.toString()}`),
     fetch('/api/action-logs?module=task&limit=30'),
   ]);
   const todayPayload = await todayResponse.json();
@@ -814,7 +818,8 @@ async function loadTaskData() {
 }
 
 async function loadTaskCalendarDots(monthKey) {
-  const response = await fetch(`/api/tasks/calendar?month=${encodeURIComponent(monthKey)}`);
+  const params = new URLSearchParams({ month: monthKey, timezone: localTimezone() });
+  const response = await fetch(`/api/tasks/calendar?${params.toString()}`);
   const payload = await response.json();
   if (!response.ok) return;
   state.taskCalendarDots = payload.days || {};
@@ -852,7 +857,7 @@ async function createTask() {
   const response = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ title, assigneeId, dueMode, dueDate: chosenDate }),
+    body: JSON.stringify({ title, assigneeId, dueMode, dueDate: chosenDate, timezone: localTimezone() }),
   });
   if (!response.ok) return;
   elements.taskTitle.value = '';
@@ -4354,7 +4359,7 @@ async function loadHomeCalendarDots(monthKey) {
       .then((response) => response.ok ? response.json() : { days: {} })
       .then((payload) => payload.days || {})
       .catch(() => ({})),
-    fetch(`/api/tasks/calendar?month=${encodeURIComponent(monthKey)}`)
+    fetch(`/api/tasks/calendar?month=${encodeURIComponent(monthKey)}&timezone=${encodeURIComponent(localTimezone())}`)
       .then((response) => response.ok ? response.json() : { days: {} })
       .then((payload) => payload.days || {})
       .catch(() => ({})),

@@ -47,6 +47,7 @@ test('SQLiteBabyStore saves editable baby profile defaults', () => {
     babyName: 'Ari',
     birthDate: '2026-01-01',
     birthTime: '20:06',
+    timezone: 'America/Los_Angeles',
     heightCm: 52.1,
     headCm: 34,
     weightG: 3600,
@@ -58,6 +59,7 @@ test('SQLiteBabyStore saves editable baby profile defaults', () => {
 
   assert.equal(profile.babyName, 'Ari');
   assert.equal(profile.birthTime, '20:06');
+  assert.equal(profile.timezone, 'America/Los_Angeles');
   assert.equal(profile.heightCm, 52.1);
   assert.equal(profile.headCm, 34);
   assert.equal(profile.weightG, 3600);
@@ -333,6 +335,27 @@ test('SQLiteBabyStore shows on-date tasks only on their due day and records comp
   assert.equal(completed.status, 'done');
   assert.equal(todayTasks[0].status, 'done');
   assert.equal(overview[0].completedBy, 'user-admin-test');
+});
+
+test('SQLiteBabyStore task overview uses the caller timezone for today fallback', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const [mom] = store.ensureDefaultTaskAssignees('family-admin-test');
+
+  store.createTask({
+    id: 'task-la-midnight',
+    familyId: 'family-admin-test',
+    title: 'Check bottles',
+    assigneeId: mom.id,
+    dueDate: '2026-06-01',
+  });
+  const now = new Date('2026-06-02T06:30:00.000Z');
+  const losAngelesOverview = store.listTaskOverview({ familyId: 'family-admin-test', timezone: 'America/Los_Angeles', now });
+  const utcOverview = store.listTaskOverview({ familyId: 'family-admin-test', timezone: 'UTC', now });
+  store.close();
+
+  assert.equal(losAngelesOverview.length, 0);
+  assert.equal(utcOverview.length, 1);
 });
 
 test('SQLiteBabyStore supports due modes and visibility rules', () => {
