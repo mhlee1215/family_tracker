@@ -5,9 +5,14 @@ test.describe('Family Tracker core flows', () => {
   test('initial page access shows a whole-page loading mark until family data is ready', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let releaseAuth;
+    let markAuthBlocked;
+    const authBlocked = new Promise((resolve) => {
+      markAuthBlocked = resolve;
+    });
     await page.route('**/api/auth/me', async (route) => {
       await new Promise((resolve) => {
         releaseAuth = resolve;
+        markAuthBlocked();
       });
       await route.fulfill({
         status: 200,
@@ -17,6 +22,7 @@ test.describe('Family Tracker core flows', () => {
     });
 
     const pageLoad = page.goto('/');
+    await authBlocked;
     await expect(page.locator('#app-loading')).toBeVisible();
     await expect(page.locator('#app')).toHaveAttribute('aria-busy', 'true');
     await app.captureStep('Initial loading mark visible', 'A single whole-page loading mark covers the app while first-load family data is pending.');
