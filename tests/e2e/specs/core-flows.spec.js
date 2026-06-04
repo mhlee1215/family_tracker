@@ -892,6 +892,13 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#quick-actions')).toContainText('Sleep');
     await app.captureStep('Opened baby log shortcuts', 'Sleep appears under the Log input before an open sleep session exists.');
 
+    await page.locator('#log-input').fill('manual baby note');
+    await expect(page.locator('#quick-actions')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('#quick-actions .quick-action-button').first()).toBeDisabled();
+    await page.locator('#reset-log-form').click();
+    await expect(page.locator('#quick-actions')).toHaveAttribute('aria-disabled', 'false');
+    await app.captureStep('Manual text disables shortcut picker', 'Typing a natural-language record disables the heuristic picker so the shared Save button has one source.');
+
     await chooseShortcut('Diaper - pee');
     await expect(page.locator('#log-input')).toHaveValue('pee diaper');
     await expect(page.locator('.quick-wheel-amount')).toHaveAttribute('aria-disabled', 'true');
