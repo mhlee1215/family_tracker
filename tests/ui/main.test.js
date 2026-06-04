@@ -852,6 +852,7 @@ describe('app/main', () => {
         rawText: 'formula',
         occurredAt: { value: '2026-05-30T08:00:00.000Z' },
         amountMl: { value: 120, source: 'inferred', basis: 'profile_or_age_default', confidence: 0.62 },
+        inputSource: 'alexa',
         parserInfo: { kind: 'llm', provider: 'openai', model: 'gpt-5.4-mini', label: 'openai · gpt-5.4-mini' },
         createdAt: '2026-05-30T08:01:00.000Z',
       },
@@ -900,6 +901,7 @@ describe('app/main', () => {
     expect(document.querySelector('#today-context').textContent).toContain('1h ago · poop');
     expect(document.querySelector('#timeline').textContent).toContain('LLM · gpt-5.4-mini');
     expect(document.querySelector('#timeline').textContent).toContain('Amount estimated');
+    expect(document.querySelector('#timeline').textContent).toContain('Added by Alexa');
 
     fireEvent.input(document.querySelector('#log-input'), { target: { value: '분유 120 먹고 응가했어' } });
     fireEvent.submit(document.querySelector('#log-form'));

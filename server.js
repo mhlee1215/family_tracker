@@ -1077,9 +1077,10 @@ async function createAlexaBabyLog(alexaRequest) {
   const result = await buildEventsForRawLog(rawLog, { now, scope, authorId });
   if (result.status === 'needs_clarification') return result;
   const { events, openSleep } = result;
-  const saved = await store.saveLogWithEvents(rawLog, events);
+  const taggedEvents = events.map((event) => ({ ...event, inputSource: 'alexa' }));
+  const saved = await store.saveLogWithEvents(rawLog, taggedEvents);
   await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLog.id, action: 'add', actorId: authorId, message: `added Alexa baby record "${summarizeActionText(alexaRequest.text)}"`, metadata: { after: { rawLog: saved } } });
-  await markLinkedSleepStartsCompleted(events, openSleep);
+  await markLinkedSleepStartsCompleted(taggedEvents, openSleep);
   return { rawLog: saved, events: saved.events };
 }
 

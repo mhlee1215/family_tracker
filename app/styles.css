@@ -1948,6 +1948,12 @@ label {
   background: color-mix(in srgb, var(--primary) 8%, var(--canvas));
 }
 
+.badges .source-badge-alexa {
+  border-color: color-mix(in srgb, var(--ink) 18%, var(--hairline));
+  background: var(--surface-pearl);
+  color: var(--ink);
+}
+
 .empty {
   margin: 0;
   padding: 24px 0;
