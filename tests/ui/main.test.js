@@ -671,15 +671,15 @@ describe('app/main', () => {
     expect([...document.querySelectorAll('.quick-picker-activity .quick-action-button')].every((button) => button.disabled)).toBe(false);
 
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
-    expect(document.querySelector('#log-input').value).toBe('formula 90 ml');
+    expect(document.querySelector('#log-input').value).toBe('');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);
 
     const timeOptions = [...document.querySelectorAll('.quick-picker-time .quick-value-option')];
     fireEvent.click(timeOptions[timeOptions.length - 2]);
-    expect(document.querySelector('#log-input').value).toMatch(/^formula 90 ml at .+ today$/);
+    expect(document.querySelector('#log-input').value).toBe('');
 
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Diaper - pee')));
-    expect(document.querySelector('#log-input').value).toMatch(/^pee diaper at .+ today$/);
+    expect(document.querySelector('#log-input').value).toBe('');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].every((button) => button.disabled)).toBe(true);
 
     fireEvent.click(document.querySelector('#reset-log-form'));
