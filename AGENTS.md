@@ -22,5 +22,5 @@
 ## PR completion rule
 
 - After any code change, do not send the final response until PR workflow is complete.
-- Check current branch and git status, commit only intended changes, push the branch, create a new PR or update the existing PR, and include the PR URL in the final response.
+- Check current branch and git status, commit only intended changes, fetch latest `origin/main`, rebase the work branch onto it, push the branch, create a new PR or update the existing PR, enable auto-merge unless explicitly forbidden, and include the PR URL plus auto-merge status in the final response.
 - If PR creation is impossible, explicitly state the blocker and what remains.

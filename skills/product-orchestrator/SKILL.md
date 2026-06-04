@@ -14,7 +14,7 @@ Any non-trivial product/code change.
 8. Add or update a user-flow scenario test for any new feature.
 9. Run required checks.
 10. Update docs/skills if reusable knowledge changed.
-11. Before final response after any code change, complete PR workflow or explicitly report the blocker: commit intended changes, push the branch, create a new PR or update the existing PR, and include the PR URL in the final response.
+11. Before final response after any code change, complete PR workflow or explicitly report the blocker: commit intended changes, fetch latest `origin/main`, rebase the work branch onto it, push the branch, create a new PR or update the existing PR, enable auto-merge unless explicitly forbidden, and include the PR URL plus auto-merge status in the final response.
 
 ## Scenario testing
 - Every new feature must add or update a scenario test that exercises the user-visible flow, preferably in `tests/e2e/specs/` with Playwright.

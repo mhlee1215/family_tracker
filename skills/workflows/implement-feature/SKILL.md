@@ -19,7 +19,7 @@ Building a new feature.
 - Run `npm run test:e2e` locally before PR.
 - Bump README build badge.
 - If reusable rule emerges, update skills/docs.
-- After code changes, always proceed to PR workflow: if no PR exists, create one; if a PR already exists, update that existing PR instead of creating a new one.
+- After code changes, always proceed to PR workflow before the final response: commit only intended changes, fetch latest `origin/main`, rebase the work branch onto it, push the branch, create a new PR or update the existing PR, enable auto-merge unless explicitly forbidden, and report the PR URL plus auto-merge status. If blocked, state the exact blocker and what remains.
 
 ## Checklist
 - Confirm scope and matching pattern.
@@ -29,7 +29,7 @@ Building a new feature.
 - Run `npm test` and fix failures.
 - Run `npm run test:e2e` and fix failures.
 - Update badge/docs/skills as required.
-- Complete PR workflow (create new PR or update existing PR).
+- Complete PR workflow: fetch latest `origin/main`, rebase, push, create or update PR, enable auto-merge unless explicitly forbidden, and report PR URL plus auto-merge status.
 
 ## When to update this skill
 - Feature delivery workflow standards change.
