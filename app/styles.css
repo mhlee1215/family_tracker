@@ -1639,7 +1639,7 @@ label {
 .record-entry-section,
 .heuristic-entry-section {
   display: grid;
-  align-content: start;
+  align-content: center;
   gap: 12px;
 }
 
@@ -1683,6 +1683,7 @@ label {
 
 .quick-actions::before {
   position: absolute;
+  z-index: 1;
   inset: 50% 8px auto;
   height: 46px;
   border-radius: 11px;
@@ -1697,6 +1698,7 @@ label {
 
 .quick-actions::after {
   position: absolute;
+  z-index: 4;
   inset: 0;
   background:
     linear-gradient(to bottom, var(--canvas) 0, color-mix(in srgb, var(--canvas) 86%, transparent) 22%, transparent 40%, transparent 60%, color-mix(in srgb, var(--canvas) 86%, transparent) 78%, var(--canvas) 100%);
@@ -1722,7 +1724,7 @@ label {
 
 .quick-picker-options {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   height: 132px;
   overflow: hidden;
   border: 0;
@@ -1757,7 +1759,8 @@ label {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  background: var(--surface-pearl);
   color: var(--ink);
   box-shadow: none;
   font-size: 14px;
@@ -1804,6 +1807,8 @@ label {
 }
 
 .quick-actions button[aria-pressed="true"] {
+  position: relative;
+  z-index: 5;
   background: color-mix(in srgb, var(--tracker-accent, var(--primary)) 16%, var(--surface-pearl));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--tracker-accent, var(--primary)) 44%, var(--hairline)),
@@ -4516,15 +4521,16 @@ label {
     grid-template-columns: minmax(280px, 0.9fr) minmax(340px, 1.1fr);
     grid-template-areas:
       "record shortcuts"
-      "status shortcuts"
+      "status status"
       "actions actions";
     column-gap: 24px;
     row-gap: 16px;
-    align-items: start;
+    align-items: stretch;
   }
 
   .input-panel > .record-entry-section {
     grid-area: record;
+    min-height: 132px;
   }
 
   .input-panel > .log-save-status {
@@ -4535,6 +4541,7 @@ label {
 
   .input-panel > .heuristic-entry-section {
     grid-area: shortcuts;
+    min-height: 132px;
   }
 
   .input-panel > .record-form-actions {

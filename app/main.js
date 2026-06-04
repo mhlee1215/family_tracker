@@ -119,6 +119,8 @@ const state = {
     actionValue: null,
     amountMl: normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl)),
     offsetMinutes: 0,
+    active: false,
+    text: '',
   },
   homeCalendarMonth: null,
   homeCalendarDots: {},
@@ -390,13 +392,11 @@ elements.homeSummaryGrid?.addEventListener('click', (event) => {
 
 elements.logForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const parserMode = elements.logInput.dataset.parserMode === 'heuristic' ? 'heuristic' : 'auto';
-  const inputSource = parserMode === 'heuristic' ? 'button' : 'text';
-  await saveLog(elements.logInput.value, { parserMode, inputSource });
+  const submission = currentRecordSubmission();
+  await saveLog(submission.text, { parserMode: submission.parserMode, inputSource: submission.inputSource });
 });
 
 elements.logInput?.addEventListener('input', () => {
-  delete elements.logInput.dataset.parserMode;
   updateRecordInputMode();
 });
 
@@ -668,6 +668,8 @@ async function saveLog(text, options = {}) {
     rememberRecentBabyLog(cleanText, payload.events || []);
     elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
     state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
+    state.quickLog.active = false;
+    state.quickLog.text = '';
     await loadToday();
   } catch (error) {
     elements.answer.textContent = copy.saveFailed;
@@ -1401,6 +1403,8 @@ function makeRecentSuggestionButton(item) {
   button.addEventListener('click', () => {
     elements.logInput.value = item.text;
     delete elements.logInput.dataset.parserMode;
+    state.quickLog.active = false;
+    state.quickLog.text = '';
     updateRecordInputMode();
     elements.logInput.focus();
   });
@@ -1548,10 +1552,10 @@ function hydrateQuickLogWheel(kind, selectedIndex, onChange, options = {}) {
     probeType: 3,
     preventDefaultException: { tagName: /^(INPUT|TEXTAREA|BUTTON|SELECT|AUDIO)$/ },
   });
-  instance.on('wheelIndexChanged', (index) => onChange(index));
-  instance.on('scrollEnd', () => onChange(instance.getSelectedIndex?.()));
   if (options.disabled || isTextRecordMode()) instance.disable();
   instance.wheelTo?.(normalizedIndex, 0);
+  instance.on('wheelIndexChanged', (index) => onChange(index));
+  instance.on('scrollEnd', () => onChange(instance.getSelectedIndex?.()));
   quickWheelInstances.set(kind, instance);
 }
 
@@ -1563,7 +1567,8 @@ function destroyQuickWheelInstances() {
 function selectQuickLogActivity(value, options = {}) {
   if (state.quickLog.actionValue === value && options.fromWheel) return;
   state.quickLog.actionValue = value;
-  updateQuickLogInputFromPicker();
+  state.quickLog.active = true;
+  updateQuickLogTextFromPicker();
   renderQuickActions();
 }
 
@@ -1571,8 +1576,9 @@ function selectQuickLogAmount(amount, options = {}) {
   const action = currentQuickLogAction();
   if (!action?.amountEnabled) return;
   state.quickLog.amountMl = amount;
+  state.quickLog.active = true;
   localStorage.setItem(storageKeys.quickMilkAmountMl, String(amount));
-  updateQuickLogInputFromPicker();
+  updateQuickLogTextFromPicker();
   updateQuickWheelPressedState('amount', String(amount));
   updateRecordInputMode();
   if (!options.fromWheel) quickWheelInstances.get('amount')?.wheelTo?.(quickMilkAmountOptions().indexOf(amount), 180);
@@ -1580,7 +1586,8 @@ function selectQuickLogAmount(amount, options = {}) {
 
 function selectQuickLogTime(minutes, options = {}) {
   state.quickLog.offsetMinutes = minutes;
-  updateQuickLogInputFromPicker();
+  state.quickLog.active = true;
+  updateQuickLogTextFromPicker();
   updateQuickWheelPressedState('time', String(minutes));
   updateRecordInputMode();
   if (!options.fromWheel) quickWheelInstances.get('time')?.wheelTo?.(quickTimeOptions().indexOf(minutes), 180);
@@ -1621,14 +1628,15 @@ function resetQuickLogPicker() {
   state.quickLog.actionValue = null;
   state.quickLog.amountMl = normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl));
   state.quickLog.offsetMinutes = 0;
+  state.quickLog.active = false;
+  state.quickLog.text = '';
   elements.logInput.value = '';
-  delete elements.logInput.dataset.parserMode;
   renderQuickActions();
   updateRecordInputMode();
   elements.logInput.focus();
 }
 
-function updateQuickLogInputFromPicker() {
+function updateQuickLogTextFromPicker() {
   const action = currentQuickLogAction();
   if (!action) return;
   const parts = [action.value];
@@ -1638,14 +1646,21 @@ function updateQuickLogInputFromPicker() {
   }
   const selectedTime = quickTimeForOffset(state.quickLog.offsetMinutes);
   if (selectedTime.inputText) parts.push(selectedTime.inputText);
-  elements.logInput.value = parts.join(' ');
-  elements.logInput.dataset.parserMode = 'heuristic';
+  state.quickLog.text = parts.join(' ');
   updateRecordInputMode();
-  elements.logInput.focus();
 }
 
 function isTextRecordMode() {
-  return Boolean(elements.logInput?.value.trim()) && elements.logInput.dataset.parserMode !== 'heuristic';
+  return Boolean(elements.logInput?.value.trim());
+}
+
+function currentRecordSubmission() {
+  const manualText = elements.logInput.value.trim();
+  if (manualText) return { text: manualText, parserMode: 'auto', inputSource: 'text' };
+  if (state.quickLog.active && state.quickLog.text) {
+    return { text: state.quickLog.text, parserMode: 'heuristic', inputSource: 'button' };
+  }
+  return { text: elements.logInput.value, parserMode: 'auto', inputSource: 'text' };
 }
 
 function updateRecordInputMode() {

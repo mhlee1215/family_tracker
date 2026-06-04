@@ -900,15 +900,15 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Manual text disables shortcut picker', 'Typing a natural-language record disables the heuristic picker so the shared Save button has one source.');
 
     await chooseShortcut('Diaper - pee');
-    await expect(page.locator('#log-input')).toHaveValue('pee diaper');
+    await expect(page.locator('#log-input')).toHaveValue('');
     await expect(page.locator('.quick-wheel-amount')).toHaveAttribute('aria-disabled', 'true');
     await expect(page.locator('.quick-picker-amount .quick-value-option').first()).toBeDisabled();
-    await app.captureStep('Diaper shortcut disables volume', 'Choosing a diaper shortcut removes milk volume from the generated text and disables the volume wheel.');
+    await app.captureStep('Diaper shortcut disables volume', 'Choosing a diaper shortcut keeps the text input blank and disables the volume wheel.');
 
     await chooseShortcut('Feed formula');
-    await expect(page.locator('#log-input')).toHaveValue(/formula \d+ ml/);
+    await expect(page.locator('#log-input')).toHaveValue('');
     await expect(page.locator('.quick-wheel-amount')).toHaveAttribute('aria-disabled', 'false');
-    await app.captureStep('Milk shortcut enables volume', 'Choosing a milk shortcut re-enables the volume wheel and includes ml in the generated text.');
+    await app.captureStep('Milk shortcut enables volume', 'Choosing a milk shortcut re-enables the volume wheel without writing into the text input.');
 
     await chooseShortcut('Sleep');
     await page.getByRole('button', { name: 'Save' }).click();
