@@ -24,9 +24,11 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - PR 작업은 커밋 이후 브랜치 push와 `gh pr create` 또는 GitHub API 호출까지 포함한다. 실패하면 실패 상태로 보고하고 완료 처리하지 않는다.
 
 ## GitHub Auto-Merge Gate
-- PR 생성 후에는 사용자가 명시적으로 막지 않는 한 `gh pr merge <PR번호> --auto --squash`를 실행해 required CI checks 완료 후 자동 squash merge되도록 예약한다.
+- PR 생성 후에는 사용자가 명시적으로 막지 않는 한 GitHub auto-merge를 예약해야 하며, auto-merge 예약까지 완료되어야 PR 생성/업데이트 작업을 완료로 본다.
+- GitHub CLI를 사용할 수 있으면 `gh pr merge <PR번호> --auto --squash`를 실행한다. `gh`가 없거나 사용할 수 없으면 GitHub API/MCP의 auto-merge enable 기능을 사용한다.
 - auto-merge 예약 전에는 `main` 브랜치 보호 또는 ruleset required checks가 적용되어 있는지 확인한다. required check가 없으면 `--auto`가 즉시 머지할 수 있으므로 사용자에게 설정 누락 가능성을 보고하고 확인한다.
 - auto-merge 실행 후 `gh pr view --json state,mergeStateStatus,autoMergeRequest,statusCheckRollup,url`로 상태를 확인한다.
+- GitHub API/MCP를 사용한 경우에도 PR metadata, merge state, check rollup/status, 또는 auto-merge 요청 상태를 다시 조회해 예약 여부를 검증한다.
 - 정상적인 CI-gated auto-merge 상태는 PR이 `OPEN`으로 남고 `autoMergeRequest`가 존재하며 required check가 pending/running인 상태다.
 - 최종 보고에는 PR URL, auto-merge 예약 여부, required checks의 현재 상태를 포함한다.
 
