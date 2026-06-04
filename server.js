@@ -156,53 +156,31 @@ async function handleApi(request, response) {
     }
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/integrations/alexa/task') {
-      const token = String(process.env.ALEXA_INTEGRATION_TOKEN || '');
-      const authHeader = String(request.headers.authorization || '');
-      if (!token || authHeader !== `Bearer ${token}`) {
-        sendJson(response, 401, { error: 'Unauthorized integration request.' });
-        return;
-      }
-
-      const body = await readJson(request);
-      const text = String(body.text || '').trim();
-      const requestId = String(body.requestId || '').trim();
-      const alexaUserId = String(body.alexaUserId || '').trim();
-      if (!text || text.length > 300) {
-        sendJson(response, 400, { error: 'Field \"text\" is required and must be <= 300 chars.' });
-        return;
-      }
-      if (!requestId || requestId.length > 200) {
-        sendJson(response, 400, { error: 'Field \"requestId\" is required and must be <= 200 chars.' });
-        return;
-      }
-      if (alexaUserId.length > 300) {
-        sendJson(response, 400, { error: 'Field \"alexaUserId\" must be <= 300 chars.' });
-        return;
-      }
-      if (processedAlexaRequestIds.has(requestId)) {
-        sendJson(response, 409, { error: 'Duplicate requestId.' });
-        return;
-      }
-
-      const familyId = resolveAlexaFamilyId(alexaUserId);
-      const assignees = await store.ensureDefaultTaskAssignees(familyId);
-      const assigneeId = assignees[0]?.id;
-      if (!assigneeId) {
-        sendJson(response, 500, { error: 'No task assignee available for Alexa integration.' });
-        return;
-      }
-
-      const task = await store.createTask({
-        id: createId('task'),
-        familyId,
-        title: text,
-        assigneeId,
-        dueMode: 'asap',
-        dueDate: '',
-      });
-      processedAlexaRequestIds.add(requestId);
-      if (processedAlexaRequestIds.size > 5000) processedAlexaRequestIds.clear();
+      const alexaRequest = await readAlexaIntegrationRequest(request, response);
+      if (!alexaRequest) return;
+      const task = await createAlexaTask(alexaRequest);
+      markAlexaRequestProcessed(alexaRequest.requestId);
       sendJson(response, 200, { ok: true, task });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/integrations/alexa/record') {
+      const alexaRequest = await readAlexaIntegrationRequest(request, response);
+      if (!alexaRequest) return;
+      const route = classifyAlexaRecord(alexaRequest.text);
+      if (route === 'baby_log') {
+        const result = await createAlexaBabyLog(alexaRequest);
+        if (result.status === 'needs_clarification') {
+          sendJson(response, 422, { ok: false, kind: 'needs_clarification', ...result });
+          return;
+        }
+        markAlexaRequestProcessed(alexaRequest.requestId);
+        sendJson(response, 200, { ok: true, kind: 'baby_log', message: 'Recorded baby log.', rawLog: result.rawLog, events: result.events });
+        return;
+      }
+      const task = await createAlexaTask(alexaRequest);
+      markAlexaRequestProcessed(alexaRequest.requestId);
+      sendJson(response, 200, { ok: true, kind: 'task', message: 'Recorded task.', task });
       return;
     }
 
@@ -1022,6 +1000,101 @@ function readJson(request) {
 function sendJson(response, status, payload, extraHeaders = {}) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', ...extraHeaders });
   response.end(JSON.stringify(payload));
+}
+
+async function readAlexaIntegrationRequest(request, response) {
+  const token = String(process.env.ALEXA_INTEGRATION_TOKEN || '');
+  const authHeader = String(request.headers.authorization || '');
+  if (!token || authHeader !== `Bearer ${token}`) {
+    sendJson(response, 401, { error: 'Unauthorized integration request.' });
+    return null;
+  }
+
+  const body = await readJson(request);
+  const text = String(body.text || '').trim();
+  const requestId = String(body.requestId || '').trim();
+  const alexaUserId = String(body.alexaUserId || '').trim();
+  if (!text || text.length > 300) {
+    sendJson(response, 400, { error: 'Field \"text\" is required and must be <= 300 chars.' });
+    return null;
+  }
+  if (!requestId || requestId.length > 200) {
+    sendJson(response, 400, { error: 'Field \"requestId\" is required and must be <= 200 chars.' });
+    return null;
+  }
+  if (alexaUserId.length > 300) {
+    sendJson(response, 400, { error: 'Field \"alexaUserId\" must be <= 300 chars.' });
+    return null;
+  }
+  if (processedAlexaRequestIds.has(requestId)) {
+    sendJson(response, 409, { error: 'Duplicate requestId.' });
+    return null;
+  }
+
+  return {
+    text,
+    requestId,
+    requestedAt: validIsoOrNow(body.requestedAt),
+    locale: String(body.locale || 'en-US').slice(0, 20),
+    timezone: String(body.timezone || 'UTC').slice(0, 80),
+    alexaUserId,
+    familyId: resolveAlexaFamilyId(alexaUserId),
+  };
+}
+
+async function createAlexaTask(alexaRequest) {
+  const assignees = await store.ensureDefaultTaskAssignees(alexaRequest.familyId);
+  const assigneeId = assignees[0]?.id;
+  if (!assigneeId) throw new Error('No task assignee available for Alexa integration.');
+  return store.createTask({
+    id: createId('task'),
+    familyId: alexaRequest.familyId,
+    title: alexaRequest.text,
+    assigneeId,
+    dueMode: 'asap',
+    dueDate: '',
+  });
+}
+
+async function createAlexaBabyLog(alexaRequest) {
+  const now = new Date(alexaRequest.requestedAt);
+  const scope = {
+    familyId: alexaRequest.familyId,
+    babyId: `${alexaRequest.familyId}-baby`,
+  };
+  const authorId = defaultAuthorId;
+  const rawLog = {
+    id: createId('rawlog'),
+    familyId: scope.familyId,
+    babyId: scope.babyId,
+    authorId,
+    rawText: alexaRequest.text,
+    inputAt: now.toISOString(),
+    timezone: alexaRequest.timezone || 'UTC',
+    inputSource: 'alexa',
+    parserMode: 'auto',
+  };
+  const result = await buildEventsForRawLog(rawLog, { now, scope, authorId });
+  if (result.status === 'needs_clarification') return result;
+  const { events, openSleep } = result;
+  const saved = await store.saveLogWithEvents(rawLog, events);
+  await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLog.id, action: 'add', actorId: authorId, message: `added Alexa baby record "${summarizeActionText(alexaRequest.text)}"`, metadata: { after: { rawLog: saved } } });
+  await markLinkedSleepStartsCompleted(events, openSleep);
+  return { rawLog: saved, events: saved.events };
+}
+
+function markAlexaRequestProcessed(requestId) {
+  processedAlexaRequestIds.add(requestId);
+  if (processedAlexaRequestIds.size > 5000) processedAlexaRequestIds.clear();
+}
+
+function classifyAlexaRecord(text) {
+  const normalized = String(text || '').toLowerCase();
+  const babyPatterns = [
+    /\b(formula|milk|breast\s*milk|bottle|milliliter|millilitre|ml|diaper|nappy|poop|pee|wet|dirty|nap|sleep|slept|wake|woke|solid|solids)\b/,
+    /분유|모유|우유|기저귀|응가|똥|오줌|낮잠|잠|깸|고구마|이유식/,
+  ];
+  return babyPatterns.some((pattern) => pattern.test(normalized)) ? 'baby_log' : 'task';
 }
 
 function resolveAlexaFamilyId(alexaUserId = '') {

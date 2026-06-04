@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 105](https://img.shields.io/badge/build-105-0066cc)
+![Build 106](https://img.shields.io/badge/build-106-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -90,9 +90,10 @@ Plan and track meals alongside baby/task workflows.
 
 ### 4) Alexa Interface (MVP)
 
-Capture voice task text through Alexa and forward it to Family Tracker via a secured server-to-server endpoint.
+Capture voice record text through Alexa and forward it to Family Tracker via a secured server-to-server endpoint.
 
-- Dedicated integration endpoint: `POST /api/integrations/alexa/task`
+- Unified record endpoint: `POST /api/integrations/alexa/record`
+- Task-only compatibility endpoint: `POST /api/integrations/alexa/task`
 - Lambda adapter example included at `integrations/alexa/lambda-handler.mjs`
 - Parsing/NLU remains inside Family Tracker domain pipeline
 
@@ -174,6 +175,8 @@ GET  /api/logs/today?range=recent24h&timezone=Area/City
 GET  /api/action-logs?module=baby|task
 POST /api/action-logs/:id/undo
 POST /api/logs
+POST /api/integrations/alexa/record
+POST /api/integrations/alexa/task
 POST /api/ask
 GET  /api/profile
 POST /api/profile

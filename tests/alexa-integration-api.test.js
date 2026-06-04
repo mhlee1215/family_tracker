@@ -106,11 +106,56 @@ test('Alexa integration endpoint falls back to test family and rejects duplicate
   assert.equal(duplicate.status, 409);
 });
 
+test('Alexa record endpoint routes formula speech to the baby log parser', async () => {
+  const response = await postAlexaRecord({
+    text: 'formula 60 milliliters',
+    requestId: 'record-baby-formula',
+    requestedAt: '2026-06-03T19:00:00.000Z',
+    timezone: 'America/Los_Angeles',
+    alexaUserId: mappedAlexaUserId,
+  });
+
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.ok, true);
+  assert.equal(response.body.kind, 'baby_log');
+  assert.equal(response.body.rawLog.rawText, 'formula 60 milliliters');
+  assert.equal(response.body.rawLog.familyId, mappedFamilyId);
+  assert.equal(response.body.rawLog.babyId, `${mappedFamilyId}-baby`);
+  assert.equal(response.body.events.length, 1);
+  assert.equal(response.body.events[0].type, 'feeding_milk');
+  assert.equal(response.body.events[0].rawText, 'formula 60 milliliters');
+});
+
+test('Alexa record endpoint falls back to task creation for household speech', async () => {
+  const response = await postAlexaRecord({
+    text: 'clean the restroom by tomorrow',
+    requestId: 'record-household-task',
+    requestedAt: '2026-06-03T19:05:00.000Z',
+    timezone: 'America/Los_Angeles',
+    alexaUserId: mappedAlexaUserId,
+  });
+
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.ok, true);
+  assert.equal(response.body.kind, 'task');
+  assert.equal(response.body.task.title, 'clean the restroom by tomorrow');
+  assert.equal(response.body.task.familyId, mappedFamilyId);
+  assert.equal(response.body.task.dueMode, 'asap');
+});
+
 async function postAlexaTask(payload, options = {}) {
+  return postAlexaIntegration('/api/integrations/alexa/task', payload, options);
+}
+
+async function postAlexaRecord(payload, options = {}) {
+  return postAlexaIntegration('/api/integrations/alexa/record', payload, options);
+}
+
+async function postAlexaIntegration(path, payload, options = {}) {
   const token = options.token === undefined ? testToken : options.token;
   const headers = { 'content-type': 'application/json' };
   if (token) headers.authorization = `Bearer ${token}`;
-  const response = await fetch(`${baseUrl}/api/integrations/alexa/task`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
