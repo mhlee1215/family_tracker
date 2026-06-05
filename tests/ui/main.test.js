@@ -678,6 +678,8 @@ describe('app/main', () => {
     expect(document.querySelector('#log-input').disabled).toBe(true);
     expect(document.querySelector('#log-input').value).toBe('');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '95 ml')).toBe(true);
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '105 ml')).toBe(false);
 
     fireEvent.click(document.querySelector('#reset-log-form'));
     expect(document.querySelector('#log-input').disabled).toBe(false);
