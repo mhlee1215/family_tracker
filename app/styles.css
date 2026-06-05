@@ -1694,6 +1694,11 @@ label {
   content: "";
 }
 
+.input-panel.quick-log-active .quick-actions::before {
+  border-width: 2px;
+  border-color: var(--primary);
+}
+
 .quick-actions::after {
   position: absolute;
   z-index: 4;

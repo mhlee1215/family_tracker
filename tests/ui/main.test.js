@@ -664,6 +664,7 @@ describe('app/main', () => {
 
     fireEvent.input(document.querySelector('#log-input'), { target: { value: 'manual note' } });
     expect(document.querySelector('#quick-actions').getAttribute('aria-disabled')).toBe('true');
+    expect(document.querySelector('#log-form').classList.contains('quick-log-active')).toBe(false);
     expect([...document.querySelectorAll('#quick-actions button')].every((button) => button.disabled)).toBe(true);
 
     fireEvent.click(document.querySelector('#reset-log-form'));
@@ -671,6 +672,7 @@ describe('app/main', () => {
     expect([...document.querySelectorAll('.quick-picker-activity .quick-action-button')].every((button) => button.disabled)).toBe(false);
 
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
+    expect(document.querySelector('#log-form').classList.contains('quick-log-active')).toBe(true);
     expect(document.querySelector('#log-input').value).toBe('');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);
 
