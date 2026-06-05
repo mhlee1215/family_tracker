@@ -1748,7 +1748,10 @@ function normalizeQuickMilkAmount(value) {
 function quickMilkAmountOptions() {
   const selected = state.quickLog.amountMl || defaultQuickMilkAmountMl();
   const values = new Set();
-  for (let amount = 30; amount <= 240; amount += 10) values.add(amount);
+  for (let amount = 30; amount <= 240; ) {
+    values.add(amount);
+    amount += amount < 100 ? 5 : 10;
+  }
   values.add(selected);
   return [...values].sort((a, b) => a - b);
 }
