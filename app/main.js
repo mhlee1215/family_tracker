@@ -1707,7 +1707,12 @@ function currentRecordSubmission() {
 function updateRecordInputMode() {
   if (!elements.quickActions) return;
   const textMode = isTextRecordMode();
-  elements.logForm?.classList.toggle('quick-log-active', !textMode && Boolean(state.quickLog.active));
+  const quickMode = !textMode && Boolean(state.quickLog.active);
+  elements.logForm?.classList.toggle('quick-log-active', quickMode);
+  if (elements.logInput) elements.logInput.disabled = quickMode;
+  elements.recentActions?.querySelectorAll('button').forEach((button) => {
+    button.disabled = quickMode;
+  });
   elements.quickActions.classList.toggle('quick-actions-disabled', textMode);
   elements.quickActions.setAttribute('aria-disabled', String(textMode));
   elements.quickActions.querySelectorAll('.quick-wheel-shell').forEach((shell) => {
