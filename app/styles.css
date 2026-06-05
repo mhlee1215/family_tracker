@@ -1558,7 +1558,7 @@ input {
 
 .input-panel {
   background: var(--canvas);
-  padding: 72px min(80px, 7vw) 32px;
+  padding: 24px min(80px, 7vw) 24px;
 }
 
 .timeline-section {
@@ -2524,7 +2524,7 @@ label {
   .timeline-section,
   .ask-panel,
   .task-section {
-    padding: 48px 16px 24px;
+    padding: 32px 16px 24px;
   }
 
   .record-secondary-actions {
