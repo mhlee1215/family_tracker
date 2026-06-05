@@ -1578,7 +1578,11 @@ function selectQuickLogActivity(value, options = {}) {
   activateQuickLogPicker({ updateText: false });
   state.quickLog.actionValue = value;
   updateQuickLogTextFromPicker();
-  renderQuickActions();
+  const action = currentQuickLogAction();
+  updateQuickWheelPressedState('activity', value);
+  updateQuickLogAmountState(action);
+  updateRecordInputMode();
+  if (!options.fromWheel) quickWheelInstances.get('activity')?.wheelTo?.(quickActionValues().indexOf(value), 180);
 }
 
 function selectQuickLogAmount(amount, options = {}) {
@@ -1606,6 +1610,27 @@ function currentQuickLogAction() {
   return copy.quickActions
     .map((item) => resolveSleepAction(item, currentOpenSleep()))
     .find((item) => item.value === state.quickLog.actionValue);
+}
+
+function quickActionValues() {
+  return [...elements.quickActions?.querySelectorAll('.quick-picker-activity button') || []]
+    .map((button) => button.dataset.value);
+}
+
+function updateQuickLogAmountState(action) {
+  const shell = elements.quickActions?.querySelector('[data-wheel="amount"]');
+  if (!shell) return;
+  const enabled = Boolean(action?.amountEnabled);
+  const selectedAmount = String(state.quickLog.amountMl || defaultQuickMilkAmountMl());
+  shell.setAttribute('aria-disabled', String(!enabled));
+  shell.querySelectorAll('button').forEach((button) => {
+    const selected = enabled && button.dataset.value === selectedAmount;
+    button.disabled = !enabled || isTextRecordMode();
+    button.setAttribute('aria-pressed', String(selected));
+    button.closest('.quick-wheel-item')?.classList.toggle('selected', selected);
+  });
+  if (enabled && !isTextRecordMode()) quickWheelInstances.get('amount')?.enable?.();
+  else quickWheelInstances.get('amount')?.disable?.();
 }
 
 function updateQuickWheelPressedState(kind, value) {

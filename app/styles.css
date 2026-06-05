@@ -1681,6 +1681,11 @@ label {
   opacity: 0.34;
 }
 
+.quick-actions[aria-disabled="true"]::before {
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--primary) 14%, var(--hairline));
+}
+
 .quick-actions::before {
   position: absolute;
   z-index: 6;
@@ -1850,6 +1855,15 @@ label {
   line-height: 1.15;
   padding: 7px 10px;
   text-align: center;
+}
+
+.quick-actions[aria-disabled="true"] .quick-action-button[aria-pressed="true"],
+.quick-actions[aria-disabled="true"] .quick-value-option[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--surface-pearl) 70%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hairline) 72%, transparent);
+  color: var(--ink-muted-48);
+  opacity: 0.72;
+  -webkit-text-fill-color: var(--ink-muted-48);
 }
 
 .quick-wheel-shell[aria-disabled="true"] .quick-value-option {

@@ -676,12 +676,20 @@ describe('app/main', () => {
     expect(document.querySelector('#log-input').value).toBe('');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);
 
+    fireEvent.input(document.querySelector('#log-input'), { target: { value: 'manual after shortcut' } });
+    expect(document.querySelector('#quick-actions').getAttribute('aria-disabled')).toBe('true');
+    expect(document.querySelector('#log-form').classList.contains('quick-log-active')).toBe(false);
+
+    fireEvent.click(document.querySelector('#reset-log-form'));
+    fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
+    const timeColumn = document.querySelector('.quick-picker-time');
     const timeOptions = [...document.querySelectorAll('.quick-picker-time .quick-value-option')];
     fireEvent.click(timeOptions[timeOptions.length - 2]);
     expect(document.querySelector('#log-input').value).toBe('');
 
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Diaper - pee')));
     expect(document.querySelector('#log-input').value).toBe('');
+    expect(document.querySelector('.quick-picker-time')).toBe(timeColumn);
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].every((button) => button.disabled)).toBe(true);
 
     fireEvent.click(document.querySelector('#reset-log-form'));
