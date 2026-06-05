@@ -1641,6 +1641,13 @@ label {
   display: grid;
   align-content: center;
   gap: 12px;
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+.input-panel.quick-log-active .record-entry-section {
+  cursor: not-allowed;
+  filter: saturate(0.2);
+  opacity: 0.34;
 }
 
 .recent-actions {
@@ -1681,27 +1688,8 @@ label {
   opacity: 0.34;
 }
 
-.quick-actions[aria-disabled="true"]::before {
-  border-width: 1px;
-  border-color: color-mix(in srgb, var(--primary) 14%, var(--hairline));
-}
-
 .quick-actions::before {
-  position: absolute;
-  z-index: 6;
-  inset: 50% 8px auto;
-  height: 52px;
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--hairline));
-  border-radius: 9999px;
-  background: transparent;
-  transform: translateY(-50%);
-  pointer-events: none;
-  content: "";
-}
-
-.input-panel.quick-log-active .quick-actions::before {
-  border-width: 2px;
-  border-color: var(--primary);
+  display: none;
 }
 
 .quick-actions::after {
