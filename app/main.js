@@ -400,6 +400,10 @@ elements.logInput?.addEventListener('input', () => {
   updateRecordInputMode();
 });
 
+elements.quickActions?.addEventListener('pointerdown', () => {
+  activateQuickLogPicker();
+});
+
 elements.resetLogForm?.addEventListener('click', () => {
   resetQuickLogPicker();
 });
@@ -1571,8 +1575,8 @@ function destroyQuickWheelInstances() {
 
 function selectQuickLogActivity(value, options = {}) {
   if (state.quickLog.actionValue === value && options.fromWheel) return;
+  activateQuickLogPicker({ updateText: false });
   state.quickLog.actionValue = value;
-  state.quickLog.active = true;
   updateQuickLogTextFromPicker();
   renderQuickActions();
 }
@@ -1581,7 +1585,7 @@ function selectQuickLogAmount(amount, options = {}) {
   const action = currentQuickLogAction();
   if (!action?.amountEnabled) return;
   state.quickLog.amountMl = amount;
-  state.quickLog.active = true;
+  activateQuickLogPicker({ updateText: false });
   localStorage.setItem(storageKeys.quickMilkAmountMl, String(amount));
   updateQuickLogTextFromPicker();
   updateQuickWheelPressedState('amount', String(amount));
@@ -1591,7 +1595,7 @@ function selectQuickLogAmount(amount, options = {}) {
 
 function selectQuickLogTime(minutes, options = {}) {
   state.quickLog.offsetMinutes = minutes;
-  state.quickLog.active = true;
+  activateQuickLogPicker({ updateText: false });
   updateQuickLogTextFromPicker();
   updateQuickWheelPressedState('time', String(minutes));
   updateRecordInputMode();
@@ -1655,6 +1659,13 @@ function updateQuickLogTextFromPicker() {
   updateRecordInputMode();
 }
 
+function activateQuickLogPicker(options = {}) {
+  if (isTextRecordMode() || !currentQuickLogAction()) return;
+  state.quickLog.active = true;
+  if (options.updateText !== false) updateQuickLogTextFromPicker();
+  else updateRecordInputMode();
+}
+
 function isTextRecordMode() {
   return Boolean(elements.logInput?.value.trim());
 }
@@ -1671,6 +1682,7 @@ function currentRecordSubmission() {
 function updateRecordInputMode() {
   if (!elements.quickActions) return;
   const textMode = isTextRecordMode();
+  elements.logForm?.classList.toggle('quick-log-active', !textMode && Boolean(state.quickLog.active));
   elements.quickActions.classList.toggle('quick-actions-disabled', textMode);
   elements.quickActions.setAttribute('aria-disabled', String(textMode));
   elements.quickActions.querySelectorAll('.quick-wheel-shell').forEach((shell) => {
