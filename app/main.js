@@ -238,6 +238,7 @@ const elements = {
   llmProviderList: $('#llm-provider-list'),
   llmProviderStatus: $('#llm-provider-status'),
   authPanel: $('#auth-panel'),
+  authActionsPanel: $('#auth-actions-panel'),
   accountPanel: $('#account-panel'),
   accountLabel: $('#account-label'),
   workspace: $('#workspace'),
@@ -362,7 +363,16 @@ function handleMenuToggleClick() {
   setMenuOpen(elements.menuPanel.classList.contains('hidden'));
 }
 
-elements.menuToggle?.addEventListener('click', handleMenuToggleClick);
+elements.menuToggle?.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  handleMenuToggleClick();
+});
+elements.menuToggle?.addEventListener('keydown', (event) => {
+  if (!['Enter', ' '].includes(event.key)) return;
+  event.preventDefault();
+  handleMenuToggleClick();
+});
 
 await initializeApp();
 window.setInterval(() => renderCareForecast(), 60_000);
@@ -1302,6 +1312,7 @@ function setTaskComposerOpen(open) {
 
 function renderAuthState() {
   elements.authPanel.classList.toggle('hidden', Boolean(state.user));
+  elements.authActionsPanel.classList.toggle('hidden', Boolean(state.user));
   elements.accountPanel.classList.toggle('hidden', !state.user);
   elements.devLogin.classList.toggle('hidden', Boolean(state.user));
   elements.workspace.classList.toggle('disabled', !state.user);

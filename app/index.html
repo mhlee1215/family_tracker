@@ -27,8 +27,6 @@
         <div class="top-actions">
           <section id="auth-panel" class="auth-panel hidden" aria-live="polite">
             <span>Sign in required</span>
-            <a id="google-login" class="button-link compact-button" href="/api/auth/google/start">Google</a>
-            <button id="dev-login" type="button" class="ghost-button compact-button">Admin dev</button>
           </section>
 
           <div class="top-menu">
@@ -42,6 +40,11 @@
               <section id="account-panel" class="account-panel hidden" aria-live="polite">
                 <span id="account-label"></span>
                 <button id="logout" type="button" class="ghost-button menu-action">Log out</button>
+              </section>
+              <section id="auth-actions-panel" class="account-panel hidden" aria-live="polite">
+                <span>Choose sign in</span>
+                <a id="google-login" class="button-link menu-action" href="/api/auth/google/start">Google</a>
+                <button id="dev-login" type="button" class="ghost-button menu-action">Admin dev</button>
               </section>
 
               <section class="settings-block">

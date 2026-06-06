@@ -46,6 +46,9 @@ describe('app/main', () => {
     const authPanel = document.querySelector('#auth-panel');
 
     expect(authPanel.classList.contains('hidden')).toBe(false);
+    expect(authPanel.querySelector('#google-login')).toBeNull();
+    expect(authPanel.querySelector('#dev-login')).toBeNull();
+    expect(document.querySelector('#auth-actions-panel').classList.contains('hidden')).toBe(false);
     expect(document.querySelector('#google-login').classList.contains('hidden')).toBe(false);
     expect(document.querySelector('#dev-login').classList.contains('hidden')).toBe(false);
   });
