@@ -46,6 +46,8 @@ describe('app/main', () => {
     const authPanel = document.querySelector('#auth-panel');
 
     expect(authPanel.classList.contains('hidden')).toBe(false);
+    expect(document.querySelector('#google-login').classList.contains('hidden')).toBe(false);
+    expect(document.querySelector('#dev-login').classList.contains('hidden')).toBe(false);
   });
 
   it('shows a whole-page loading mark while initial family data is loading', async () => {
