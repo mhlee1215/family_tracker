@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const serverSource = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+const serverSource = readFileSync(new URL('../src/server/api/handler.js', import.meta.url), 'utf8');
 const clientSource = readFileSync(new URL('../app/main.js', import.meta.url), 'utf8');
 
 test('server exposes only public media storage config and keeps R2 secrets server-side', () => {

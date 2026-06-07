@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "npm run sync:build && node scripts/start-server.js",
-    "test": "npm run test:node",
+    "pages:build": "node scripts/sync-build-metadata.js && node scripts/build-cloudflare-pages.js",
+    "pages:dev": "node scripts/sync-build-metadata.js && node scripts/build-cloudflare-pages.js && wrangler pages dev .cloudflare-pages --compatibility-date=2026-06-07 --compatibility-flag=nodejs_compat",
+    "test": "node --test tests/*.test.js",
     "check:turso": "node scripts/check-turso.js",
     "check:r2": "node scripts/check-r2-config.js",
     "seed:turso:tasks": "node scripts/reset-seed-tasks.js",
@@ -22,7 +24,7 @@
     "test:watch": "vitest",
     "test:node": "node --test tests/*.test.js",
     "test:ui": "vitest run tests/ui/main.test.js",
-    "test:ci": "npm run test:node && npm run test:ui"
+    "test:ci": "node --test tests/*.test.js && vitest run tests/ui/main.test.js"
   },
   "dependencies": {
     "@better-scroll/core": "^2.5.1",
@@ -37,6 +39,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/user-event": "^14.6.1",
     "happy-dom": "^20.9.0",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "wrangler": "^4.98.0"
   }
 }

@@ -14,6 +14,12 @@ src/domain/
 src/server/db/
   SQLite-backed local persistence for profiles, raw records, structured events, and module action logs.
 
+src/server/api/
+  Shared Web/API request handling used by the Node development server and Cloudflare Pages Functions.
+
+functions/
+  Cloudflare Pages Functions entry points for hosted `/api/*` routes.
+
 tests/
   Unit tests for product logic and persistence hydration.
 ```
@@ -30,6 +36,14 @@ postgres-baby-store.js later
 ```
 
 ## Cloud Path
+
+Cloudflare Pages is the preferred serverless hosting path. Static browser assets are served from `app/`.
+The catch-all Pages Function at `functions/api/[[path]].js` forwards `/api/*` requests into the shared
+API handler in `src/server/api/handler.js`, while `server.js` keeps the same handler available for the
+Node local server.
+
+Hosted Cloudflare Pages deployments must use Turso for persistence. SQLite is retained for local Node
+development and automated tests, but it is not a Cloudflare runtime backend.
 
 Action logs store add/edit/delete/complete transactions separately from baby records and task records so user-facing records remain distinct from provenance/audit history. Undoable actions keep server-side before/after snapshots so an action can be reversed without exposing snapshot payloads to browser clients.
 
@@ -66,4 +80,3 @@ The log route uses the server-side provider abstraction when a non-mock provider
 1. Web/PWA first.
 2. Add cloud auth and sync.
 3. Wrap the same web app with Capacitor for iOS and Android when native distribution, push notifications, camera, or voice integrations become useful.
-

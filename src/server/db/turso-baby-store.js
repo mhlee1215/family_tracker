@@ -1,3 +1,5 @@
+import { createClient as createNodeClient } from '@libsql/client';
+import { createClient as createWebClient } from '@libsql/client/web';
 import { parseEvent, serializeEvent } from '../../domain/baby-events.js';
 import { createDefaultProfile, defaultBabyId, defaultFamilyId } from '../../domain/profile-defaults.js';
 import { localDateKeyFromIso, utcRangeForLocalDay } from '../../utils/time.js';
@@ -10,7 +12,7 @@ const currentDevAdminBabyId = 'family-admin-dev-baby';
 export class TursoBabyStore {
   static async create(options = {}) {
     if (!options.url) throw new Error('TURSO_DATABASE_URL is required.');
-    const { createClient } = await import(resolveLibsqlClientModule(options.url));
+    const createClient = resolveLibsqlClient(options.url);
     const store = new TursoBabyStore(createClient({
       url: options.url,
       authToken: options.authToken,
@@ -840,9 +842,9 @@ function maxIsoValue(values = []) {
   return values.filter(Boolean).sort().at(-1) || '';
 }
 
-function resolveLibsqlClientModule(url = '') {
-  if (/^(libsql|https?):\/\//.test(url)) return '@libsql/client/web';
-  return '@libsql/client';
+function resolveLibsqlClient(url = '') {
+  if (/^(libsql|https?):\/\//.test(url)) return createWebClient;
+  return createNodeClient;
 }
 
 function rowToProfile(row) {
