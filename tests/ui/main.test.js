@@ -146,6 +146,48 @@ describe('app/main', () => {
     expect(document.querySelector('#home-view').classList.contains('active')).toBe(true);
   });
 
+  it('refreshes visible home baby data immediately after saving a baby log', async () => {
+    localStorage.setItem('familyTracker.activeTab', 'home');
+    let saved = false;
+    const savedEvent = {
+      id: 'event-home-save',
+      type: 'feeding_milk',
+      rawText: 'formula from home',
+      occurredAt: { value: new Date().toISOString() },
+      amountMl: { value: 90 },
+    };
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.endsWith('/api/task-assignees')) return new Response(JSON.stringify({ assignees: [] }), { status: 200 });
+      if (url.startsWith('/api/tasks/today')) return new Response(JSON.stringify({ tasks: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({ events: saved ? [savedEvent] : [], summary: {}, context: {} }), { status: 200 });
+      }
+      if (url === '/api/logs' && init.method === 'POST') {
+        saved = true;
+        return new Response(JSON.stringify({ events: [savedEvent] }), { status: 200 });
+      }
+      if (url.startsWith('/api/sync/state')) {
+        return new Response(JSON.stringify({ modules: { baby: { version: 'b1' }, task: { version: 't1' }, profile: { version: 'p1' } } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=home-baby-save-refresh');
+    await vi.waitFor(() => expect(document.querySelector('.home-card-baby h3').textContent).toBe('0 logs'));
+
+    fireEvent.input(document.querySelector('#log-input'), { target: { value: 'formula from home' } });
+    fireEvent.submit(document.querySelector('#log-form'));
+
+    await vi.waitFor(() => expect(document.querySelector('#answer').textContent).toBe('1 log saved'));
+    expect(document.querySelector('.home-card-baby h3').textContent).toBe('1 logs');
+    expect(document.querySelector('.home-card-baby').textContent).toContain('Formula');
+  });
+
 
 
   it('changes the shared day from the home dashboard controls', async () => {

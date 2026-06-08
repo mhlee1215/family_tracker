@@ -760,6 +760,7 @@ async function loadToday(options = {}) {
   seedSelectedDayPattern();
   seedCareForecastHistory();
   renderBaby();
+  if (state.activeTab === 'home') renderHomeDashboard();
   if (includeSecondary) {
     loadBabyPatterns();
     loadCareForecastHistory();
@@ -4379,6 +4380,7 @@ async function refreshChangedModules(changedModules = []) {
     jobs.push(loadTaskData());
   }
   if (jobs.length) await Promise.all(jobs);
+  if (state.activeTab === 'home') renderHomeDashboard();
 }
 
 function setupPullToRefresh() {
@@ -4932,6 +4934,7 @@ async function refreshActiveTab(options = {}) {
     jobs.push(loadTaskData(loadOptions));
   }
   if (jobs.length) await Promise.all(jobs);
+  if (state.activeTab === 'home') renderHomeDashboard();
   loadVisibleBabyPanelData();
   loadVisibleTaskPanelData();
   if (options.updateSync !== false) await updateRemoteSyncBaseline();
