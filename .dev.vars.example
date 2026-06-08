@@ -1,0 +1,6 @@
+DATABASE_PROVIDER=turso
+TURSO_DATABASE_URL=libsql://example.turso.io
+TURSO_AUTH_TOKEN=replace-with-local-dev-token
+MEDIA_STORAGE_PROVIDER=local
+LLM_PROVIDER=mock
+APP_BASE_URL=http://127.0.0.1:8788

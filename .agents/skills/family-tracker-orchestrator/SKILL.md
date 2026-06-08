@@ -88,6 +88,9 @@ description: Family Tracker 전용 라우팅 허브로 기존 skills/ 하네스 
 - 이 저장소의 기본 실행 경로는 현재 환경의 Turso 설정에서도 실패하지 않아야 한다.
 - `npm start`는 `scripts/start-server.js`를 통해 실행되어야 하며, Turso 모드(`DATABASE_PROVIDER=turso` 또는 `TURSO_DATABASE_URL` 존재)에서는 Node를 `--use-env-proxy` 및 `--dns-result-order=ipv4first`로 재실행해야 한다.
 - Turso 연결/실행 정책을 변경하면 `npm run check:turso`와 `npm start`를 함께 검증하고 결과를 최종 보고에 남긴다.
+- Cloudflare Pages 경로는 `functions/api/[[path]].js`에서 `src/server/api/handler.js`의 공유 API 핸들러를 호출해야 한다. Node 로컬 서버와 Pages Functions가 API 로직을 따로 복제하지 않도록 유지한다.
+- Cloudflare Pages production/preview 런타임은 Turso 전용이다. SQLite는 Node 로컬 개발과 자동 테스트에만 사용한다.
+- Pages 로컬 런타임 검증은 `.dev.vars`를 사용해 secrets를 주입하고 `npm run pages:dev`로 수행한다. `.dev.vars`는 절대 커밋하지 않는다.
 
 
 ## Scenario Test Policy

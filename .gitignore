@@ -1,4 +1,7 @@
 .env
+.dev.vars
+.cloudflare-pages/
+.wrangler/
 .family-tracker/
 node_modules/
 .tools/

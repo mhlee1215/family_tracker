@@ -1,17 +1,17 @@
-import { SQLiteBabyStore } from './sqlite-baby-store.js';
-import { TursoBabyStore } from './turso-baby-store.js';
-
 export async function createBabyStore() {
   const config = getStorageConfig();
   if (config.provider === 'turso') {
     if (!config.configured) {
       throw new Error(`Turso storage is missing environment variable(s): ${config.missing.join(', ')}`);
     }
+    const { TursoBabyStore } = await import('./turso-baby-store.js');
     return TursoBabyStore.create({
       url: process.env.TURSO_DATABASE_URL,
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
   }
+  const sqliteStoreModule = './sqlite-baby-store.js';
+  const { SQLiteBabyStore } = await import(sqliteStoreModule);
   return new SQLiteBabyStore();
 }
 

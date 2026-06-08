@@ -1,0 +1,8 @@
+name = "family-tracker"
+compatibility_date = "2026-06-07"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".cloudflare-pages"
+
+[vars]
+DATABASE_PROVIDER = "turso"
+MEDIA_STORAGE_PROVIDER = "local"

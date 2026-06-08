@@ -14,6 +14,7 @@ Changes to SQLite/Turso adapters, persistence schema, hydration, or sync path.
 ## Rules
 - Preserve local-first behavior.
 - Keep server-store interface stable so backend can change without UI rewrite.
+- Keep `src/server/db/store-factory.js` provider imports lazy so Cloudflare Pages/Turso runtimes do not import the SQLite `node:sqlite` module.
 - Preserve `family_id`, `baby_id`, `author_id` boundaries.
 - Never print or commit tokens/secrets.
 - Use `npm run check:turso` for Turso credential/connectivity checks.
@@ -25,6 +26,7 @@ Changes to SQLite/Turso adapters, persistence schema, hydration, or sync path.
 - Verify family/baby/author scoping in queries.
 - Verify SQLite/Turso parity for changed behavior.
 - For Turso runtime/startup changes, run `npm run check:turso` and verify `npm start` reaches `Storage provider: turso`.
+- For Cloudflare Pages runtime changes, verify `npm run pages:dev` with `.dev.vars` and Turso configuration.
 - Add/update persistence tests.
 
 ## When to update this skill

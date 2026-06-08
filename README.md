@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 123](https://img.shields.io/badge/build-123-0066cc)
+![Build 124](https://img.shields.io/badge/build-124-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -11,7 +11,7 @@ It supports three everyday workflows with low-friction logging and review:
 - **Home dashboard** (landing summary for today across Baby, Task, and Meal)
 - **Shared daily context** (Home, Baby, Task, and Meal views stay on the same selected day)
 
-Live app: <https://family-tracker-fex9.onrender.com/>
+Live app: <https://family-tracker-9f9.pages.dev/>
 
 ---
 
@@ -148,7 +148,7 @@ npm run test:unit
 
 ## Turso Sync
 
-Set these values in `.env` locally and in Render environment variables:
+Set these values in `.env` locally and in Render or Cloudflare Pages environment variables:
 
 ```text
 DATABASE_PROVIDER=turso
@@ -191,11 +191,41 @@ timestamps remain UTC ISO instants.
 
 ## CI/CD & Integrations
 
-Pipeline automation exists for GitHub, Render, and Slack while keeping secrets outside the repo.
+Pipeline automation exists for GitHub, Render, Cloudflare Pages, and Slack while keeping secrets outside the repo.
 
 - GitHub CI: `.github/workflows/ci.yml`
 - Render blueprint: `render.yaml`
+- Cloudflare Pages config: `wrangler.toml`
 - Slack task intake bot: `slack-codex-bot/`
+
+Cloudflare Pages serves static files from `app/` and routes `/api/*` through
+`functions/api/[[path]].js`, which calls the shared API handler in
+`src/server/api/handler.js`. Production Cloudflare deployments must use Turso;
+SQLite remains a Node-local development and test backend.
+
+Local Cloudflare Pages runtime smoke:
+
+```bash
+cp .env .dev.vars # local only; never commit .dev.vars
+npm run pages:dev
+```
+
+Required Cloudflare Pages environment variables:
+
+```text
+DATABASE_PROVIDER=turso
+TURSO_DATABASE_URL
+TURSO_AUTH_TOKEN
+LLM_PROVIDER=mock # or openai/mistral
+LLM_MODEL
+OPENAI_MODEL
+MISTRAL_MODEL
+OPENAI_API_KEY
+MISTRAL_API_KEY
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+APP_BASE_URL=https://family-tracker-9f9.pages.dev
+```
 
 Render should be connected to `mhlee1215/family_tracker` with `autoDeploy` enabled.
 Set runtime secrets in the Render dashboard:
