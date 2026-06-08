@@ -154,6 +154,16 @@ const state = {
   syncVersions: null,
   syncCheckInFlight: false,
   syncLastCheckedAt: 0,
+  deferredLoaded: {
+    babyRecent24: false,
+    babyActionLog: false,
+    babyPatterns: false,
+    babyForecast: false,
+    taskOverview: false,
+    taskSummary: false,
+    taskActionLog: false,
+    taskCalendar: false,
+  },
   pullRefresh: { active: false, ready: false, refreshing: false, startY: 0, distance: 0 },
 };
 
@@ -559,8 +569,9 @@ elements.babyStatusRange?.addEventListener('click', (event) => {
 });
 
 elements.summaryPeriod?.addEventListener('change', () => {
+  state.deferredLoaded.taskSummary = false;
   syncUrlForTab(state.activeTab, { pushHistory: true });
-  loadTaskData();
+  refreshActiveTab();
 });
 elements.mealDayPicker?.addEventListener('change', () => setSelectedDay(elements.mealDayPicker.value, { pushHistory: true }));
 elements.taskDueMode?.addEventListener('change', renderTaskComposerDueState);
@@ -644,6 +655,7 @@ window.addEventListener('popstate', () => {
   const periodChanged = nextPeriod !== (elements.summaryPeriod?.value || 'week');
 
   state.selectedDay = nextDay;
+  if (dayChanged || periodChanged) invalidateDeferredForCurrentDate();
   if (elements.summaryPeriod) elements.summaryPeriod.value = nextPeriod;
   renderSharedDayControls();
 
@@ -718,32 +730,63 @@ function formatClarificationMessage(payload = {}) {
   return parts.join('\n');
 }
 
-async function loadToday() {
+async function loadToday(options = {}) {
+  const includeSecondary = options.includeSecondary !== false;
+  const includeRecent = includeSecondary || state.babyStatusRange === 'recent24h';
   const params = new URLSearchParams({ day: state.selectedDay, timezone: localTimezone() });
   const recentParams = new URLSearchParams({ range: 'recent24h', timezone: localTimezone() });
-  const [response, recentResponse, actionLogResponse] = await Promise.all([
+  const [response, recentResponse] = await Promise.all([
     fetch(`/api/logs/today?${params.toString()}`),
-    fetch(`/api/logs/today?${recentParams.toString()}`),
-    fetch('/api/action-logs?module=baby&limit=30'),
+    includeRecent ? fetch(`/api/logs/today?${recentParams.toString()}`) : Promise.resolve(null),
   ]);
   const payload = await response.json();
-  const recentPayload = await recentResponse.json().catch(() => ({}));
-  const actionLogPayload = await actionLogResponse.json().catch(() => ({}));
+  const recentPayload = recentResponse ? await recentResponse.json().catch(() => ({})) : {};
   if (handleAuthFailure(response)) return;
   state.events = payload.events || [];
   state.summary = payload.summary || buildTodaySummary(state.events);
-  state.babyActionLog = actionLogResponse.ok ? actionLogPayload.logs || [] : [];
   state.todayContext = payload.context || buildClientTodayContext(state.events);
-  state.recent24Events = recentResponse.ok ? recentPayload.events || [] : [];
-  state.recent24Summary = recentResponse.ok ? recentPayload.summary || null : null;
-  state.recent24Context = recentResponse.ok ? recentPayload.context || null : null;
-  await loadPreviousBabyDay();
+  if (recentResponse?.ok) {
+    state.recent24Events = recentPayload.events || [];
+    state.recent24Summary = recentPayload.summary || null;
+    state.recent24Context = recentPayload.context || null;
+    state.deferredLoaded.babyRecent24 = true;
+  }
+  if (includeSecondary) {
+    await Promise.all([loadPreviousBabyDay(), loadBabyActionLog()]);
+  } else {
+    queuePreviousBabyDay();
+  }
   hydrateRecent24StatusFallback();
   seedSelectedDayPattern();
   seedCareForecastHistory();
   renderBaby();
-  loadBabyPatterns();
-  loadCareForecastHistory();
+  if (includeSecondary) {
+    loadBabyPatterns();
+    loadCareForecastHistory();
+  }
+}
+
+async function loadBabyActionLog() {
+  const response = await fetch('/api/action-logs?module=baby&limit=30');
+  const payload = await response.json().catch(() => ({}));
+  if (handleAuthFailure(response)) return;
+  state.babyActionLog = response.ok ? payload.logs || [] : [];
+  state.deferredLoaded.babyActionLog = response.ok;
+  renderActionLog(elements.babyActionLog, state.babyActionLog, 'No baby actions yet.');
+}
+
+async function loadRecent24BabyStatus() {
+  const params = new URLSearchParams({ range: 'recent24h', timezone: localTimezone() });
+  const response = await fetch(`/api/logs/today?${params.toString()}`);
+  const payload = await response.json().catch(() => ({}));
+  if (handleAuthFailure(response)) return;
+  if (!response.ok) return;
+  state.recent24Events = payload.events || [];
+  state.recent24Summary = payload.summary || null;
+  state.recent24Context = payload.context || null;
+  state.deferredLoaded.babyRecent24 = true;
+  renderSummary();
+  renderTodayContext();
 }
 
 async function loadPreviousBabyDay() {
@@ -759,6 +802,17 @@ async function loadPreviousBabyDay() {
     state.previousEvents = [];
     state.previousSummary = null;
   }
+}
+
+function queuePreviousBabyDay() {
+  loadPreviousBabyDay()
+    .then(() => {
+      hydrateRecent24StatusFallback();
+      renderFeedingGuidance();
+      renderSummary();
+      renderTodayContext();
+    })
+    .catch(() => {});
 }
 
 async function loadBabyProfile() {
@@ -804,31 +858,51 @@ async function saveBabyProfile() {
   setBabyPanel(null);
 }
 
-async function loadTaskData() {
+async function loadTaskData(options = {}) {
+  const includeSecondary = options.includeSecondary !== false;
   await loadAssignees();
   const timezone = localTimezone();
   const params = new URLSearchParams({ day: state.selectedDay, timezone });
-  const timezoneParams = new URLSearchParams({ timezone });
-  const period = elements.summaryPeriod?.value || 'week';
-  const summaryParams = new URLSearchParams({ period, day: state.selectedDay, timezone });
-  const [todayResponse, overviewResponse, summaryResponse, actionLogResponse] = await Promise.all([
-    fetch(`/api/tasks/today?${params.toString()}`),
-    fetch(`/api/tasks/overview?${timezoneParams.toString()}`),
-    fetch(`/api/events/summary?${summaryParams.toString()}`),
-    fetch('/api/action-logs?module=task&limit=30'),
-  ]);
+  const todayResponse = await fetch(`/api/tasks/today?${params.toString()}`);
   const todayPayload = await todayResponse.json();
-  const overviewPayload = await overviewResponse.json();
-  const summaryPayload = await summaryResponse.json();
-  const actionLogPayload = await actionLogResponse.json().catch(() => ({}));
   if (handleAuthFailure(todayResponse)) return;
   state.tasks = todayPayload.tasks || [];
-  state.taskOverview = overviewPayload.tasks || [];
-  state.eventSummary = summaryPayload.summary || null;
-  state.taskActionLog = actionLogResponse.ok ? actionLogPayload.logs || [] : [];
   if (!state.taskCalendarMonth) state.taskCalendarMonth = state.selectedDay.slice(0, 7);
-  await loadTaskCalendarDots(state.taskCalendarMonth);
+  if (includeSecondary) {
+    await Promise.all([loadTaskOverview(), loadTaskSummary(), loadTaskActionLog()]);
+    await loadTaskCalendarDots(state.taskCalendarMonth);
+  }
   renderTasks();
+}
+
+async function loadTaskOverview() {
+  const timezoneParams = new URLSearchParams({ timezone: localTimezone() });
+  const response = await fetch(`/api/tasks/overview?${timezoneParams.toString()}`);
+  const payload = await response.json();
+  if (handleAuthFailure(response)) return;
+  state.taskOverview = payload.tasks || [];
+  state.deferredLoaded.taskOverview = response.ok;
+  renderTasks();
+}
+
+async function loadTaskSummary() {
+  const period = elements.summaryPeriod?.value || 'week';
+  const summaryParams = new URLSearchParams({ period, day: state.selectedDay, timezone: localTimezone() });
+  const response = await fetch(`/api/events/summary?${summaryParams.toString()}`);
+  const payload = await response.json();
+  if (handleAuthFailure(response)) return;
+  state.eventSummary = payload.summary || null;
+  state.deferredLoaded.taskSummary = response.ok;
+  renderEventSummary();
+}
+
+async function loadTaskActionLog() {
+  const response = await fetch('/api/action-logs?module=task&limit=30');
+  const payload = await response.json().catch(() => ({}));
+  if (handleAuthFailure(response)) return;
+  state.taskActionLog = response.ok ? payload.logs || [] : [];
+  state.deferredLoaded.taskActionLog = response.ok;
+  renderActionLog(elements.taskActionLog, state.taskActionLog, 'No task actions yet.');
 }
 
 async function loadTaskCalendarDots(monthKey) {
@@ -837,6 +911,7 @@ async function loadTaskCalendarDots(monthKey) {
   const payload = await response.json();
   if (!response.ok) return;
   state.taskCalendarDots = payload.days || {};
+  state.deferredLoaded.taskCalendar = true;
   renderTaskCalendar();
 }
 
@@ -1119,8 +1194,8 @@ async function devLogin() {
   state.user = payload.user;
   state.meals = loadMealsForUser(state.user);
   renderAuthState();
-  await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
-  await updateRemoteSyncBaseline();
+  await refreshActiveTab({ includeSecondary: false, updateSync: false });
+  queueRemoteSyncBaseline();
 }
 
 async function logout() {
@@ -1135,6 +1210,7 @@ async function logout() {
   state.taskActionLog = [];
   state.taskPanel = 'today';
   state.babyPanel = null;
+  resetDeferredLoaded();
   state.syncVersions = null;
   state.syncLastCheckedAt = 0;
   renderAuthState();
@@ -1146,6 +1222,7 @@ function handleAuthFailure(response) {
   if (response.status !== 401) return false;
   state.user = null;
   state.meals = loadMealsForUser(null);
+  resetDeferredLoaded();
   state.syncVersions = null;
   state.syncLastCheckedAt = 0;
   renderAuthState();
@@ -1172,8 +1249,8 @@ async function initializeApp() {
     await Promise.all([loadCurrentUser(), loadAppConfig()]);
     state.meals = loadMealsForUser(state.user);
     if (state.user) {
-      await Promise.all([loadBabyProfile(), loadToday(), loadTaskData()]);
-      await updateRemoteSyncBaseline();
+      await refreshActiveTab({ includeSecondary: false, updateSync: false });
+      queueRemoteSyncBaseline();
     }
     renderAuthState();
     setAppLoading(false);
@@ -1181,6 +1258,23 @@ async function initializeApp() {
     console.error(error);
     setAppLoading(true, 'Could not load family data. Please refresh.');
   }
+}
+
+function resetDeferredLoaded() {
+  state.deferredLoaded = {
+    babyRecent24: false,
+    babyActionLog: false,
+    babyPatterns: false,
+    babyForecast: false,
+    taskOverview: false,
+    taskSummary: false,
+    taskActionLog: false,
+    taskCalendar: false,
+  };
+}
+
+function queueRemoteSyncBaseline() {
+  updateRemoteSyncBaseline().catch(() => {});
 }
 
 function setAppLoading(loading, message = 'Loading family data...') {
@@ -1263,6 +1357,20 @@ function setBabyPanel(panel, options = {}) {
   if (state.babyPanel === 'moments' && !options.mode) state.momentPanelMode = 'gallery';
   if (state.babyPanel === 'moments') prepareMomentForm();
   renderBabyPanel();
+  loadVisibleBabyPanelData();
+}
+
+function loadVisibleBabyPanelData() {
+  if (!state.user) return;
+  if (state.babyPanel === 'actionLog' && !state.deferredLoaded.babyActionLog) {
+    loadBabyActionLog();
+  }
+  if (state.babyPanel === 'patterns' && !state.deferredLoaded.babyPatterns) {
+    loadBabyPatterns();
+  }
+  if (state.babyPanel === 'summary' && !state.deferredLoaded.babyForecast) {
+    loadCareForecastHistory();
+  }
 }
 
 function renderBabyPanel() {
@@ -2066,6 +2174,9 @@ function selectedBabyStatus() {
 function setBabyStatusRange(value) {
   state.babyStatusRange = normalizeBabyStatusRange(value);
   localStorage.setItem(storageKeys.babyStatusRange, state.babyStatusRange);
+  if (state.babyStatusRange === 'recent24h' && !state.deferredLoaded.babyRecent24) {
+    loadRecent24BabyStatus();
+  }
   renderSummary();
   renderTodayContext();
 }
@@ -2243,6 +2354,7 @@ async function loadCareForecastHistory() {
     if (requestId !== state.careForecastRequestId) return;
     state.careForecastDays = forecastDays;
     state.careForecastError = '';
+    state.deferredLoaded.babyForecast = true;
   } catch {
     if (requestId !== state.careForecastRequestId) return;
     state.careForecastError = 'Could not load care forecast.';
@@ -2516,6 +2628,7 @@ function changeCareForecastPeriod(value) {
   const next = normalizeForecastPeriodDays(value);
   if (next === state.careForecastPeriodDays) return;
   state.careForecastPeriodDays = next;
+  state.deferredLoaded.babyForecast = false;
   localStorage.setItem(storageKeys.careForecastPeriodDays, String(next));
   seedCareForecastHistory();
   renderBabySettings();
@@ -2550,6 +2663,7 @@ async function loadBabyPatterns() {
     if (requestId !== state.patternRequestId) return;
     state.patternDays = patternDays;
     state.patternError = '';
+    state.deferredLoaded.babyPatterns = true;
   } catch {
     if (requestId !== state.patternRequestId) return;
     state.patternError = 'Could not load patterns.';
@@ -2642,6 +2756,7 @@ function changePatternPeriod(value) {
   const next = normalizePatternPeriodDays(value);
   if (next === state.patternPeriodDays) return;
   state.patternPeriodDays = next;
+  state.deferredLoaded.babyPatterns = false;
   localStorage.setItem(storageKeys.patternPeriodDays, String(next));
   seedSelectedDayPattern();
   loadBabyPatterns();
@@ -4480,6 +4595,18 @@ function renderTaskDayControls() {
 function setTaskPanel(panel) {
   state.taskPanel = panel === 'summary' || panel === 'actionLog' ? panel : 'today';
   renderTaskPanel();
+  loadVisibleTaskPanelData();
+}
+
+function loadVisibleTaskPanelData() {
+  if (!state.user) return;
+  if (state.taskPanel === 'summary') {
+    if (!state.deferredLoaded.taskOverview) loadTaskOverview();
+    if (!state.deferredLoaded.taskSummary) loadTaskSummary();
+  }
+  if (state.taskPanel === 'actionLog' && !state.deferredLoaded.taskActionLog) {
+    loadTaskActionLog();
+  }
 }
 
 function renderTaskPanel() {
@@ -4511,7 +4638,7 @@ function toggleTaskCalendar() {
   const open = elements.taskCalendarPopover.classList.contains('hidden');
   if (open) {
     state.taskCalendarMonth = state.selectedDay.slice(0, 7);
-    loadTaskCalendarDots(state.taskCalendarMonth);
+    if (!state.deferredLoaded.taskCalendar) loadTaskCalendarDots(state.taskCalendarMonth);
   }
   setTaskCalendarOpen(open);
 }
@@ -4521,6 +4648,7 @@ function shiftTaskCalendarMonth(delta) {
   const base = new Date(`${monthKey}-01T00:00:00`);
   base.setMonth(base.getMonth() + delta);
   state.taskCalendarMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+  state.deferredLoaded.taskCalendar = false;
   loadTaskCalendarDots(state.taskCalendarMonth);
 }
 
@@ -4790,20 +4918,33 @@ function loadRecentBabyLogs() {
 
 async function refreshActiveTab(options = {}) {
   if (!state.user) return false;
+  const includeSecondary = shouldIncludeSecondaryData(options);
+  const loadOptions = { includeSecondary };
   const jobs = [];
   if (state.activeTab === 'home') {
-    jobs.push(loadBabyProfile(), loadToday(), loadTaskData());
+    jobs.push(loadBabyProfile(), loadToday(loadOptions), loadTaskData(loadOptions));
     renderMeals();
   } else if (state.activeTab === 'baby') {
-    jobs.push(loadBabyProfile(), loadToday());
+    jobs.push(loadBabyProfile(), loadToday(loadOptions));
   } else if (state.activeTab === 'meal') {
     renderMeals();
   } else {
-    jobs.push(loadTaskData());
+    jobs.push(loadTaskData(loadOptions));
   }
   if (jobs.length) await Promise.all(jobs);
+  loadVisibleBabyPanelData();
+  loadVisibleTaskPanelData();
   if (options.updateSync !== false) await updateRemoteSyncBaseline();
   return true;
+}
+
+function shouldIncludeSecondaryData(options = {}) {
+  if (options.includeSecondary === true) return true;
+  if (options.includeSecondary === false) return false;
+  if (options.reason === 'manual' || options.reason === 'pull') return true;
+  if (state.activeTab === 'baby') return ['summary', 'patterns', 'actionLog'].includes(state.babyPanel);
+  if (state.activeTab === 'task') return state.taskPanel === 'summary' || state.taskPanel === 'actionLog';
+  return false;
 }
 
 function shiftSelectedDay(days) {
@@ -4816,10 +4957,21 @@ function jumpToToday() {
 
 function setSelectedDay(day, { pushHistory = false } = {}) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return;
+  const changed = day !== state.selectedDay;
   state.selectedDay = day;
+  if (changed) invalidateDeferredForCurrentDate();
   syncUrlForTab(state.activeTab, { pushHistory });
   renderSharedDayControls();
   refreshActiveTab();
+}
+
+function invalidateDeferredForCurrentDate() {
+  state.deferredLoaded.babyRecent24 = false;
+  state.deferredLoaded.babyPatterns = false;
+  state.deferredLoaded.babyForecast = false;
+  state.deferredLoaded.taskOverview = false;
+  state.deferredLoaded.taskSummary = false;
+  state.deferredLoaded.taskCalendar = false;
 }
 
 
