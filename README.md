@@ -11,7 +11,7 @@ It supports three everyday workflows with low-friction logging and review:
 - **Home dashboard** (landing summary for today across Baby, Task, and Meal)
 - **Shared daily context** (Home, Baby, Task, and Meal views stay on the same selected day)
 
-Live app: <https://family-tracker-fex9.onrender.com/>
+Live app: <https://family-tracker-9f9.pages.dev/>
 
 ---
 
@@ -224,7 +224,7 @@ OPENAI_API_KEY
 MISTRAL_API_KEY
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
-APP_BASE_URL=https://your-cloudflare-domain.example
+APP_BASE_URL=https://family-tracker-9f9.pages.dev
 ```
 
 Render should be connected to `mhlee1215/family_tracker` with `autoDeploy` enabled.
