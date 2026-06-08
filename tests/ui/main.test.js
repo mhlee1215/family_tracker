@@ -80,6 +80,30 @@ describe('app/main', () => {
     expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
   });
 
+  it('loads only visible baby-tab data during initial access', async () => {
+    localStorage.setItem('familyTracker.activeTab', 'baby');
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      if (url.startsWith('/api/sync/state')) return new Response(JSON.stringify({ modules: { baby: { version: 'b1' }, task: { version: 't1' }, profile: { version: 'p1' } } }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=visible-baby-initial-load');
+    await vi.waitFor(() => expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true));
+
+    const requestedUrls = global.fetch.mock.calls.map(([input]) => String(input));
+    expect(requestedUrls.some((url) => url.startsWith('/api/logs/today'))).toBe(true);
+    expect(requestedUrls.some((url) => url.startsWith('/api/tasks/'))).toBe(false);
+    expect(requestedUrls.some((url) => url.startsWith('/api/events/summary'))).toBe(false);
+    expect(requestedUrls.some((url) => url.startsWith('/api/action-logs'))).toBe(false);
+    expect(requestedUrls.some((url) => url.endsWith('/api/task-assignees'))).toBe(false);
+  });
+
 
   it('opens dashboard item tooltips and sends the brand back home', async () => {
     global.fetch = vi.fn(async (input, init = {}) => {
@@ -805,9 +829,9 @@ describe('app/main', () => {
     window.history.replaceState({}, '', '/?day=2026-05-30');
     await import('../../app/main.js?case=baby-patterns');
 
-    await vi.waitFor(() => expect(document.querySelector('#baby-patterns').textContent).toContain('5 visible logs'));
     expect(document.querySelector('#baby-patterns').classList.contains('hidden')).toBe(true);
     fireEvent.click(screen.getByText('Patterns', { selector: '#open-baby-patterns span' }));
+    await vi.waitFor(() => expect(document.querySelector('#baby-patterns').textContent).toContain('5 visible logs'));
     expect(document.querySelector('#baby-patterns').classList.contains('hidden')).toBe(false);
     expect(document.querySelector('#baby-patterns').textContent).toContain('7-day rhythm');
     expect(document.querySelectorAll('#baby-patterns .pattern-marker')).toHaveLength(5);
