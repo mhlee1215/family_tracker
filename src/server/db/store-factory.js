@@ -10,7 +10,8 @@ export async function createBabyStore() {
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
   }
-  const { SQLiteBabyStore } = await import('./sqlite-baby-store.js');
+  const sqliteStoreModule = './sqlite-baby-store.js';
+  const { SQLiteBabyStore } = await import(sqliteStoreModule);
   return new SQLiteBabyStore();
 }
 
