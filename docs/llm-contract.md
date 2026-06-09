@@ -52,6 +52,7 @@ Provider output uses plain values, but stored structured events use provenance w
 ```
 
 LLM-extracted fields are normalized to `source: "explicit"`; missing times that the server supplies remain `source: "system"`. Times resolved deterministically from `relativeTime` plus recent-event context are stored as `source: "inferred"` with a basis that names the anchor and offset.
+When the caregiver types an explicit clock time without a date, such as `at 4:00 am`, server normalization pins that clock to the current local day for the request timezone even if the provider returned a different calendar date. Explicit `yesterday` or `tomorrow` text shifts that local day accordingly.
 
 ## Parsing Principle
 

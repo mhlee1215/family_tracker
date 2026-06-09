@@ -93,6 +93,8 @@ function normalizeBabyStatusRange(value) {
 
 const QUICK_MILK_AMOUNT_MIN_ML = 10;
 const QUICK_MILK_AMOUNT_MAX_ML = 250;
+const QUICK_TIME_STEP_MINUTES = 5;
+const QUICK_TIME_LOOKBACK_MINUTES = 300;
 
 const state = {
   events: [],
@@ -121,7 +123,7 @@ const state = {
   quickLog: {
     actionValue: null,
     amountMl: normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl)),
-    offsetMinutes: 0,
+    offsetMinutes: currentQuickTimeOffsetMinutes(),
     active: false,
     text: '',
   },
@@ -1805,7 +1807,7 @@ function makeBabyActionButton(action, className) {
 function resetQuickLogPicker() {
   state.quickLog.actionValue = null;
   state.quickLog.amountMl = normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl));
-  state.quickLog.offsetMinutes = 0;
+  state.quickLog.offsetMinutes = currentQuickTimeOffsetMinutes();
   state.quickLog.active = false;
   state.quickLog.text = '';
   elements.logInput.value = '';
@@ -1910,13 +1912,17 @@ function quickMilkAmountOptions() {
 
 function quickTimeOptions() {
   const values = [];
-  for (let minutes = 300; minutes >= 0; minutes -= 5) values.push(minutes);
+  const now = new Date();
+  const anchor = floorDateToQuickTimeStep(now);
+  for (let minutes = QUICK_TIME_LOOKBACK_MINUTES; minutes >= 0; minutes -= QUICK_TIME_STEP_MINUTES) {
+    const optionTime = new Date(anchor.getTime() - minutes * 60000);
+    values.push(Math.max(0, Math.floor((now.getTime() - optionTime.getTime()) / 60000)));
+  }
   return values;
 }
 
 function quickTimeLabel(minutes) {
-  if (!minutes) return 'Now';
-  return `${minutes} min ago`;
+  return quickTimeForOffset(minutes).label;
 }
 
 function quickTimeForOffset(minutes) {
@@ -1925,8 +1931,19 @@ function quickTimeForOffset(minutes) {
   const inputTime = label.toLowerCase().replace(/\s+/g, ' ');
   return {
     label,
-    inputText: minutes ? `at ${inputTime} today` : '',
+    inputText: `at ${inputTime} today`,
   };
+}
+
+function currentQuickTimeOffsetMinutes() {
+  return quickTimeOptions().at(-1) || 0;
+}
+
+function floorDateToQuickTimeStep(value) {
+  const date = new Date(value);
+  date.setSeconds(0, 0);
+  date.setMinutes(Math.floor(date.getMinutes() / QUICK_TIME_STEP_MINUTES) * QUICK_TIME_STEP_MINUTES);
+  return date;
 }
 
 function scrollSelectedQuickPickerOption(container) {

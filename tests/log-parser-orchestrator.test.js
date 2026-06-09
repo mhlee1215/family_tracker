@@ -69,6 +69,60 @@ test('keeps multiple LLM events from one sentence linked to the same parser meta
   assert.ok(events.every((event) => event.parserInfo.model === 'gpt-test'));
 });
 
+test('pins LLM explicit clock times to the current local day when no date is typed', async () => {
+  const result = await parseBabyLogForSave('fed breastmilk 85 ml at 4:00 am', {
+    now: new Date('2026-06-10T03:00:00.000Z'),
+    timezone: 'America/Los_Angeles',
+  }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    callTask: async () => ({
+      output_text: JSON.stringify({
+        status: 'ok',
+        events: [{
+          type: 'feeding_milk',
+          occurredAt: '2026-06-08T11:00:00.000Z',
+          amountMl: 85,
+          feedingKind: 'breast',
+        }],
+      }),
+    }),
+  });
+
+  assert.equal(result.status, 'ok');
+  assert.equal(result.events[0].occurredAt.value, '2026-06-09T11:00:00.000Z');
+  assert.equal(result.events[0].occurredAt.source, 'explicit');
+  assert.equal(result.events[0].amountMl.value, 85);
+  assert.equal(result.events[0].feedingKind.value, 'breast');
+});
+
+test('keeps LLM explicit clock times on yesterday when the user typed yesterday', async () => {
+  const result = await parseBabyLogForSave('fed breastmilk 85 ml at 4:00 am yesterday', {
+    now: new Date('2026-06-10T03:00:00.000Z'),
+    timezone: 'America/Los_Angeles',
+  }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    callTask: async () => ({
+      output_text: JSON.stringify({
+        status: 'ok',
+        events: [{
+          type: 'feeding_milk',
+          occurredAt: '2026-06-09T11:00:00.000Z',
+          amountMl: 85,
+          feedingKind: 'breast',
+        }],
+      }),
+    }),
+  });
+
+  assert.equal(result.status, 'ok');
+  assert.equal(result.events[0].occurredAt.value, '2026-06-08T11:00:00.000Z');
+  assert.equal(result.events[0].occurredAt.source, 'explicit');
+});
+
 
 test('uses heuristic parser when shortcut buttons request it even with configured LLM', async () => {
   let callCount = 0;

@@ -194,6 +194,7 @@ function normalizeEventCandidate(candidate, context, parserInfo) {
   if (event.occurredAt) event.occurredAt = normalizeExplicitField(event.occurredAt, 'llm_extracted_time');
   if (event.startAt) event.startAt = normalizeExplicitField(event.startAt, 'llm_extracted_start_time');
   if (event.endAt) event.endAt = normalizeExplicitField(event.endAt, 'llm_extracted_end_time');
+  applyTypedClockFromRawText(event, context, rawText);
   if (event.amountMl !== undefined) {
     event.amountMl = normalizeExplicitField(event.amountMl, 'llm_extracted_amount');
     event.amountMl.value = Number(event.amountMl.value);
@@ -214,6 +215,19 @@ function normalizeEventCandidate(candidate, context, parserInfo) {
   }
   fillMissingSystemTimes(event, context);
   return event;
+}
+
+function applyTypedClockFromRawText(event, context, rawText) {
+  const typedTime = extractExplicitTime(rawText, context);
+  if (!typedTime) return;
+  if (['feeding_milk', 'feeding_solid', 'diaper'].includes(event.type)) {
+    event.occurredAt = typedTime;
+    return;
+  }
+  if (event.type !== 'sleep') return;
+  const action = fieldValue(event.action);
+  if (action === 'end') event.endAt = typedTime;
+  else if (action !== 'session') event.startAt = typedTime;
 }
 
 
