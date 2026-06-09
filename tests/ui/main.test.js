@@ -127,6 +127,36 @@ describe('app/main', () => {
     expect(document.querySelector('.home-card-task').textContent).not.toContain('Loading tasks today...');
   });
 
+  it('does not keep the whole app loading while baby tab data is slow', async () => {
+    localStorage.setItem('familyTracker.activeTab', 'baby');
+    localStorage.setItem('familyTracker.babyStatusRange', 'today');
+    let resolveToday;
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Promise((resolve) => {
+          resolveToday = () => resolve(new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 }));
+        });
+      }
+      if (url.startsWith('/api/sync/state')) return new Response(JSON.stringify({ modules: {} }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    const importPromise = import('../../app/main.js?case=baby-slow-initial-data');
+    await vi.waitFor(() => expect(resolveToday).toBeTypeOf('function'));
+
+    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
+    expect(document.querySelector('#baby-view').classList.contains('active')).toBe(true);
+
+    resolveToday();
+    await importPromise;
+  });
+
   it('starts task assignee and today task requests in parallel on home load', async () => {
     localStorage.setItem('familyTracker.activeTab', 'home');
     localStorage.setItem('familyTracker.babyStatusRange', 'today');
