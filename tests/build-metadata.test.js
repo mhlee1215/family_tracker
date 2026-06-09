@@ -19,6 +19,8 @@ test('build metadata is managed from app/build.json only', () => {
   const sw = read('app/sw.js');
   assert.doesNotMatch(sw, /family-tracker-\d{3}/);
   assert.match(sw, /readBuildFromMetadata/);
+  assert.match(sw, /skipWaiting/);
+  assert.match(sw, /clients\.claim/);
 
   const html = read('app/index.html');
   assert.doesNotMatch(html, /Build \d{3}/);

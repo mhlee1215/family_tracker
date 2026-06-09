@@ -53,7 +53,7 @@ describe('app/main', () => {
     expect(document.querySelector('#dev-login').classList.contains('hidden')).toBe(false);
   });
 
-  it('shows a non-blocking loading mark while authentication is loading', async () => {
+  it('does not keep the whole app loading while authentication is slow', async () => {
     let resolveAuth;
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
@@ -70,12 +70,32 @@ describe('app/main', () => {
     const importPromise = import('../../app/main.js?case=initial-loading');
     await vi.waitFor(() => expect(resolveAuth).toBeTypeOf('function'));
 
-    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(false);
-    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('true');
+    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
 
     resolveAuth();
     await importPromise;
 
+    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('does not wait for app config before releasing startup loading', async () => {
+    let configRequested = false;
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: null }), { status: 200 });
+      if (url.endsWith('/api/config')) {
+        configRequested = true;
+        return new Promise(() => {});
+      }
+      return new Response(JSON.stringify({ events: [], tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=config-slow-initial-loading');
+
+    expect(configRequested).toBe(true);
     expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
     expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
   });

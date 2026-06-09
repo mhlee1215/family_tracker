@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { AppHarness } from '../helpers/app-harness.js';
 
 test.describe('Family Tracker core flows', () => {
-  test('initial page access shows a non-blocking loading mark until auth is ready', async ({ page }, testInfo) => {
+  test('initial page access releases startup loading while auth is pending', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let releaseAuth;
     let markAuthBlocked;
@@ -23,10 +23,10 @@ test.describe('Family Tracker core flows', () => {
 
     const pageLoad = page.goto('/');
     await authBlocked;
-    await expect(page.locator('#app-loading')).toBeVisible();
-    await expect(page.locator('#app')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#app-loading')).toBeHidden();
+    await expect(page.locator('#app')).toHaveAttribute('aria-busy', 'false');
     await expect(page.locator('#app-loading')).toHaveCSS('backdrop-filter', 'none');
-    await app.captureStep('Initial loading mark visible', 'A small loading mark is visible without blurring the whole app.');
+    await app.captureStep('Initial loading released', 'The app shell is usable even while auth is still pending.');
 
     releaseAuth();
     await pageLoad;

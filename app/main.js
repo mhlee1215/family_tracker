@@ -390,16 +390,6 @@ elements.menuToggle?.addEventListener('keydown', (event) => {
   handleMenuToggleClick();
 });
 
-await initializeApp();
-window.setInterval(() => renderCareForecast(), 60_000);
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/app/sw.js').catch(() => {});
-}
-startBuildWatcher();
-startRemoteSyncWatcher();
-setupPullToRefresh();
-
 elements.tabs.forEach((tab) => {
   tab.addEventListener('click', () => setActiveTab(tab.dataset.tab, { pushHistory: true }));
 });
@@ -1262,15 +1252,17 @@ async function initializeApp() {
   setAppLoading(true, 'Loading family data...');
   try {
     applyPreferences();
-    await syncBuildMetadata();
     renderTabs();
     renderTimelineControls();
     renderQuickActions();
     if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
-    await Promise.all([loadCurrentUser(), loadAppConfig()]);
-    state.meals = loadMealsForUser(state.user);
     renderAuthState();
     setAppLoading(false);
+    syncBuildMetadata().catch((error) => console.error(error));
+    loadAppConfig().catch((error) => console.error(error));
+    await loadCurrentUser();
+    state.meals = loadMealsForUser(state.user);
+    renderAuthState();
     if (state.user) {
       try {
         await refreshActiveTab({ includeSecondary: false, updateSync: false });
@@ -5655,3 +5647,14 @@ async function hydrateMealThumbnail(imageElement, url) {
     mealThumbnailCache.set(clean, '');
   }
 }
+
+window.setInterval(() => renderCareForecast(), 60_000);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/app/sw.js').catch(() => {});
+}
+startBuildWatcher();
+startRemoteSyncWatcher();
+setupPullToRefresh();
+
+await initializeApp();
