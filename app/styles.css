@@ -55,12 +55,11 @@ body {
 
 .app-loading {
   position: fixed;
-  inset: 44px 0 0;
+  top: 56px;
+  right: max(14px, env(safe-area-inset-right));
   z-index: 25;
-  display: grid;
-  place-items: center;
-  background: rgba(245, 245, 247, 0.88);
-  backdrop-filter: saturate(180%) blur(20px);
+  display: block;
+  pointer-events: none;
 }
 
 .app-loading.hidden {
@@ -73,11 +72,12 @@ body {
   gap: 12px;
   border: 1px solid var(--hairline);
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.96);
   color: var(--ink);
   font-size: 17px;
   line-height: 1.47;
   padding: 12px 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
 .app-loading-spinner {
@@ -3997,6 +3997,26 @@ label {
   background: var(--canvas);
   padding: clamp(12px, 2vw, 24px);
   overflow: visible;
+}
+
+.home-card.is-loading {
+  overflow: hidden;
+}
+
+.home-card-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.29;
+  text-align: center;
 }
 
 .home-card.tooltip-open {
