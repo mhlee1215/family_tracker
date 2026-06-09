@@ -905,9 +905,10 @@ describe('app/main', () => {
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
     const timeColumn = document.querySelector('.quick-picker-time');
     const timeOptions = [...document.querySelectorAll('.quick-picker-time .quick-value-option')];
-    const recentTimeLabels = timeOptions.slice(-4).map((button) => button.textContent);
-    expect(recentTimeLabels.every((label) => !/min ago|Now/.test(label))).toBe(true);
-    expect(recentTimeLabels.map((label) => Number(label.match(/:(\d{2})/)?.[1]) % 5)).toEqual([0, 0, 0, 0]);
+    const recentTimeLabels = timeOptions.slice(-5).map((button) => button.textContent);
+    expect(recentTimeLabels.at(-1)).toBe('Now');
+    expect(recentTimeLabels.slice(0, -1).every((label) => !/min ago|Now/.test(label))).toBe(true);
+    expect(recentTimeLabels.slice(0, -1).map((label) => Number(label.match(/:(\d{2})/)?.[1]) % 5)).toEqual([0, 0, 0, 0]);
     fireEvent.click(timeOptions[timeOptions.length - 2]);
     expect(document.querySelector('#log-input').value).toBe('');
 

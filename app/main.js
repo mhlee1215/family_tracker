@@ -1922,6 +1922,7 @@ function quickTimeOptions() {
 }
 
 function quickTimeLabel(minutes) {
+  if (minutes === currentQuickTimeOffsetMinutes()) return 'Now';
   return quickTimeForOffset(minutes).label;
 }
 
