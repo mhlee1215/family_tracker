@@ -24,9 +24,21 @@ test('build metadata is managed from app/build.json only', () => {
 
   const html = read('app/index.html');
   assert.doesNotMatch(html, /Build \d{3}/);
+  assert.match(html, new RegExp(`src="/app/main\\.js\\?build=${build}"`));
 
   const readme = read('README.md');
   assert.match(readme, new RegExp(`!\\[Build ${build}\\]\\(https://img.shields.io/badge/build-${build}-0066cc\\)`));
+});
+
+test('recovery page clears stale app service worker caches', () => {
+  const recovery = read('app/recover.html');
+  assert.match(recovery, /navigator\.serviceWorker\.getRegistrations/);
+  assert.match(recovery, /registration\.unregister/);
+  assert.match(recovery, /key\.startsWith\('family-tracker'\)/);
+  assert.match(recovery, /cache-reset=/);
+
+  const sw = read('app/sw.js');
+  assert.match(sw, /'\/app\/recover\.html'/);
 });
 
 
