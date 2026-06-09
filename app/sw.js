@@ -2,6 +2,7 @@ const CACHE_PREFIX = 'family-tracker';
 const NETWORK_FIRST_PATHS = new Set([
   '/',
   '/app/index.html',
+  '/app/recover.html',
   '/app/styles.css',
   '/app/main.js',
   '/app/build.json',
