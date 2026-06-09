@@ -896,6 +896,7 @@ async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLo
     id: createId('event'),
     rawLogId: rawLog.id,
     rawText: rawLog.rawText,
+    inputSource: rawLog.inputSource || 'text',
     createdAt: rawLog.inputAt,
   }));
   return { events, openSleep };

@@ -372,6 +372,8 @@ const elements = {
 const HOME_BABY_CLUSTER_WINDOW_MINUTES = 45;
 const HOME_BABY_MARKER_LIMIT = 18;
 const HOME_BABY_CLUSTER_ICON_LIMIT = 4;
+const QUICK_MILK_AMOUNT_MIN_ML = 10;
+const QUICK_MILK_AMOUNT_MAX_ML = 250;
 
 function handleMenuToggleClick() {
   setMenuOpen(elements.menuPanel.classList.contains('hidden'));
@@ -1854,6 +1856,10 @@ function currentRecordSubmission() {
   if (state.quickLog.active && state.quickLog.text) {
     return { text: state.quickLog.text, parserMode: 'heuristic', inputSource: 'button' };
   }
+  if (currentQuickLogAction()) {
+    updateQuickLogTextFromPicker();
+    return { text: state.quickLog.text, parserMode: 'heuristic', inputSource: 'button' };
+  }
   return { text: elements.logInput.value, parserMode: 'auto', inputSource: 'text' };
 }
 
@@ -1884,10 +1890,10 @@ function updateRecordInputMode() {
 
 function defaultQuickMilkAmountMl() {
   const contextAmount = Number(state.todayContext?.lastMilk?.amountMl);
-  if (Number.isFinite(contextAmount) && contextAmount > 0) return contextAmount;
+  if (Number.isFinite(contextAmount) && contextAmount > 0) return clampQuickMilkAmount(contextAmount);
   const latestMilk = latestClientEvent(state.events.filter((event) => event.type === 'feeding_milk' && event.amountMl?.value != null));
   const latestAmount = Number(latestMilk?.amountMl?.value);
-  if (Number.isFinite(latestAmount) && latestAmount > 0) return latestAmount;
+  if (Number.isFinite(latestAmount) && latestAmount > 0) return clampQuickMilkAmount(latestAmount);
   const storedAmount = normalizeQuickMilkAmount(localStorage.getItem(storageKeys.quickMilkAmountMl));
   return storedAmount || 120;
 }
@@ -1895,17 +1901,21 @@ function defaultQuickMilkAmountMl() {
 function normalizeQuickMilkAmount(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return null;
-  return Math.round(amount);
+  return clampQuickMilkAmount(amount);
+}
+
+function clampQuickMilkAmount(amount) {
+  return Math.max(QUICK_MILK_AMOUNT_MIN_ML, Math.min(QUICK_MILK_AMOUNT_MAX_ML, Math.round(amount)));
 }
 
 function quickMilkAmountOptions() {
   const selected = state.quickLog.amountMl || defaultQuickMilkAmountMl();
   const values = new Set();
-  for (let amount = 30; amount <= 240; ) {
+  for (let amount = QUICK_MILK_AMOUNT_MIN_ML; amount <= QUICK_MILK_AMOUNT_MAX_ML; ) {
     values.add(amount);
     amount += amount < 100 ? 5 : 10;
   }
-  values.add(selected);
+  values.add(clampQuickMilkAmount(selected));
   return [...values].sort((a, b) => a - b);
 }
 
@@ -1917,7 +1927,7 @@ function quickTimeOptions() {
 
 function quickTimeLabel(minutes) {
   if (!minutes) return 'Now';
-  return quickTimeForOffset(minutes).label;
+  return `${minutes} min ago`;
 }
 
 function quickTimeForOffset(minutes) {
@@ -4924,13 +4934,17 @@ function sourceBadges(event) {
 
 function inferredBadges(event) {
   return Object.entries(event)
-    .filter(([, value]) => value?.source === 'inferred')
+    .filter(([key, value]) => value?.source === 'inferred' && !isButtonSelectedKindField(event, key))
     .map(([key, value]) => {
       const badge = document.createElement('span');
       badge.textContent = `${labelForField(key)} estimated`;
       badge.title = `${value.basis} · confidence ${value.confidence}`;
       return badge;
     });
+}
+
+function isButtonSelectedKindField(event, key) {
+  return event.inputSource === 'button' && ['feedingKind', 'diaperKind'].includes(key);
 }
 
 function rememberRecentBabyLog(text, events = []) {
