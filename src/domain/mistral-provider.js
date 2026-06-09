@@ -10,6 +10,7 @@ export async function callMistralForTask(task, input, options = {}) {
       'content-type': 'application/json',
       authorization: `Bearer ${options.apiKey}`,
     },
+    signal: options.signal,
     body: JSON.stringify(buildMistralRequest(task, input, options)),
   });
   const payload = await response.json();

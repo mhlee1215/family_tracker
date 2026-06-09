@@ -97,6 +97,34 @@ test('pins LLM explicit clock times to the current local day when no date is typ
   assert.equal(result.events[0].feedingKind.value, 'breast');
 });
 
+test('saves typed milk amount before breastmilk as today explicit clock time', async () => {
+  const result = await parseBabyLogForSave('fed 80 ml breastmilk at 4:00 am', {
+    now: new Date('2026-06-10T03:00:00.000Z'),
+    timezone: 'America/Los_Angeles',
+  }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    callTask: async () => ({
+      output_text: JSON.stringify({
+        status: 'ok',
+        events: [{
+          type: 'feeding_milk',
+          occurredAt: '2026-06-08T11:00:00.000Z',
+          amountMl: 80,
+          feedingKind: 'breast',
+        }],
+      }),
+    }),
+  });
+
+  assert.equal(result.status, 'ok');
+  assert.equal(result.events[0].occurredAt.value, '2026-06-09T11:00:00.000Z');
+  assert.equal(result.events[0].occurredAt.source, 'explicit');
+  assert.equal(result.events[0].amountMl.value, 80);
+  assert.equal(result.events[0].feedingKind.value, 'breast');
+});
+
 test('keeps LLM explicit clock times on yesterday when the user typed yesterday', async () => {
   const result = await parseBabyLogForSave('fed breastmilk 85 ml at 4:00 am yesterday', {
     now: new Date('2026-06-10T03:00:00.000Z'),
@@ -121,6 +149,27 @@ test('keeps LLM explicit clock times on yesterday when the user typed yesterday'
   assert.equal(result.status, 'ok');
   assert.equal(result.events[0].occurredAt.value, '2026-06-08T11:00:00.000Z');
   assert.equal(result.events[0].occurredAt.source, 'explicit');
+});
+
+test('falls back to heuristic parser when configured LLM parse times out', async () => {
+  const result = await parseBabyLogForSave('fed 80 ml breastmilk at 4:00 am', {
+    now: new Date('2026-06-10T03:00:00.000Z'),
+    timezone: 'America/Los_Angeles',
+  }, {
+    provider: 'openai',
+    model: 'gpt-test',
+    apiKey: 'test-key',
+    providerTimeoutMs: 5,
+    callTask: async () => new Promise(() => {}),
+  });
+
+  assert.equal(result.status, 'ok');
+  assert.equal(result.events[0].type, 'feeding_milk');
+  assert.equal(result.events[0].occurredAt.value, '2026-06-09T11:00:00.000Z');
+  assert.equal(result.events[0].amountMl.value, 80);
+  assert.equal(result.events[0].feedingKind.value, 'breast');
+  assert.equal(result.events[0].parserInfo.kind, 'heuristic');
+  assert.match(result.events[0].parserInfo.fallbackFrom.reason, /timed out/);
 });
 
 

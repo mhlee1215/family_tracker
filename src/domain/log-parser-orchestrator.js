@@ -9,6 +9,8 @@ import {
   parseBabyLogText,
 } from './baby-log-parser.js';
 
+const DEFAULT_LLM_PARSE_TIMEOUT_MS = 12_000;
+
 export async function parseBabyLogForSave(text, context = {}, options = {}) {
   const provider = options.provider || 'mock';
   const model = options.model || 'mock-local';
@@ -23,7 +25,7 @@ export async function parseBabyLogForSave(text, context = {}, options = {}) {
   }
 
   try {
-    const response = await (options.callTask || callLLMTask)('parse_baby_log', {
+    const response = await callProviderTaskWithTimeout(options.callTask || callLLMTask, 'parse_baby_log', {
       text,
       now: toIso(context.now),
       timezone: context.timezone || 'UTC',
@@ -34,7 +36,7 @@ export async function parseBabyLogForSave(text, context = {}, options = {}) {
       model,
       apiKey,
       context,
-    });
+    }, options.providerTimeoutMs);
     return normalizeParsedBabyLogDecision(response, { ...context, rawText: text }, llmParserInfo(provider, model));
   } catch (error) {
     if (error?.clarification) return error.clarification;
@@ -61,7 +63,7 @@ export async function parseBabyLogWithProvider(text, context = {}, options = {})
   }
 
   try {
-    const response = await (options.callTask || callLLMTask)('parse_baby_log', {
+    const response = await callProviderTaskWithTimeout(options.callTask || callLLMTask, 'parse_baby_log', {
       text,
       now: toIso(context.now),
       timezone: context.timezone || 'UTC',
@@ -72,7 +74,7 @@ export async function parseBabyLogWithProvider(text, context = {}, options = {})
       model,
       apiKey,
       context,
-    });
+    }, options.providerTimeoutMs);
     return normalizeParsedBabyLogEvents(response, { ...context, rawText: text }, llmParserInfo(provider, model));
   } catch (error) {
     if (error?.clarification) throw error;
@@ -82,6 +84,31 @@ export async function parseBabyLogWithProvider(text, context = {}, options = {})
       label: `Heuristic · rule-based-mvp (fallback from ${provider} · ${model})`,
     };
     return applyParserInfo(parseBabyLogText(text, context), fallbackInfo);
+  }
+}
+
+async function callProviderTaskWithTimeout(callTask, task, input, providerOptions = {}, timeoutMs = DEFAULT_LLM_PARSE_TIMEOUT_MS) {
+  const timeout = Number(timeoutMs);
+  if (!Number.isFinite(timeout) || timeout <= 0) {
+    return callTask(task, input, providerOptions);
+  }
+
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller?.abort();
+      reject(new Error(`LLM parse timed out after ${timeout}ms`));
+    }, timeout);
+  });
+
+  try {
+    return await Promise.race([
+      callTask(task, input, controller ? { ...providerOptions, signal: controller.signal } : providerOptions),
+      timeoutPromise,
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
