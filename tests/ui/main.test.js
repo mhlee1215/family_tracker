@@ -100,6 +100,15 @@ describe('app/main', () => {
     expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
   });
 
+  it('boots when a stored quick milk amount exists', async () => {
+    localStorage.setItem('familyTracker.quickMilkAmountMl', '150');
+
+    await import('../../app/main.js?case=stored-quick-milk-amount');
+
+    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
+  });
+
   it('shows home component loading states while visible family data is loading', async () => {
     localStorage.setItem('familyTracker.activeTab', 'home');
     localStorage.setItem('familyTracker.babyStatusRange', 'today');
