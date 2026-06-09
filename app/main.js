@@ -91,6 +91,9 @@ function normalizeBabyStatusRange(value) {
   return value === 'today' ? 'today' : 'recent24h';
 }
 
+const QUICK_MILK_AMOUNT_MIN_ML = 10;
+const QUICK_MILK_AMOUNT_MAX_ML = 250;
+
 const state = {
   events: [],
   previousEvents: [],
@@ -372,8 +375,6 @@ const elements = {
 const HOME_BABY_CLUSTER_WINDOW_MINUTES = 45;
 const HOME_BABY_MARKER_LIMIT = 18;
 const HOME_BABY_CLUSTER_ICON_LIMIT = 4;
-const QUICK_MILK_AMOUNT_MIN_ML = 10;
-const QUICK_MILK_AMOUNT_MAX_ML = 250;
 
 function handleMenuToggleClick() {
   setMenuOpen(elements.menuPanel.classList.contains('hidden'));
