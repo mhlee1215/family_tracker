@@ -1269,20 +1269,16 @@ async function initializeApp() {
     if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
     await Promise.all([loadCurrentUser(), loadAppConfig()]);
     state.meals = loadMealsForUser(state.user);
+    renderAuthState();
+    setAppLoading(false);
     if (state.user) {
-      if (state.activeTab === 'home') {
-        renderAuthState();
-        setAppLoading(false);
+      try {
         await refreshActiveTab({ includeSecondary: false, updateSync: false });
-      } else {
-        await refreshActiveTab({ includeSecondary: false, updateSync: false });
-        renderAuthState();
-        setAppLoading(false);
+        queueRemoteSyncBaseline();
+      } catch (error) {
+        console.error(error);
+        elements.answer.textContent = 'Could not load current data. Pull to refresh or try again.';
       }
-      queueRemoteSyncBaseline();
-    } else {
-      renderAuthState();
-      setAppLoading(false);
     }
   } catch (error) {
     console.error(error);
