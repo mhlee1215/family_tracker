@@ -827,7 +827,8 @@ describe('app/main', () => {
     await vi.waitFor(() => {
       const post = requests.find((request) => request.url === '/api/logs' && request.init.method === 'POST');
       expect(post).toBeTruthy();
-      expect(JSON.parse(post.init.body)).toMatchObject({ text: 'woke up', parserMode: 'heuristic', inputSource: 'button' });
+      expect(JSON.parse(post.init.body)).toMatchObject({ parserMode: 'heuristic', inputSource: 'button' });
+      expect(JSON.parse(post.init.body).text).toMatch(/^woke up at .+ today$/);
     });
   });
 
@@ -904,7 +905,9 @@ describe('app/main', () => {
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
     const timeColumn = document.querySelector('.quick-picker-time');
     const timeOptions = [...document.querySelectorAll('.quick-picker-time .quick-value-option')];
-    expect(timeOptions.slice(-4).map((button) => button.textContent)).toEqual(['15 min ago', '10 min ago', '5 min ago', 'Now']);
+    const recentTimeLabels = timeOptions.slice(-4).map((button) => button.textContent);
+    expect(recentTimeLabels.every((label) => !/min ago|Now/.test(label))).toBe(true);
+    expect(recentTimeLabels.map((label) => Number(label.match(/:(\d{2})/)?.[1]) % 5)).toEqual([0, 0, 0, 0]);
     fireEvent.click(timeOptions[timeOptions.length - 2]);
     expect(document.querySelector('#log-input').value).toBe('');
 
@@ -925,7 +928,7 @@ describe('app/main', () => {
       expect(post).toBeTruthy();
       const body = JSON.parse(post.init.body);
       expect(body).toMatchObject({ parserMode: 'heuristic', inputSource: 'button' });
-      expect(body.text).toBe('pee diaper');
+      expect(body.text).toMatch(/^pee diaper at .+ today$/);
     });
   });
 
@@ -967,10 +970,10 @@ describe('app/main', () => {
       const post = requests.find((request) => request.url === '/api/logs' && request.init.method === 'POST');
       expect(post).toBeTruthy();
       expect(JSON.parse(post.init.body)).toMatchObject({
-        text: 'breast milk 120 ml',
         parserMode: 'heuristic',
         inputSource: 'button',
       });
+      expect(JSON.parse(post.init.body).text).toMatch(/^breast milk 120 ml at .+ today$/);
     });
     await vi.waitFor(() => expect(document.querySelector('#timeline').textContent).toContain('Breast milk'));
     expect(document.querySelector('#timeline').textContent).not.toContain('Kind estimated');

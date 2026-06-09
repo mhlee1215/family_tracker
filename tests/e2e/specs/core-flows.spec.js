@@ -918,7 +918,8 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#sleep-status')).toContainText('Napping now');
     await expect(page.locator('#quick-actions')).toContainText('Wake');
     await expect(page.locator('#quick-actions')).not.toContainText('Sleep');
-    expect(shortcutPayload).toMatchObject({ text: 'nap', parserMode: 'heuristic', inputSource: 'button' });
+    expect(shortcutPayload).toMatchObject({ parserMode: 'heuristic', inputSource: 'button' });
+    expect(shortcutPayload.text).toMatch(/^nap at .+ today$/);
     await app.captureStep('Nap shortcut toggled to Wake', 'Open sleep status is visible and the Log shortcut is now a Wake action.');
 
     app.assertNoRuntimeErrors();
