@@ -828,8 +828,12 @@ describe('app/main', () => {
     expect(document.querySelector('#log-input').disabled).toBe(true);
     expect(document.querySelector('#log-input').value).toBe('');
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].find((button) => button.textContent === '90 ml').disabled).toBe(false);
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '10 ml')).toBe(true);
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '95 ml')).toBe(true);
     expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '105 ml')).toBe(false);
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '250 ml')).toBe(true);
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '5 ml')).toBe(false);
+    expect([...document.querySelectorAll('.quick-picker-amount .quick-value-option')].some((button) => button.textContent === '260 ml')).toBe(false);
 
     fireEvent.click(document.querySelector('#reset-log-form'));
     expect(document.querySelector('#log-input').disabled).toBe(false);
@@ -841,6 +845,7 @@ describe('app/main', () => {
     fireEvent.click([...document.querySelectorAll('#quick-actions .quick-action-button')].find((button) => button.textContent.includes('Feed formula')));
     const timeColumn = document.querySelector('.quick-picker-time');
     const timeOptions = [...document.querySelectorAll('.quick-picker-time .quick-value-option')];
+    expect(timeOptions.slice(-4).map((button) => button.textContent)).toEqual(['15 min ago', '10 min ago', '5 min ago', 'Now']);
     fireEvent.click(timeOptions[timeOptions.length - 2]);
     expect(document.querySelector('#log-input').value).toBe('');
 
@@ -863,6 +868,53 @@ describe('app/main', () => {
       expect(body).toMatchObject({ parserMode: 'heuristic', inputSource: 'button' });
       expect(body.text).toBe('pee diaper');
     });
+  });
+
+  it('saves default baby record button values without showing kind as estimated', async () => {
+    const requests = [];
+    let todayEvents = [];
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      requests.push({ url, init });
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({ events: todayEvents, summary: {}, context: {} }), { status: 200 });
+      }
+      if (url === '/api/logs' && init.method === 'POST') {
+        todayEvents = [{
+          id: 'button-milk-1',
+          type: 'feeding_milk',
+          rawText: 'breast milk 120 ml',
+          occurredAt: { value: '2026-05-30T08:00:00.000Z' },
+          amountMl: { value: 120, source: 'explicit' },
+          feedingKind: { value: 'breast', source: 'inferred', basis: 'button_selected_kind', confidence: 1 },
+          parserInfo: { kind: 'heuristic', provider: 'local', model: 'rule-based-mvp' },
+          inputSource: 'button',
+          createdAt: '2026-05-30T08:00:00.000Z',
+        }];
+        return new Response(JSON.stringify({ events: todayEvents }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-default-button-save');
+
+    await vi.waitFor(() => expect(document.querySelector('#quick-actions').textContent).toContain('Feed breastmilk'));
+    fireEvent.submit(document.querySelector('#log-form'));
+
+    await vi.waitFor(() => {
+      const post = requests.find((request) => request.url === '/api/logs' && request.init.method === 'POST');
+      expect(post).toBeTruthy();
+      expect(JSON.parse(post.init.body)).toMatchObject({
+        text: 'breast milk 120 ml',
+        parserMode: 'heuristic',
+        inputSource: 'button',
+      });
+    });
+    await vi.waitFor(() => expect(document.querySelector('#timeline').textContent).toContain('Breast milk'));
+    expect(document.querySelector('#timeline').textContent).not.toContain('Kind estimated');
   });
 
   it('jumps every date control back to today with compact icon controls', async () => {

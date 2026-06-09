@@ -167,7 +167,7 @@ async function handleApi(request, response) {
       const body = await readJson(request);
       const devUser = getDevAuthUser(body.id);
       if (!devUser) {
-        sendJson(response, 403, { error: 'Dev login requires id=admin-dev or id=admin-test.' });
+        sendJson(response, 403, { error: 'Dev login requires id=admin-dev, id=admin-test, or id=admin-test-*.' });
         return;
       }
       const user = await store.upsertUser(devUser);
@@ -490,6 +490,8 @@ async function handleApi(request, response) {
         ...existing,
         rawText,
         timezone: body.timezone || existing.timezone || 'UTC',
+        inputSource: body.inputSource || existing.inputSource,
+        parserMode: body.parserMode || existing.parserMode,
       };
       const now = new Date(existing.inputAt);
       const result = await buildEventsForRawLog(rawLog, {
@@ -896,6 +898,7 @@ async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLo
     id: createId('event'),
     rawLogId: rawLog.id,
     rawText: rawLog.rawText,
+    inputSource: rawLog.inputSource || 'text',
     createdAt: rawLog.inputAt,
   }));
   return { events, openSleep };

@@ -21,11 +21,22 @@ export const devAuthUsers = {
 };
 
 export function getDevAuthUser(id) {
-  return devAuthUsers[String(id || '').trim()] || null;
+  const normalized = String(id || '').trim();
+  if (devAuthUsers[normalized]) return devAuthUsers[normalized];
+  if (/^admin-test-[a-z0-9-]+$/i.test(normalized)) {
+    return {
+      provider: 'dev',
+      providerId: normalized,
+      email: `${normalized}@local.dev`,
+      name: 'Admin Test',
+      familyId: `family-${normalized}`,
+    };
+  }
+  return null;
 }
 
 export function isDevAdminUser(user) {
-  return Boolean(user && user.provider === 'dev' && devAuthUsers[user.providerId]);
+  return Boolean(user && user.provider === 'dev' && getDevAuthUser(user.providerId));
 }
 
 export const sessionCookieName = 'ft_session';
@@ -164,4 +175,3 @@ function serializeCookie(name, value, options = {}) {
 function isSecureRequest(request) {
   return request.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
 }
-

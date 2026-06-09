@@ -8,6 +8,7 @@ export class AppHarness {
     this.pageErrors = [];
     this.networkErrors = [];
     this.stepArtifacts = [];
+    this.devLoginId = `admin-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     page.on('console', (message) => {
       if (message.type() === 'error') {
@@ -52,8 +53,8 @@ export class AppHarness {
     });
   }
 
-  async loginAsDevAdmin(path = '/baby') {
-    const response = await this.page.request.post('/api/auth/dev', { data: { id: 'admin-test' } });
+  async loginAsDevAdmin(path = '/baby', options = {}) {
+    const response = await this.page.request.post('/api/auth/dev', { data: { id: options.id || this.devLoginId } });
     expect(response.ok()).toBeTruthy();
     await this.page.goto(path);
     await this.page.waitForLoadState('networkidle');

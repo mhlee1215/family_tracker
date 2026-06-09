@@ -391,11 +391,12 @@ test.describe('Family Tracker core flows', () => {
   test('baby records and task changes appear in action logs', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
-    const suffix = Date.now();
-    const recordText = `action log formula ${suffix}`;
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const recordText = `action log formula 120 ml ${suffix}`;
 
     await page.locator('#log-input').fill(recordText);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.locator('#log-form').evaluate((form) => form.requestSubmit());
+    await expect(page.locator('#answer')).toContainText('log saved');
     await expect(page.locator('#timeline')).toContainText(recordText);
     await page.locator('#open-baby-action-log').click();
     await expect(page.locator('#baby-action-log-panel')).toBeVisible();
@@ -931,9 +932,10 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
     await app.captureStep('Opened app for swipe action scenario', 'Starting on baby tab before creating a swipable timeline log.');
 
-    const rawText = `swipe action formula ${Date.now()}`;
+    const rawText = `swipe action formula 120 ml ${Math.random().toString(36).slice(2, 8)}`;
     await page.locator('#log-input').fill(rawText);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.locator('#log-form').evaluate((form) => form.requestSubmit());
+    await expect(page.locator('#answer')).toContainText('log saved');
 
     const row = page.locator('#timeline .timeline-swipe', { hasText: rawText }).first();
     await expect(row).toBeVisible();
@@ -1117,7 +1119,7 @@ async function createBabyRecord(page, text) {
 
 async function patchBabyRecord(page, rawLogId, text) {
   const response = await page.request.patch(`/api/logs/${encodeURIComponent(rawLogId)}`, {
-    data: { text, timezone: 'UTC' },
+    data: { text, timezone: 'UTC', parserMode: 'heuristic', inputSource: 'e2e' },
   });
   expect(response.ok()).toBeTruthy();
   return response.json();

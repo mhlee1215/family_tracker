@@ -13,6 +13,12 @@ test('dev auth exposes separate dev and test admin scopes', () => {
   assert.equal(testAdmin.email, 'admin-test@local.dev');
   assert.equal(testAdmin.familyId, 'family-admin-test');
   assert.notEqual(devAdmin.familyId, testAdmin.familyId);
+
+  const isolatedTest = getDevAuthUser('admin-test-growth-001');
+  assert.equal(isolatedTest.providerId, 'admin-test-growth-001');
+  assert.equal(isolatedTest.email, 'admin-test-growth-001@local.dev');
+  assert.equal(isolatedTest.familyId, 'family-admin-test-growth-001');
+  assert.notEqual(testAdmin.familyId, isolatedTest.familyId);
 });
 
 test('legacy admin id is rejected so tests cannot share the dev admin family', () => {
