@@ -933,7 +933,8 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
     await app.captureStep('Opened app for swipe action scenario', 'Starting on baby tab before creating a swipable timeline log.');
 
-    const rawText = `swipe action formula 120 ml ${Math.random().toString(36).slice(2, 8)}`;
+    const token = Math.random().toString(36).replace(/[0-9]/g, 'x').slice(2, 8);
+    const rawText = `swipe action formula 120 ml now ${token}`;
     await page.locator('#log-input').fill(rawText);
     await page.locator('#log-form').evaluate((form) => form.requestSubmit());
     await expect(page.locator('#answer')).toContainText('log saved');

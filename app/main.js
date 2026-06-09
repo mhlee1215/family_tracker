@@ -695,7 +695,12 @@ async function saveLog(text, options = {}) {
     state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
     state.quickLog.active = false;
     state.quickLog.text = '';
-    await loadToday();
+    setLogSaving(false);
+    try {
+      await loadToday();
+    } catch {
+      elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
+    }
   } catch (error) {
     elements.answer.textContent = copy.saveFailed;
   } finally {
