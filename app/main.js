@@ -154,6 +154,10 @@ const state = {
   syncVersions: null,
   syncCheckInFlight: false,
   syncLastCheckedAt: 0,
+  homeLoading: {
+    baby: false,
+    tasks: false,
+  },
   deferredLoaded: {
     babyRecent24: false,
     babyActionLog: false,
@@ -731,39 +735,45 @@ function formatClarificationMessage(payload = {}) {
 }
 
 async function loadToday(options = {}) {
+  const showHomeLoading = state.activeTab === 'home';
+  if (showHomeLoading) setHomeLoading('baby', true);
   const includeSecondary = options.includeSecondary !== false;
   const includeRecent = includeSecondary || state.babyStatusRange === 'recent24h';
   const params = new URLSearchParams({ day: state.selectedDay, timezone: localTimezone() });
   const recentParams = new URLSearchParams({ range: 'recent24h', timezone: localTimezone() });
-  const [response, recentResponse] = await Promise.all([
-    fetch(`/api/logs/today?${params.toString()}`),
-    includeRecent ? fetch(`/api/logs/today?${recentParams.toString()}`) : Promise.resolve(null),
-  ]);
-  const payload = await response.json();
-  const recentPayload = recentResponse ? await recentResponse.json().catch(() => ({})) : {};
-  if (handleAuthFailure(response)) return;
-  state.events = payload.events || [];
-  state.summary = payload.summary || buildTodaySummary(state.events);
-  state.todayContext = payload.context || buildClientTodayContext(state.events);
-  if (recentResponse?.ok) {
-    state.recent24Events = recentPayload.events || [];
-    state.recent24Summary = recentPayload.summary || null;
-    state.recent24Context = recentPayload.context || null;
-    state.deferredLoaded.babyRecent24 = true;
-  }
-  if (includeSecondary) {
-    await Promise.all([loadPreviousBabyDay(), loadBabyActionLog()]);
-  } else {
-    queuePreviousBabyDay();
-  }
-  hydrateRecent24StatusFallback();
-  seedSelectedDayPattern();
-  seedCareForecastHistory();
-  renderBaby();
-  if (state.activeTab === 'home') renderHomeDashboard();
-  if (includeSecondary) {
-    loadBabyPatterns();
-    loadCareForecastHistory();
+  try {
+    const [response, recentResponse] = await Promise.all([
+      fetch(`/api/logs/today?${params.toString()}`),
+      includeRecent ? fetch(`/api/logs/today?${recentParams.toString()}`) : Promise.resolve(null),
+    ]);
+    const payload = await response.json();
+    const recentPayload = recentResponse ? await recentResponse.json().catch(() => ({})) : {};
+    if (handleAuthFailure(response)) return;
+    state.events = payload.events || [];
+    state.summary = payload.summary || buildTodaySummary(state.events);
+    state.todayContext = payload.context || buildClientTodayContext(state.events);
+    if (recentResponse?.ok) {
+      state.recent24Events = recentPayload.events || [];
+      state.recent24Summary = recentPayload.summary || null;
+      state.recent24Context = recentPayload.context || null;
+      state.deferredLoaded.babyRecent24 = true;
+    }
+    if (includeSecondary) {
+      await Promise.all([loadPreviousBabyDay(), loadBabyActionLog()]);
+    } else {
+      queuePreviousBabyDay();
+    }
+    hydrateRecent24StatusFallback();
+    seedSelectedDayPattern();
+    seedCareForecastHistory();
+    renderBaby();
+    if (state.activeTab === 'home') renderHomeDashboard();
+    if (includeSecondary) {
+      loadBabyPatterns();
+      loadCareForecastHistory();
+    }
+  } finally {
+    if (showHomeLoading) setHomeLoading('baby', false);
   }
 }
 
@@ -860,20 +870,28 @@ async function saveBabyProfile() {
 }
 
 async function loadTaskData(options = {}) {
+  const showHomeLoading = state.activeTab === 'home';
+  if (showHomeLoading) setHomeLoading('tasks', true);
   const includeSecondary = options.includeSecondary !== false;
-  await loadAssignees();
   const timezone = localTimezone();
   const params = new URLSearchParams({ day: state.selectedDay, timezone });
-  const todayResponse = await fetch(`/api/tasks/today?${params.toString()}`);
-  const todayPayload = await todayResponse.json();
-  if (handleAuthFailure(todayResponse)) return;
-  state.tasks = todayPayload.tasks || [];
-  if (!state.taskCalendarMonth) state.taskCalendarMonth = state.selectedDay.slice(0, 7);
-  if (includeSecondary) {
-    await Promise.all([loadTaskOverview(), loadTaskSummary(), loadTaskActionLog()]);
-    await loadTaskCalendarDots(state.taskCalendarMonth);
+  try {
+    const [todayResponse] = await Promise.all([
+      fetch(`/api/tasks/today?${params.toString()}`),
+      loadAssignees(),
+    ]);
+    const todayPayload = await todayResponse.json();
+    if (handleAuthFailure(todayResponse)) return;
+    state.tasks = todayPayload.tasks || [];
+    if (!state.taskCalendarMonth) state.taskCalendarMonth = state.selectedDay.slice(0, 7);
+    if (includeSecondary) {
+      await Promise.all([loadTaskOverview(), loadTaskSummary(), loadTaskActionLog()]);
+      await loadTaskCalendarDots(state.taskCalendarMonth);
+    }
+    renderTasks();
+  } finally {
+    if (showHomeLoading) setHomeLoading('tasks', false);
   }
-  renderTasks();
 }
 
 async function loadTaskOverview() {
@@ -1250,11 +1268,20 @@ async function initializeApp() {
     await Promise.all([loadCurrentUser(), loadAppConfig()]);
     state.meals = loadMealsForUser(state.user);
     if (state.user) {
-      await refreshActiveTab({ includeSecondary: false, updateSync: false });
+      if (state.activeTab === 'home') {
+        renderAuthState();
+        setAppLoading(false);
+        await refreshActiveTab({ includeSecondary: false, updateSync: false });
+      } else {
+        await refreshActiveTab({ includeSecondary: false, updateSync: false });
+        renderAuthState();
+        setAppLoading(false);
+      }
       queueRemoteSyncBaseline();
+    } else {
+      renderAuthState();
+      setAppLoading(false);
     }
-    renderAuthState();
-    setAppLoading(false);
   } catch (error) {
     console.error(error);
     setAppLoading(true, 'Could not load family data. Please refresh.');
@@ -1283,6 +1310,12 @@ function setAppLoading(loading, message = 'Loading family data...') {
   elements.appLoading?.classList.toggle('hidden', !loading);
   elements.appLoading?.setAttribute('aria-hidden', String(!loading));
   elements.app?.setAttribute('aria-busy', String(loading));
+}
+
+function setHomeLoading(key, loading) {
+  if (!Object.prototype.hasOwnProperty.call(state.homeLoading, key) || state.homeLoading[key] === loading) return;
+  state.homeLoading[key] = loading;
+  if (state.activeTab === 'home') renderHomeDashboard();
 }
 
 async function syncBuildMetadata() {
@@ -4038,6 +4071,7 @@ function renderHomeDashboard() {
 }
 
 function homeBabyCard(events) {
+  const loading = state.homeLoading.baby;
   const latest = latestClientEvent(events);
   const timelineItems = homeBabyTimelineItems(events);
   const visibleItems = timelineItems.slice(0, HOME_BABY_MARKER_LIMIT);
@@ -4053,7 +4087,7 @@ function homeBabyCard(events) {
   const hiddenEventCount = timelineItems.slice(HOME_BABY_MARKER_LIMIT).reduce((sum, item) => sum + (item.events?.length || 1), 0);
   const overflow = hiddenEventCount ? `<span class="home-marker-overflow">+${hiddenEventCount}</span>` : '';
   return `
-    <article class="home-card home-card-baby">
+    <article class="home-card home-card-baby ${loading ? 'is-loading' : ''}" aria-busy="${String(loading)}">
       <header class="home-card-header">
         <div><p class="eyebrow">Baby today</p><h3>${events.length} logs</h3></div>
         <a class="home-card-link" href="/baby?day=${encodeURIComponent(state.selectedDay)}">View Baby →</a>
@@ -4063,6 +4097,7 @@ function homeBabyCard(events) {
         ${homeTimelineTicks()}
         <div class="home-timeline-rail">${markers}${overflow}${homeNowMarker()}</div>
       </div>
+      ${loading ? homeCardLoading('Loading baby today...') : ''}
     </article>`;
 }
 
@@ -4104,6 +4139,7 @@ function homeBabyClusterMarker(cluster, index) {
 }
 
 function homeTaskCard(urgentTasks, completedTasks) {
+  const loading = state.homeLoading.tasks;
   const duePills = urgentTasks.slice(0, 3).map((task) => homeTooltipButton({
     className: `task-due-pill ${task.dueMode === 'before_date' ? 'overdue' : ''}`,
     label: `${task.dueMode === 'before_date' ? 'Overdue' : 'Due today'} · ${task.title} · ${task.assigneeName || 'Unassigned'}`,
@@ -4118,7 +4154,7 @@ function homeTaskCard(urgentTasks, completedTasks) {
     icon: '✓',
   })).join('');
   return `
-    <article class="home-card home-card-task">
+    <article class="home-card home-card-task ${loading ? 'is-loading' : ''}" aria-busy="${String(loading)}">
       <header class="home-card-header">
         <div><p class="eyebrow">Tasks today</p><h3>${completedTasks.length} done · ${urgentTasks.length} due</h3></div>
         <a class="home-card-link" href="/tasks?day=${encodeURIComponent(state.selectedDay)}">View Tasks →</a>
@@ -4128,6 +4164,7 @@ function homeTaskCard(urgentTasks, completedTasks) {
         ${homeTimelineTicks()}
         <div class="home-timeline-rail">${doneMarkers}${homeNowMarker()}</div>
       </div>
+      ${loading ? homeCardLoading('Loading tasks today...') : ''}
     </article>`;
 }
 
@@ -4150,6 +4187,10 @@ function homeMealCard(slots) {
         }).join('')}
       </div>
     </article>`;
+}
+
+function homeCardLoading(label) {
+  return `<div class="home-card-loading" role="status" aria-live="polite"><span class="app-loading-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span></div>`;
 }
 
 function homeUrgentTasks(tasks) {

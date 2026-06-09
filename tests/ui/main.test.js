@@ -53,7 +53,7 @@ describe('app/main', () => {
     expect(document.querySelector('#dev-login').classList.contains('hidden')).toBe(false);
   });
 
-  it('shows a whole-page loading mark while initial family data is loading', async () => {
+  it('shows a non-blocking loading mark while authentication is loading', async () => {
     let resolveAuth;
     global.fetch = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url;
@@ -78,6 +78,85 @@ describe('app/main', () => {
 
     expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
     expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('shows home component loading states while visible family data is loading', async () => {
+    localStorage.setItem('familyTracker.activeTab', 'home');
+    localStorage.setItem('familyTracker.babyStatusRange', 'today');
+    let resolveToday;
+    let resolveTasks;
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.endsWith('/api/task-assignees')) return new Response(JSON.stringify({ assignees: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Promise((resolve) => {
+          resolveToday = () => resolve(new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 }));
+        });
+      }
+      if (url.startsWith('/api/tasks/today')) {
+        return new Promise((resolve) => {
+          resolveTasks = () => resolve(new Response(JSON.stringify({ tasks: [] }), { status: 200 }));
+        });
+      }
+      if (url.startsWith('/api/sync/state')) return new Response(JSON.stringify({ modules: {} }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    const importPromise = import('../../app/main.js?case=home-component-loading');
+    await vi.waitFor(() => expect(resolveToday).toBeTypeOf('function'));
+    await vi.waitFor(() => expect(resolveTasks).toBeTypeOf('function'));
+
+    expect(document.querySelector('#app-loading').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#app').getAttribute('aria-busy')).toBe('false');
+    expect(document.querySelector('.home-card-baby').getAttribute('aria-busy')).toBe('true');
+    expect(document.querySelector('.home-card-task').getAttribute('aria-busy')).toBe('true');
+    expect(document.querySelector('.home-card-baby').textContent).toContain('Loading baby today...');
+    expect(document.querySelector('.home-card-task').textContent).toContain('Loading tasks today...');
+
+    resolveToday();
+    resolveTasks();
+    await importPromise;
+
+    await vi.waitFor(() => expect(document.querySelector('.home-card-baby').getAttribute('aria-busy')).toBe('false'));
+    expect(document.querySelector('.home-card-task').getAttribute('aria-busy')).toBe('false');
+    expect(document.querySelector('.home-card-baby').textContent).not.toContain('Loading baby today...');
+    expect(document.querySelector('.home-card-task').textContent).not.toContain('Loading tasks today...');
+  });
+
+  it('starts task assignee and today task requests in parallel on home load', async () => {
+    localStorage.setItem('familyTracker.activeTab', 'home');
+    localStorage.setItem('familyTracker.babyStatusRange', 'today');
+    let resolveAssignees;
+    const requestedUrls = [];
+    global.fetch = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      requestedUrls.push(url);
+      if (url.endsWith('/app/build.json') || url.startsWith('/app/build.json?')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      if (url.startsWith('/api/tasks/today')) return new Response(JSON.stringify({ tasks: [] }), { status: 200 });
+      if (url.endsWith('/api/task-assignees')) {
+        return new Promise((resolve) => {
+          resolveAssignees = () => resolve(new Response(JSON.stringify({ assignees: [] }), { status: 200 }));
+        });
+      }
+      if (url.startsWith('/api/sync/state')) return new Response(JSON.stringify({ modules: {} }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, logs: [] }), { status: 200 });
+    });
+
+    const importPromise = import('../../app/main.js?case=home-task-parallel-load');
+    await vi.waitFor(() => expect(resolveAssignees).toBeTypeOf('function'));
+
+    expect(requestedUrls.some((url) => url.startsWith('/api/tasks/today'))).toBe(true);
+
+    resolveAssignees();
+    await importPromise;
   });
 
   it('loads only visible baby-tab data during initial access', async () => {

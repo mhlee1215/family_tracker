@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { AppHarness } from '../helpers/app-harness.js';
 
 test.describe('Family Tracker core flows', () => {
-  test('initial page access shows a whole-page loading mark until family data is ready', async ({ page }, testInfo) => {
+  test('initial page access shows a non-blocking loading mark until auth is ready', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let releaseAuth;
     let markAuthBlocked;
@@ -25,7 +25,8 @@ test.describe('Family Tracker core flows', () => {
     await authBlocked;
     await expect(page.locator('#app-loading')).toBeVisible();
     await expect(page.locator('#app')).toHaveAttribute('aria-busy', 'true');
-    await app.captureStep('Initial loading mark visible', 'A single whole-page loading mark covers the app while first-load family data is pending.');
+    await expect(page.locator('#app-loading')).toHaveCSS('backdrop-filter', 'none');
+    await app.captureStep('Initial loading mark visible', 'A small loading mark is visible without blurring the whole app.');
 
     releaseAuth();
     await pageLoad;
@@ -263,7 +264,7 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
     await app.captureStep('Opened app for log flow', 'Starting on baby tab before creating a log.');
 
-    await page.locator('#log-input').fill('formula');
+    await page.locator('#log-input').fill('formula 120');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.locator('#timeline .timeline-item').first()).toBeVisible();
     await app.captureStep('Saved baby log', 'Timeline updated with newly saved item.');
