@@ -954,10 +954,29 @@ test.describe('Family Tracker core flows', () => {
     await expect.poll(async () => row.locator('.swipe-card').evaluate((node) => node.style.transform)).toMatch(/^translate3d\(-/);
     await app.captureStep('Revealed swipe action rail', 'A desktop horizontal wheel gesture opened the action rail.');
 
-    await row.getByRole('button', { name: /Delete/ }).click();
+    await row.getByRole('button', { name: /Edit/ }).click();
+    await expect(page.getByRole('heading', { name: 'Edit baby record' })).toBeVisible();
+    await expect(page.locator('#action-dialog-input')).toBeVisible();
+    await expect(page.locator('#action-dialog-quick-actions')).toBeVisible();
+    await expect(page.locator('#action-dialog-quick-actions')).toContainText('Feed formula');
+    await page.locator('#action-dialog-quick-actions').getByRole('button', { name: '80 ml', exact: true }).click();
+    await expect(page.locator('#action-dialog-input')).toHaveValue(/formula 80 ml/);
+    await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/api/logs/') && response.request().method() === 'PATCH'),
+      page.locator('#action-dialog-confirm').click(),
+    ]);
+    await expect(page.locator('#timeline')).toContainText('80ml');
+    await app.captureStep('Edited from revealed swipe action', 'The Edit dialog shows both the text field and heuristic picker, and picker changes update the saved note.');
+
+    const editedRow = page.locator('#timeline .timeline-swipe', { hasText: 'formula 80 ml' }).first();
+    await editedRow.locator('.swipe-card').scrollIntoViewIfNeeded();
+    await editedRow.locator('.swipe-card').hover();
+    await page.mouse.wheel(220, 0);
+    await expect(editedRow.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'false');
+    await editedRow.getByRole('button', { name: /Delete/ }).click();
     await expect(page.getByRole('heading', { name: 'Delete baby record?' })).toBeVisible();
     await page.locator('#action-dialog-confirm').click();
-    await expect(page.locator('#timeline')).not.toContainText(rawText);
+    await expect(page.locator('#timeline')).not.toContainText('formula 80 ml');
     await app.captureStep('Deleted from revealed swipe action', 'The Delete action from the revealed rail removed the log.');
 
     app.assertNoRuntimeErrors();

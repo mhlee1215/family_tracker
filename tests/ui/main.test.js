@@ -1459,13 +1459,22 @@ describe('app/main', () => {
 
     fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Edit baby record' })).toBeTruthy());
+    const editQuickActions = document.querySelector('#action-dialog-quick-actions');
+    expect(editQuickActions.classList.contains('hidden')).toBe(false);
+    expect(editQuickActions.textContent).toContain('Feed formula');
+    expect(editQuickActions.textContent).toContain('80 ml');
     const editInput = document.querySelector('#action-dialog-input');
-    fireEvent.input(editInput, { target: { value: 'updated formula' } });
+    fireEvent.click([...editQuickActions.querySelectorAll('.quick-value-option')].find((button) => button.textContent === '80 ml'));
+    expect(editInput.value).toContain('formula 80 ml');
     fireEvent.submit(document.querySelector('#action-dialog-form'));
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'PATCH' })));
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({
+      method: 'PATCH',
+      body: expect.stringContaining('formula 80 ml'),
+    })));
 
     fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Delete baby record?' })).toBeTruthy());
+    expect(document.querySelector('#action-dialog-quick-actions').classList.contains('hidden')).toBe(true);
     fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'DELETE' })));
   });

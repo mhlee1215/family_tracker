@@ -2859,6 +2859,33 @@ label {
   margin-top: 2px;
 }
 
+.action-dialog-quick-actions {
+  margin: 2px -8px 0;
+  padding-inline: 0;
+}
+
+.action-dialog-quick-actions.hidden {
+  display: none;
+}
+
+.action-dialog-quick-actions::after {
+  background:
+    linear-gradient(to bottom, var(--canvas) 0, color-mix(in srgb, var(--canvas) 88%, transparent) 16px, transparent 28px, transparent calc(100% - 28px), color-mix(in srgb, var(--canvas) 88%, transparent) calc(100% - 16px), var(--canvas) 100%);
+}
+
+.action-dialog-quick-actions .quick-picker-options {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.action-dialog-quick-actions .quick-picker-options::-webkit-scrollbar {
+  display: none;
+}
+
+.action-dialog-quick-actions .quick-wheel-list {
+  margin: 0;
+}
+
 
 .meal-floating-panel {
   border: 1px solid var(--hairline);

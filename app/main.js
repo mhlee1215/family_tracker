@@ -366,6 +366,7 @@ const elements = {
   actionDialogInputField: $('#action-dialog-input-field'),
   actionDialogInputLabel: $('#action-dialog-input-label'),
   actionDialogInput: $('#action-dialog-input'),
+  actionDialogQuickActions: $('#action-dialog-quick-actions'),
   actionDialogClose: $('#action-dialog-close'),
   actionDialogCancel: $('#action-dialog-cancel'),
   actionDialogConfirm: $('#action-dialog-confirm'),
@@ -986,7 +987,7 @@ function hideFloatingDialog(dialog) {
   }
 }
 
-function openFloatingAction({ kicker = 'Item action', title, description, input = false, inputLabel = 'Details', value = '', confirmLabel = 'Save' }) {
+function openFloatingAction({ kicker = 'Item action', title, description, input = false, inputLabel = 'Details', value = '', confirmLabel = 'Save', quickPicker = false }) {
   if (!elements.actionDialog || !elements.actionDialogForm) {
     if (input) return Promise.resolve(window.prompt(title, value));
     return Promise.resolve(window.confirm(description || title));
@@ -999,6 +1000,7 @@ function openFloatingAction({ kicker = 'Item action', title, description, input 
   elements.actionDialogInputLabel.textContent = inputLabel;
   elements.actionDialogInput.value = value || '';
   elements.actionDialogInput.required = Boolean(input);
+  renderActionDialogQuickPicker(quickPicker);
   elements.actionDialogConfirm.textContent = confirmLabel;
   return new Promise((resolve) => {
     activeFloatingAction = { resolve, input };
@@ -1024,6 +1026,8 @@ function closeFloatingAction(result) {
   activeFloatingAction = null;
   hideFloatingDialog(elements.actionDialog);
   elements.actionDialogForm?.reset();
+  elements.actionDialogQuickActions?.replaceChildren();
+  elements.actionDialogQuickActions?.classList.add('hidden');
   resolve(result);
 }
 
@@ -1036,6 +1040,7 @@ async function editBabyLog(event) {
     input: true,
     inputLabel: 'Original note',
     value: event.rawText || '',
+    quickPicker: true,
     confirmLabel: 'Save',
   });
   if (nextText === null) return;
@@ -1561,6 +1566,153 @@ function selectedQuickLogAction(actions) {
   return selected;
 }
 
+function renderActionDialogQuickPicker(enabled) {
+  const container = elements.actionDialogQuickActions;
+  if (!container) return;
+  container.replaceChildren();
+  container.classList.toggle('hidden', !enabled);
+  if (!enabled) return;
+  const openSleep = currentOpenSleep();
+  const actions = copy.quickActions
+    .filter((action) => isBabyTrackerActive(action.trackerType))
+    .map((action) => resolveSleepAction(action, openSleep));
+  if (!actions.length) {
+    container.classList.add('hidden');
+    return;
+  }
+  const initialText = elements.actionDialogInput?.value || '';
+  const dialogState = {
+    actionValue: inferQuickActionValueFromText(initialText, actions) || actions[0].value,
+    amountMl: inferQuickAmountFromText(initialText) || defaultQuickMilkAmountMl(),
+    offsetMinutes: currentQuickTimeOffsetMinutes(),
+  };
+  const selectedAction = () => actions.find((action) => action.value === dialogState.actionValue) || actions[0];
+  const updateText = () => {
+    const action = selectedAction();
+    const parts = [action.value];
+    if (action.amountEnabled) parts.push(`${dialogState.amountMl} ml`);
+    const selectedTime = quickTimeForOffset(dialogState.offsetMinutes);
+    if (selectedTime.inputText) parts.push(selectedTime.inputText);
+    elements.actionDialogInput.value = parts.join(' ');
+  };
+  const updateActivity = (value) => {
+    dialogState.actionValue = value;
+    updateDialogQuickPressedState(container, 'activity', value);
+    updateDialogQuickAmountState(container, selectedAction(), dialogState.amountMl);
+    updateText();
+  };
+  const updateAmount = (amount) => {
+    if (!selectedAction()?.amountEnabled) return;
+    dialogState.amountMl = amount;
+    updateDialogQuickPressedState(container, 'amount', String(amount));
+    updateText();
+  };
+  const updateTime = (minutes) => {
+    dialogState.offsetMinutes = minutes;
+    updateDialogQuickPressedState(container, 'time', String(minutes));
+    updateText();
+  };
+  container.replaceChildren(
+    makeDialogQuickLogActivityColumn(actions, selectedAction(), updateActivity),
+    makeDialogQuickLogAmountColumn(selectedAction(), dialogState.amountMl, updateAmount),
+    makeDialogQuickLogTimeColumn(dialogState.offsetMinutes, updateTime),
+  );
+  requestAnimationFrame(() => {
+    centerSelectedQuickWheelItem(container.querySelector('[data-wheel="activity"]'));
+    centerSelectedQuickWheelItem(container.querySelector('[data-wheel="amount"]'));
+    centerSelectedQuickWheelItem(container.querySelector('[data-wheel="time"]'));
+  });
+}
+
+function makeDialogQuickLogActivityColumn(actions, selectedAction, onSelect) {
+  const section = document.createElement('section');
+  section.className = 'quick-picker-column quick-picker-activity';
+  section.innerHTML = '<h3>Activity</h3>';
+  const options = makeQuickWheelShell('activity');
+  actions.forEach((action) => {
+    const button = makeBabyActionButton(action, 'quick-action-button');
+    button.dataset.value = action.value;
+    button.setAttribute('aria-pressed', String(action.value === selectedAction?.value));
+    button.addEventListener('click', () => onSelect(action.value));
+    options.querySelector('.quick-wheel-list').append(makeQuickWheelItem(button, action.value === selectedAction?.value));
+  });
+  section.append(options);
+  return section;
+}
+
+function makeDialogQuickLogAmountColumn(selectedAction, selectedAmount, onSelect) {
+  const section = document.createElement('section');
+  section.className = 'quick-picker-column quick-picker-amount';
+  section.innerHTML = '<h3>Volume</h3>';
+  const enabled = Boolean(selectedAction?.amountEnabled);
+  const options = makeQuickWheelShell('amount', { disabled: !enabled });
+  options.setAttribute('aria-disabled', String(!enabled));
+  quickMilkAmountOptionsFor(selectedAmount).forEach((amount) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'quick-value-option';
+    button.dataset.value = String(amount);
+    button.textContent = `${amount} ml`;
+    button.disabled = !enabled;
+    button.setAttribute('aria-pressed', String(enabled && amount === selectedAmount));
+    button.addEventListener('click', () => onSelect(amount));
+    options.querySelector('.quick-wheel-list').append(makeQuickWheelItem(button, enabled && amount === selectedAmount));
+  });
+  section.append(options);
+  return section;
+}
+
+function makeDialogQuickLogTimeColumn(selectedMinutes, onSelect) {
+  const section = document.createElement('section');
+  section.className = 'quick-picker-column quick-picker-time';
+  section.innerHTML = '<h3>Time</h3>';
+  const options = makeQuickWheelShell('time');
+  quickTimeOptions().forEach((minutes) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'quick-value-option';
+    button.dataset.value = String(minutes);
+    button.textContent = quickTimeLabel(minutes);
+    button.setAttribute('aria-pressed', String(minutes === selectedMinutes));
+    button.addEventListener('click', () => onSelect(minutes));
+    options.querySelector('.quick-wheel-list').append(makeQuickWheelItem(button, minutes === selectedMinutes));
+  });
+  section.append(options);
+  return section;
+}
+
+function updateDialogQuickPressedState(container, kind, value) {
+  const shell = container?.querySelector(`[data-wheel="${kind}"]`);
+  shell?.querySelectorAll('button').forEach((button) => {
+    const selected = button.dataset.value === value;
+    button.setAttribute('aria-pressed', String(selected));
+    button.closest('.quick-wheel-item')?.classList.toggle('selected', selected);
+  });
+}
+
+function updateDialogQuickAmountState(container, action, selectedAmount) {
+  const shell = container?.querySelector('[data-wheel="amount"]');
+  if (!shell) return;
+  const enabled = Boolean(action?.amountEnabled);
+  shell.setAttribute('aria-disabled', String(!enabled));
+  shell.querySelectorAll('button').forEach((button) => {
+    const selected = enabled && button.dataset.value === String(selectedAmount);
+    button.disabled = !enabled;
+    button.setAttribute('aria-pressed', String(selected));
+    button.closest('.quick-wheel-item')?.classList.toggle('selected', selected);
+  });
+}
+
+function inferQuickActionValueFromText(text, actions) {
+  const normalized = String(text || '').toLowerCase();
+  return actions.find((action) => normalized.includes(action.value.toLowerCase()))?.value || null;
+}
+
+function inferQuickAmountFromText(text) {
+  const match = String(text || '').match(/\b(\d{1,3})\s*ml\b/i);
+  return match ? normalizeQuickMilkAmount(match[1]) : null;
+}
+
 function makeQuickLogActivityColumn(actions, selectedAction) {
   const section = document.createElement('section');
   section.className = 'quick-picker-column quick-picker-activity';
@@ -1777,6 +1929,7 @@ function updateQuickWheelPressedState(kind, value) {
 }
 
 function centerSelectedQuickWheelItem(shell) {
+  if (!shell) return;
   const selected = shell.querySelector('[aria-pressed="true"]');
   if (typeof selected?.scrollIntoView === 'function') selected.scrollIntoView({ block: 'center' });
 }
@@ -1888,7 +2041,11 @@ function clampQuickMilkAmount(amount) {
 }
 
 function quickMilkAmountOptions() {
-  const selected = state.quickLog.amountMl || defaultQuickMilkAmountMl();
+  return quickMilkAmountOptionsFor(state.quickLog.amountMl || defaultQuickMilkAmountMl());
+}
+
+function quickMilkAmountOptionsFor(selectedAmount) {
+  const selected = selectedAmount || defaultQuickMilkAmountMl();
   const values = new Set();
   for (let amount = QUICK_MILK_AMOUNT_MIN_ML; amount <= QUICK_MILK_AMOUNT_MAX_ML; ) {
     values.add(amount);
