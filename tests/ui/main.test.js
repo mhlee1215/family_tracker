@@ -454,6 +454,7 @@ describe('app/main', () => {
 
     const styles = readFileSync(`${process.cwd()}/app/styles.css`, 'utf8');
     expect(styles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
+    expect(styles).toContain('.meal-board {\n  max-width: none;\n  margin: 0;\n  padding-inline: 16px;');
 
     const likeButton = document.querySelector('#meal-breakfast .meal-like-button');
     expect(likeButton).toBeTruthy();
