@@ -2724,11 +2724,11 @@ label {
   transform: rotate(1deg);
 }
 .meal-thumb { width:100%; max-width:220px; height:140px; object-fit:cover; border-radius:8px; border:1px solid var(--hairline); background:var(--canvas-parchment); }
-.category-korean { border-left:4px solid #e07a5f; }
-.category-japanese { border-left:4px solid #3d5a80; }
-.category-chinese { border-left:4px solid #e63946; }
-.category-western { border-left:4px solid #2a9d8f; }
-.category-snack { border-left:4px solid #f4a261; }
+.category-korean,
+.category-japanese,
+.category-chinese,
+.category-western,
+.category-snack { border-left:4px solid var(--hairline); }
 
 .meal-item .row {
   flex-wrap: wrap;
@@ -3510,13 +3510,13 @@ label {
   background: var(--canvas);
 }
 
-.category-korean .meal-card { border-left: 4px solid #e07a5f; }
-.category-japanese .meal-card { border-left: 4px solid #3d5a80; }
-.category-chinese .meal-card { border-left: 4px solid #e63946; }
-.category-western .meal-card { border-left: 4px solid #2a9d8f; }
-.category-snack .meal-card { border-left: 4px solid #f4a261; }
+.category-korean .meal-card,
+.category-japanese .meal-card,
+.category-chinese .meal-card,
+.category-western .meal-card,
+.category-snack .meal-card,
 .meal-slot .meal-item,
-.meal-slot .meal-card { border-left: 4px solid var(--tracker-accent); }
+.meal-slot .meal-card { border-left: 4px solid var(--hairline); }
 
 .meal-swipe .swipe-actions {
   overflow: hidden;
