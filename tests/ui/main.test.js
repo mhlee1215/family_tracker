@@ -832,19 +832,12 @@ describe('app/main', () => {
     });
   });
 
-  it('submits question form and renders response', async () => {
-    await import('../../app/main.js?case=ask');
+  it('does not render the baby question panel while keeping record save feedback', async () => {
+    await import('../../app/main.js?case=no-ask-panel');
 
-    const input = screen.getByPlaceholderText('How much sleep today?');
-    const form = document.querySelector('#ask-form');
-
-    input.value = 'How much sleep?';
-    fireEvent.submit(form);
-
-    await vi.waitFor(() => {
-      expect(screen.getByText('8 hours')).toBeTruthy();
-    });
-    expect(global.fetch).toHaveBeenCalledWith('/api/ask', expect.objectContaining({ method: 'POST' }));
+    expect(document.querySelector('#ask-form')).toBeNull();
+    expect(screen.queryByPlaceholderText('How much sleep today?')).toBeNull();
+    expect(document.querySelector('#answer')).toBeTruthy();
   });
 
   it('builds heuristic baby logs from activity, scroll volume, and scroll time pickers', async () => {

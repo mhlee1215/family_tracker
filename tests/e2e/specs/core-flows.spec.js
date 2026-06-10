@@ -476,9 +476,10 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin();
     await page.waitForLoadState('networkidle');
     const suffix = Date.now();
+    const selectedDay = await page.locator('#day-picker').inputValue();
 
     const addTitle = `Undo task add ${suffix}`;
-    await createTaskViaApi(page, addTitle);
+    await createTaskViaApi(page, addTitle, selectedDay);
     await gotoAndSettle(page, '/tasks');
     await expect(page.locator('#task-list')).toContainText(addTitle);
     await undoTaskAction(page, `added task "${addTitle}"`);
@@ -488,7 +489,7 @@ test.describe('Family Tracker core flows', () => {
 
     const originalTitle = `Undo task edit original ${suffix}`;
     const editedTitle = `Undo task edit updated ${suffix}`;
-    const editable = await createTaskViaApi(page, originalTitle);
+    const editable = await createTaskViaApi(page, originalTitle, selectedDay);
     await patchTaskViaApi(page, editable.id, { title: editedTitle });
     await gotoAndSettle(page, '/tasks');
     await expect(page.locator('#task-list')).toContainText(editedTitle);
@@ -498,7 +499,7 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Undid task edit', 'Undoing a task edit restores the original task title.');
 
     const completeTitle = `Undo task complete ${suffix}`;
-    const completable = await createTaskViaApi(page, completeTitle);
+    const completable = await createTaskViaApi(page, completeTitle, selectedDay);
     await patchTaskViaApi(page, completable.id, { status: 'done' });
     await gotoAndSettle(page, '/tasks');
     await expect(page.locator('.task-item', { hasText: completeTitle }).first().getByRole('checkbox')).toBeChecked();
@@ -507,7 +508,7 @@ test.describe('Family Tracker core flows', () => {
     await app.captureStep('Undid task complete', 'Undoing a complete transaction reopens the task.');
 
     const reopenTitle = `Undo task reopen ${suffix}`;
-    const reopenable = await createTaskViaApi(page, reopenTitle);
+    const reopenable = await createTaskViaApi(page, reopenTitle, selectedDay);
     await patchTaskViaApi(page, reopenable.id, { status: 'done' });
     await patchTaskViaApi(page, reopenable.id, { status: 'open' });
     await gotoAndSettle(page, '/tasks');
@@ -1143,7 +1144,7 @@ async function undoBabyAction(page, message) {
   await confirmUndoAndWaitForRefresh(page, 'baby');
 }
 
-async function createTaskViaApi(page, title) {
+async function createTaskViaApi(page, title, dueDate = new Date().toISOString().slice(0, 10)) {
   const assigneesResponse = await page.request.get('/api/task-assignees');
   expect(assigneesResponse.ok()).toBeTruthy();
   const { assignees } = await assigneesResponse.json();
@@ -1152,7 +1153,7 @@ async function createTaskViaApi(page, title) {
       title,
       assigneeId: assignees[0].id,
       dueMode: 'on_date',
-      dueDate: new Date().toISOString().slice(0, 10),
+      dueDate,
     },
   });
   expect(response.ok()).toBeTruthy();

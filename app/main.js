@@ -72,7 +72,6 @@ const copy = {
   saving: 'Saving...',
   saveFailed: 'Could not save.',
   logPlaceholder: 'Try: 분유 120 먹고 응가했어',
-  askPlaceholder: 'How much sleep today?',
   emptyTimeline: 'No records for this date yet.',
   emptyFilteredTimeline: 'No records match this filter.',
   emptyTasks: 'No tasks for this day.',
@@ -207,8 +206,6 @@ const elements = {
   logInput: $('#log-input'),
   logSaveStatus: $('#log-save-status'),
   resetLogForm: $('#reset-log-form'),
-  askForm: $('#ask-form'),
-  askInput: $('#ask-input'),
   answer: $('#answer'),
   timeline: $('#timeline'),
   summary: $('#summary'),
@@ -425,20 +422,6 @@ elements.quickActions?.addEventListener('pointerdown', () => {
 
 elements.resetLogForm?.addEventListener('click', () => {
   resetQuickLogPicker();
-});
-
-elements.askForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const question = elements.askInput.value.trim();
-  if (!question) return;
-  elements.answer.textContent = 'Thinking...';
-  const response = await fetch('/api/ask', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ question, day: state.selectedDay, timezone: localTimezone() }),
-  });
-  const payload = await response.json();
-  elements.answer.textContent = response.ok ? payload.answer : payload.error;
 });
 
 elements.taskForm.addEventListener('submit', async (event) => {
