@@ -659,6 +659,7 @@ async function saveLog(text, options = {}) {
       body: JSON.stringify({
         text: cleanText,
         timezone: localTimezone(),
+        day: state.selectedDay,
         parserMode: options.parserMode || 'auto',
         inputSource: options.inputSource || 'text',
       }),
@@ -676,7 +677,7 @@ async function saveLog(text, options = {}) {
     const savedCount = (payload.events || []).filter((event) => !event.hiddenFromTimeline).length;
     rememberRecentBabyLog(cleanText, payload.events || []);
     elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
-    state.selectedDay = dayFromSavedEvents(payload.events) || localDateKey(new Date());
+    state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
     state.quickLog.active = false;
     state.quickLog.text = '';
     setLogSaving(false);
@@ -1046,22 +1047,30 @@ async function editBabyLog(event) {
   if (nextText === null) return;
   const cleanText = nextText.trim();
   if (!cleanText) return;
-  const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, {
-    method: 'PATCH',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text: cleanText, timezone: localTimezone() }),
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
-      showClarificationWarning(payload);
+  setLogSaving(true);
+  try {
+    const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: cleanText, timezone: localTimezone(), day: state.selectedDay }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
+        showClarificationWarning(payload);
+        return;
+      }
+      elements.answer.textContent = payload.error || copy.saveFailed;
       return;
     }
-    elements.answer.textContent = payload.error || copy.saveFailed;
-    return;
+    state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
+    setLogSaving(false);
+    await loadToday();
+  } catch {
+    elements.answer.textContent = copy.saveFailed;
+  } finally {
+    setLogSaving(false);
   }
-  state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
-  await loadToday();
 }
 
 async function deleteBabyLog(event) {
@@ -1073,13 +1082,21 @@ async function deleteBabyLog(event) {
     confirmLabel: 'Delete',
   });
   if (!ok) return;
-  const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, { method: 'DELETE' });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    elements.answer.textContent = payload.error || copy.saveFailed;
-    return;
+  setLogSaving(true);
+  try {
+    const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, { method: 'DELETE' });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      elements.answer.textContent = payload.error || copy.saveFailed;
+      return;
+    }
+    setLogSaving(false);
+    await loadToday();
+  } catch {
+    elements.answer.textContent = copy.saveFailed;
+  } finally {
+    setLogSaving(false);
   }
-  await loadToday();
 }
 
 

@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 140](https://img.shields.io/badge/build-140-0066cc)
+![Build 141](https://img.shields.io/badge/build-141-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -184,8 +184,10 @@ GET  /api/growth
 ```
 
 Date-based endpoints use the request `timezone` when supplied, then the saved
-profile timezone, and fall back to `UTC` only when neither is available. Stored
-timestamps remain UTC ISO instants.
+profile timezone, and fall back to `UTC` only when neither is available. Baby log
+creation and edit requests may include `day: "YYYY-MM-DD"` so parser defaults
+use the date currently selected in the UI unless the text itself supplies a date.
+Stored timestamps remain UTC ISO instants.
 
 ---
 

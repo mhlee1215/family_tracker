@@ -1318,6 +1318,8 @@ describe('app/main', () => {
     expect(form.classList.contains('saving')).toBe(true);
     expect(status.classList.contains('hidden')).toBe(false);
     expect(status.textContent).toContain('Saving...');
+    const postRequest = global.fetch.mock.calls.find(([url, init = {}]) => url === '/api/logs' && init.method === 'POST');
+    expect(JSON.parse(postRequest[1].body).day).toBe(document.querySelector('#day-picker').value);
 
     resolveLogSave();
 
@@ -1471,12 +1473,78 @@ describe('app/main', () => {
       method: 'PATCH',
       body: expect.stringContaining('formula 80 ml'),
     })));
+    const patchRequest = global.fetch.mock.calls.find(([url, init = {}]) => url === '/api/logs/rawlog-1' && init.method === 'PATCH');
+    expect(JSON.parse(patchRequest[1].body).day).toBe(document.querySelector('#day-picker').value);
 
     fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Delete baby record?' })).toBeTruthy());
     expect(document.querySelector('#action-dialog-quick-actions').classList.contains('hidden')).toBe(true);
     fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/logs/rawlog-1', expect.objectContaining({ method: 'DELETE' })));
+  });
+
+  it('shows the baby log saving mark while edit and delete requests are pending', async () => {
+    let resolvePatch;
+    let resolveDelete;
+    const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
+    window.Swiped = { init: swipedInit };
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) {
+        return new Response(JSON.stringify({
+          events: [{
+            id: 'event-1',
+            rawLogId: 'rawlog-1',
+            type: 'feeding_milk',
+            rawText: 'formula',
+            occurredAt: { value: '2026-05-28T10:00:00.000Z' },
+            amountMl: { value: 120 },
+          }],
+          summary: {},
+        }), { status: 200 });
+      }
+      if (url === '/api/logs/rawlog-1' && init.method === 'PATCH') {
+        return new Promise((resolve) => {
+          resolvePatch = () => resolve(new Response(JSON.stringify({ events: [] }), { status: 200 }));
+        });
+      }
+      if (url === '/api/logs/rawlog-1' && init.method === 'DELETE') {
+        return new Promise((resolve) => {
+          resolveDelete = () => resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+        });
+      }
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=baby-log-edit-delete-saving-mark');
+
+    const form = document.querySelector('#log-form');
+    const status = document.querySelector('#log-save-status');
+    await vi.waitFor(() => expect(document.querySelector('#timeline .raw-text')?.textContent).toBe('formula'));
+
+    fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Edit baby record' })).toBeTruthy());
+    fireEvent.submit(document.querySelector('#action-dialog-form'));
+    await vi.waitFor(() => expect(resolvePatch).toBeTypeOf('function'));
+    expect(form.getAttribute('aria-busy')).toBe('true');
+    expect(status.classList.contains('hidden')).toBe(false);
+
+    resolvePatch();
+    await vi.waitFor(() => expect(form.getAttribute('aria-busy')).toBe('false'));
+
+    fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
+    await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Delete baby record?' })).toBeTruthy());
+    fireEvent.submit(document.querySelector('#action-dialog-form'));
+    await vi.waitFor(() => expect(resolveDelete).toBeTypeOf('function'));
+    expect(form.getAttribute('aria-busy')).toBe('true');
+    expect(status.classList.contains('hidden')).toBe(false);
+
+    resolveDelete();
+    await vi.waitFor(() => expect(form.getAttribute('aria-busy')).toBe('false'));
+    expect(status.classList.contains('hidden')).toBe(true);
   });
 
   it('keeps completed tasks in a separate bottom section', async () => {

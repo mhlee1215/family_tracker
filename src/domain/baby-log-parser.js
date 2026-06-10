@@ -383,7 +383,8 @@ function baseEvent(rawText, context) {
 }
 
 function systemTime(context) {
-  return createField(toIso(context.now), 'system', 'current_time', 1);
+  const { now } = explicitTimeContext(context);
+  return createField(toIso(now), 'system', 'current_time', 1);
 }
 
 function looksLikeSleep(text) {
@@ -496,7 +497,16 @@ function extractFood(text) {
 }
 
 function extractEventTime(text, context = {}) {
-  return extractExplicitTime(text, context) || extractRelativeAgoTime(text, context);
+  return extractExplicitTime(text, context) || extractRelativeAgoTime(text, context) || extractDateOnlyTime(text, context);
+}
+
+function extractDateOnlyTime(text, context = {}) {
+  const shift = dateShiftFromText(text);
+  if (!shift) return null;
+  const { now, timezone } = explicitTimeContext(context);
+  const parts = localDateParts(now, timezone);
+  shiftLocalDate(parts, shift);
+  return createField(localDateTimeToIso(parts, timezone), 'system', 'typed_date_current_time', 0.95);
 }
 
 function extractRelativeAgoTime(text, context = {}) {
@@ -542,24 +552,50 @@ function explicitTimeContext(context) {
   if (context instanceof Date || typeof context === 'string' || typeof context === 'number') {
     return { now: new Date(context), timezone: 'UTC' };
   }
+  const timezone = context.timezone || 'UTC';
+  const now = context.now instanceof Date ? context.now : new Date(context.now || Date.now());
   return {
-    now: context.now instanceof Date ? context.now : new Date(context.now || Date.now()),
-    timezone: context.timezone || 'UTC',
+    now: selectedDayNow(now, timezone, context.selectedDay) || now,
+    timezone,
   };
 }
 
 function explicitLocalTimeIso({ now, timezone, text, hour, minute }) {
   const parts = localDateParts(now, timezone);
-  if (/\byesterday\b/i.test(text)) shiftLocalDate(parts, -1);
-  if (/\btomorrow\b/i.test(text)) shiftLocalDate(parts, 1);
+  shiftLocalDate(parts, dateShiftFromText(text));
   return localDateTimeToIso({ ...parts, hour, minute, second: 0, millisecond: 0 }, timezone);
 }
 
 function shiftLocalDate(parts, days) {
+  if (!days) return;
   const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
   parts.year = shifted.getUTCFullYear();
   parts.month = shifted.getUTCMonth() + 1;
   parts.day = shifted.getUTCDate();
+}
+
+function dateShiftFromText(text) {
+  const value = String(text || '').toLowerCase();
+  if (/\b(?:the\s+)?day\s+before\s+yesterday\b/.test(value) || /그제|그저께/.test(value)) return -2;
+  if (/\byesterday\b/.test(value) || /어제/.test(value)) return -1;
+  if (/\btomorrow\b/.test(value) || /내일/.test(value)) return 1;
+  return 0;
+}
+
+function selectedDayNow(now, timezone, selectedDay) {
+  if (!isDateKey(selectedDay)) return null;
+  const [, year, month, day] = String(selectedDay).match(/^(\d{4})-(\d{2})-(\d{2})$/) || [];
+  const parts = localDateParts(now, timezone);
+  return new Date(localDateTimeToIso({
+    ...parts,
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+  }, timezone));
+}
+
+function isDateKey(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 }
 
 function localDateParts(value, timezone) {
