@@ -3515,6 +3515,8 @@ label {
 .category-chinese .meal-card { border-left: 4px solid #e63946; }
 .category-western .meal-card { border-left: 4px solid #2a9d8f; }
 .category-snack .meal-card { border-left: 4px solid #f4a261; }
+.meal-slot .meal-item,
+.meal-slot .meal-card { border-left: 4px solid var(--tracker-accent); }
 
 .meal-swipe .swipe-actions {
   overflow: hidden;
