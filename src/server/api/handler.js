@@ -436,6 +436,7 @@ async function handleApi(request, response) {
       }
 
       const inputAt = now.toISOString();
+      const selectedDay = normalizeDayKey(body.day) || localDateKeyFromIso(inputAt, timezone);
       const rawLog = {
         id: createId('rawlog'),
         familyId: scope.familyId,
@@ -449,6 +450,7 @@ async function handleApi(request, response) {
       };
       const result = await buildEventsForRawLog(rawLog, {
         now,
+        selectedDay,
         scope,
         authorId: session.user.id || defaultAuthorId,
       });
@@ -494,8 +496,10 @@ async function handleApi(request, response) {
         parserMode: body.parserMode || existing.parserMode,
       };
       const now = new Date(existing.inputAt);
+      const selectedDay = normalizeDayKey(body.day) || localDateKeyFromIso(now.toISOString(), rawLog.timezone);
       const result = await buildEventsForRawLog(rawLog, {
         now,
+        selectedDay,
         scope,
         authorId: session.user.id || defaultAuthorId,
         excludeRawLogId: rawLogId,
@@ -863,7 +867,7 @@ function normalizeMomentAttachments(attachments) {
   }) : [];
 }
 
-async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLogId = '' }) {
+async function buildEventsForRawLog(rawLog, { now, selectedDay, scope, authorId, excludeRawLogId = '' }) {
   const profile = await store.getProfile(scope.babyId, { familyId: scope.familyId });
   const recentEvents = (await store.listEvents({ ...scope, limit: 100 }))
     .filter((event) => event.rawLogId !== excludeRawLogId)
@@ -873,6 +877,7 @@ async function buildEventsForRawLog(rawLog, { now, scope, authorId, excludeRawLo
     profile,
     recentEvents,
     timezone: rawLog.timezone || 'UTC',
+    selectedDay,
     familyId: scope.familyId,
     babyId: scope.babyId,
     authorId,
@@ -971,6 +976,11 @@ async function resolveTimeZone(scope, requestedTimeZone = '') {
 
 function localTodayKey(timeZone, now = new Date()) {
   return localDateKeyFromIso(now, timeZone);
+}
+
+function normalizeDayKey(value) {
+  const text = String(value || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
 }
 
 function normalizeGrowthRecord(record, context) {

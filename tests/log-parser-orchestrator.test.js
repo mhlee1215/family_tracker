@@ -151,6 +151,66 @@ test('keeps LLM explicit clock times on yesterday when the user typed yesterday'
   assert.equal(result.events[0].occurredAt.source, 'explicit');
 });
 
+test('uses selected baby day for heuristic button records without typed dates', async () => {
+  const result = await parseBabyLogForSave('breast milk 80 ml at 8:25 pm today', {
+    now: new Date('2026-06-10T18:00:00.000Z'),
+    selectedDay: '2026-06-08',
+    timezone: 'America/Los_Angeles',
+  }, {
+    parserMode: 'heuristic',
+  });
+
+  assert.equal(result.status, 'ok');
+  assert.equal(result.events[0].occurredAt.value, '2026-06-09T03:25:00.000Z');
+  assert.equal(result.events[0].occurredAt.source, 'explicit');
+});
+
+test('uses selected baby day for text records unless the text gives another date', async () => {
+  const selectedDayResult = await parseBabyLogForSave('fed breastmilk 85 ml at 4:00 am', {
+    now: new Date('2026-06-10T18:00:00.000Z'),
+    selectedDay: '2026-06-08',
+    timezone: 'America/Los_Angeles',
+  }, {
+    parserMode: 'heuristic',
+  });
+  const yesterdayResult = await parseBabyLogForSave('fed breastmilk 85 ml at 4:00 am yesterday', {
+    now: new Date('2026-06-10T18:00:00.000Z'),
+    selectedDay: '2026-06-08',
+    timezone: 'America/Los_Angeles',
+  }, {
+    parserMode: 'heuristic',
+  });
+  const dayBeforeYesterdayResult = await parseBabyLogForSave('그제 오전 4시 모유 85 ml', {
+    now: new Date('2026-06-10T18:00:00.000Z'),
+    selectedDay: '2026-06-08',
+    timezone: 'America/Los_Angeles',
+  }, {
+    parserMode: 'heuristic',
+  });
+
+  assert.equal(selectedDayResult.status, 'ok');
+  assert.equal(selectedDayResult.events[0].occurredAt.value, '2026-06-08T11:00:00.000Z');
+  assert.equal(yesterdayResult.status, 'ok');
+  assert.equal(yesterdayResult.events[0].occurredAt.value, '2026-06-07T11:00:00.000Z');
+  assert.equal(dayBeforeYesterdayResult.status, 'ok');
+  assert.equal(dayBeforeYesterdayResult.events[0].occurredAt.value, '2026-06-06T11:00:00.000Z');
+});
+
+test('uses typed date words for text records without clock times', async () => {
+  const result = await parseBabyLogForSave('그제 응가', {
+    now: new Date('2026-06-10T18:30:00.000Z'),
+    selectedDay: '2026-06-08',
+    timezone: 'America/Los_Angeles',
+  }, {
+    parserMode: 'heuristic',
+  });
+
+  assert.equal(result.status, 'ok');
+  assert.equal(result.events[0].occurredAt.value, '2026-06-06T18:30:00.000Z');
+  assert.equal(result.events[0].occurredAt.source, 'system');
+  assert.equal(result.events[0].occurredAt.basis, 'typed_date_current_time');
+});
+
 test('falls back to heuristic parser when configured LLM parse times out', async () => {
   const result = await parseBabyLogForSave('fed 80 ml breastmilk at 4:00 am', {
     now: new Date('2026-06-10T03:00:00.000Z'),
