@@ -1549,8 +1549,7 @@ input {
 }
 
 .input-panel,
-.timeline-section,
-.ask-panel {
+.timeline-section {
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -1886,31 +1885,6 @@ label {
 .record-secondary-actions {
   background: var(--canvas);
   padding: 0 min(80px, 7vw) 40px;
-}
-
-.ask-panel {
-  background: var(--canvas);
-  padding: 48px min(80px, 7vw) 64px;
-}
-
-.ask-panel > label {
-  display: block;
-  margin-bottom: 18px;
-  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 28px;
-  line-height: 1.14;
-}
-
-.ask-panel .answer-text {
-  margin-bottom: 0;
-}
-
-.ask-panel input {
-  border-color: var(--hairline);
-}
-
-.ask-panel button {
-  margin-top: 10px;
 }
 
 .answer-text {
@@ -2529,7 +2503,6 @@ label {
 
   .input-panel,
   .timeline-section,
-  .ask-panel,
   .task-section {
     padding: 32px 16px 24px;
   }
