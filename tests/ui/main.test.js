@@ -1020,6 +1020,8 @@ describe('app/main', () => {
     expect(document.querySelector('.meal-slot-breakfast')).toBeTruthy();
     expect(document.querySelector('.meal-slot-lunch')).toBeTruthy();
     expect(document.querySelector('.meal-slot-dinner')).toBeTruthy();
+    const styles = readFileSync(`${process.cwd()}/app/styles.css`, 'utf8');
+    expect(styles).toContain('.meal-slot .meal-card { border-left: 4px solid var(--tracker-accent); }');
 
     const dotStyles = Array.from(document.querySelectorAll('#meal-calendar-grid .calendar-dot'))
       .map((dot) => dot.getAttribute('style'));
