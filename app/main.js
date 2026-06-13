@@ -158,6 +158,7 @@ const state = {
   syncVersions: null,
   syncCheckInFlight: false,
   syncLastCheckedAt: 0,
+  authLoading: false,
   homeLoading: {
     baby: false,
     tasks: false,
@@ -255,6 +256,7 @@ const elements = {
   llmProviderStatus: $('#llm-provider-status'),
   authPanel: $('#auth-panel'),
   authActionsPanel: $('#auth-actions-panel'),
+  authLoginStatus: $('#auth-login-status'),
   accountPanel: $('#account-panel'),
   accountLabel: $('#account-label'),
   workspace: $('#workspace'),
@@ -677,9 +679,9 @@ async function saveLog(text, options = {}) {
     const savedCount = (payload.events || []).filter((event) => !event.hiddenFromTimeline).length;
     rememberRecentBabyLog(cleanText, payload.events || []);
     elements.answer.textContent = savedCount === 1 ? '1 log saved' : `${savedCount} logs saved`;
-    state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
     state.quickLog.active = false;
     state.quickLog.text = '';
+    applySavedLogEvents(payload.events || []);
     setLogSaving(false);
     try {
       await loadToday();
@@ -698,6 +700,30 @@ function setLogSaving(isSaving) {
   elements.logForm?.classList.toggle('saving', isSaving);
   elements.logForm?.setAttribute('aria-busy', String(isSaving));
   elements.logSaveStatus?.classList.toggle('hidden', !isSaving);
+}
+
+function applySavedLogEvents(events = []) {
+  const savedEvents = events.filter(Boolean);
+  const previousDay = state.selectedDay;
+  const savedDay = dayFromSavedEvents(savedEvents) || previousDay;
+  state.selectedDay = savedDay;
+  if (savedEvents.length) {
+    if (savedDay !== previousDay) {
+      state.events = savedEvents;
+    } else {
+      const savedIds = new Set(savedEvents.map((event) => event.id).filter(Boolean));
+      const savedRawLogIds = new Set(savedEvents.map((event) => event.rawLogId).filter(Boolean));
+      state.events = [
+        ...state.events.filter((event) => !savedIds.has(event.id) && !(event.rawLogId && savedRawLogIds.has(event.rawLogId))),
+        ...savedEvents,
+      ];
+    }
+  }
+  state.summary = buildTodaySummary(state.events);
+  state.todayContext = buildClientTodayContext(state.events);
+  hydrateRecent24StatusFallback();
+  renderBaby();
+  if (state.activeTab === 'home') renderHomeDashboard();
 }
 
 
@@ -1205,21 +1231,37 @@ async function loadCurrentUser() {
 }
 
 async function devLogin() {
-  const response = await fetch('/api/auth/dev', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: 'admin-dev' }),
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    elements.answer.textContent = payload.error || copy.saveFailed;
-    return;
+  if (state.authLoading) return;
+  setAuthLoading(true);
+  try {
+    const response = await fetch('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'admin-dev' }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      elements.answer.textContent = payload.error || copy.saveFailed;
+      return;
+    }
+    state.user = payload.user;
+    state.meals = loadMealsForUser(state.user);
+    renderAuthState();
+    await refreshActiveTab({ includeSecondary: false, updateSync: false });
+    queueRemoteSyncBaseline();
+  } catch {
+    elements.answer.textContent = copy.saveFailed;
+  } finally {
+    setAuthLoading(false);
   }
-  state.user = payload.user;
-  state.meals = loadMealsForUser(state.user);
-  renderAuthState();
-  await refreshActiveTab({ includeSecondary: false, updateSync: false });
-  queueRemoteSyncBaseline();
+}
+
+function setAuthLoading(isLoading) {
+  state.authLoading = Boolean(isLoading);
+  elements.devLogin.disabled = state.authLoading;
+  elements.devLogin.setAttribute('aria-busy', String(state.authLoading));
+  elements.devLogin.textContent = state.authLoading ? 'Signing in...' : 'Admin dev';
+  elements.authLoginStatus?.classList.toggle('hidden', !state.authLoading);
 }
 
 async function logout() {
@@ -1460,6 +1502,7 @@ function renderAuthState() {
   elements.authActionsPanel.classList.toggle('hidden', Boolean(state.user));
   elements.accountPanel.classList.toggle('hidden', !state.user);
   elements.devLogin.classList.toggle('hidden', Boolean(state.user));
+  if (!state.user) setAuthLoading(state.authLoading);
   elements.workspace.classList.toggle('disabled', !state.user);
   elements.taskWorkspace.classList.toggle('disabled', !state.user);
   elements.accountLabel.textContent = state.user ? `${state.user.name || state.user.email || 'User'} account` : '';

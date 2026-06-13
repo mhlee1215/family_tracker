@@ -53,6 +53,41 @@ describe('app/main', () => {
     expect(document.querySelector('#dev-login').classList.contains('hidden')).toBe(false);
   });
 
+  it('shows a sign-in loading mark while admin dev auth is pending', async () => {
+    let resolveDevLogin;
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: null }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/auth/dev') && init.method === 'POST') {
+        return new Promise((resolve) => {
+          resolveDevLogin = () => resolve(new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 }));
+        });
+      }
+      return new Response(JSON.stringify({ events: [], tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=dev-auth-loading');
+
+    const devLogin = document.querySelector('#dev-login');
+    const authStatus = document.querySelector('#auth-login-status');
+    fireEvent.click(devLogin);
+
+    await vi.waitFor(() => expect(resolveDevLogin).toBeTypeOf('function'));
+    expect(devLogin.disabled).toBe(true);
+    expect(devLogin.getAttribute('aria-busy')).toBe('true');
+    expect(devLogin.textContent).toBe('Signing in...');
+    expect(authStatus.classList.contains('hidden')).toBe(false);
+    expect(authStatus.textContent).toContain('Signing in...');
+
+    resolveDevLogin();
+
+    await vi.waitFor(() => expect(document.querySelector('#account-label').textContent).toContain('Parent account'));
+    expect(devLogin.disabled).toBe(false);
+    expect(authStatus.classList.contains('hidden')).toBe(true);
+  });
+
   it('does not keep the whole app loading while authentication is slow', async () => {
     let resolveAuth;
     global.fetch = vi.fn(async (input) => {
@@ -1346,6 +1381,9 @@ describe('app/main', () => {
             saveResolved = true;
             resolve(new Response(JSON.stringify({
               events: [{
+                id: 'event-1',
+                rawLogId: 'rawlog-1',
+                rawText: 'fed 80 ml breastmilk at 4:00 am',
                 type: 'feeding_milk',
                 occurredAt: { value: '2026-06-09T11:00:00.000Z' },
                 amountMl: { value: 80 },
@@ -1372,6 +1410,7 @@ describe('app/main', () => {
     resolveLogSave();
 
     await vi.waitFor(() => expect(document.querySelector('#answer').textContent).toBe('1 log saved'));
+    expect(document.querySelector('#timeline').textContent).toContain('Breast milk');
     expect(form.getAttribute('aria-busy')).toBe('false');
     expect(form.classList.contains('saving')).toBe(false);
     expect(status.classList.contains('hidden')).toBe(true);
