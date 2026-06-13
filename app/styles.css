@@ -369,6 +369,24 @@ input {
   font-weight: 600;
 }
 
+.account-panel .auth-login-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  border: 1px solid rgba(0, 102, 204, 0.26);
+  border-radius: 9999px;
+  background: rgba(0, 102, 204, 0.08);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.account-panel .auth-login-status.hidden {
+  display: none;
+}
+
 .app-shell {
   width: 100%;
   margin: 0;
@@ -1598,15 +1616,17 @@ label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 28px;
+  min-height: 34px;
   margin-top: 12px;
-  border: 1px solid var(--hairline);
+  border: 1px solid rgba(0, 102, 204, 0.32);
   border-radius: 9999px;
-  background: var(--surface-pearl);
-  color: var(--ink);
-  font-size: 14px;
+  background: rgba(0, 102, 204, 0.1);
+  box-shadow: 0 10px 24px rgba(0, 102, 204, 0.14);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1.29;
-  padding: 6px 12px;
+  padding: 8px 14px;
 }
 
 .log-save-status.hidden {
@@ -1629,8 +1649,9 @@ label {
 .input-panel.saving .composer-row::after {
   position: absolute;
   inset: -6px;
-  border: 1px solid var(--primary);
+  border: 2px solid rgba(0, 102, 204, 0.72);
   border-radius: 9999px;
+  box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
   pointer-events: none;
   content: "";
 }

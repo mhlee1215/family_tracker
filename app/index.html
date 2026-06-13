@@ -45,6 +45,10 @@
                 <span>Choose sign in</span>
                 <a id="google-login" class="button-link menu-action" href="/api/auth/google/start">Google</a>
                 <button id="dev-login" type="button" class="ghost-button menu-action">Admin dev</button>
+                <span id="auth-login-status" class="auth-login-status hidden" role="status" aria-live="polite">
+                  <span class="inline-loading-spinner" aria-hidden="true"></span>
+                  <span>Signing in...</span>
+                </span>
               </section>
 
               <section class="settings-block">
@@ -604,6 +608,6 @@
     <script src="/app/vendor/Chart.umd.js"></script>
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
-    <script type="module" src="/app/main.js?build=141"></script>
+    <script type="module" src="/app/main.js?build=142"></script>
   </body>
 </html>
