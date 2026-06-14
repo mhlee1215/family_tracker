@@ -5260,9 +5260,9 @@ function dayFromSavedEvents(events = []) {
 function dayHeading(day) {
   const today = localDateKey(new Date());
   const shortDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(dateFromKey(day));
-  if (day === today) return `${copy.today} · ${shortDate}`;
-  if (day === shiftDateKey(today, -1)) return `${copy.yesterday} · ${shortDate}`;
-  if (day === shiftDateKey(today, 1)) return `${copy.tomorrow} · ${shortDate}`;
+  if (day === today) return `${copy.today}\n${shortDate}`;
+  if (day === shiftDateKey(today, -1)) return `${copy.yesterday}\n${shortDate}`;
+  if (day === shiftDateKey(today, 1)) return `${copy.tomorrow}\n${shortDate}`;
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', weekday: 'short' }).format(dateFromKey(day));
 }
 

@@ -430,7 +430,9 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: clamp(8px, 3vw, 16px);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .date-step {
@@ -452,7 +454,8 @@ input {
 .date-picker-label {
   position: relative;
   display: grid;
-  min-width: 124px;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
 }
 
@@ -461,9 +464,11 @@ input {
   font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 56px;
   font-weight: 600;
-  line-height: 1.07;
+  line-height: 0.98;
   letter-spacing: 0;
-  white-space: nowrap;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .day-picker {
@@ -2462,15 +2467,15 @@ label {
   }
 
   .date-heading {
-    gap: 10px;
+    gap: 8px;
   }
 
   .day-label {
-    font-size: 34px;
+    font-size: clamp(28px, 9vw, 34px);
   }
 
   .date-picker-label {
-    min-width: 86px;
+    min-width: 0;
   }
 
   .summary-strip,
@@ -4363,11 +4368,11 @@ label {
   }
 
   .home-hero .day-label {
-    font-size: clamp(36px, 6dvh, 48px);
+    font-size: clamp(28px, 9vw, 40px);
   }
 
   .tracker-hero .day-label {
-    font-size: clamp(36px, 6dvh, 48px);
+    font-size: clamp(28px, 9vw, 40px);
   }
 
   .home-deck {

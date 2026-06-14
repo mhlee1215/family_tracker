@@ -4,7 +4,7 @@ import { AppHarness } from '../helpers/app-harness.js';
 function relativeDayHeading(label, offsetDays = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
-  return `${label} · ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
+  return `${label}\n${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
 }
 
 test.describe('Family Tracker core flows', () => {
@@ -187,11 +187,16 @@ test.describe('Family Tracker core flows', () => {
 
       const metrics = await page.evaluate(() => ({
         documentScrollHeight: document.documentElement.scrollHeight,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         homeHeight: document.querySelector('#home-view')?.getBoundingClientRect().height ?? 0,
         homeBottom: document.querySelector('#home-view')?.getBoundingClientRect().bottom ?? 0,
+        headingRight: document.querySelector('#home-day-label')?.getBoundingClientRect().right ?? 0,
       }));
 
+      expect(metrics.documentScrollWidth, `${viewport.name} should not create horizontal page overflow`).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+      expect(metrics.headingRight, `${viewport.name} day heading should fit within viewport`).toBeLessThanOrEqual(metrics.viewportWidth + 1);
       expect(metrics.documentScrollHeight, `${viewport.name} should not create page scroll`).toBeLessThanOrEqual(metrics.viewportHeight + 1);
       expect(metrics.homeHeight, `${viewport.name} home view should fit viewport below nav`).toBeLessThanOrEqual(metrics.viewportHeight - 44 + 1);
       expect(metrics.homeBottom, `${viewport.name} home view should end within the visible page`).toBeLessThanOrEqual(metrics.viewportHeight + 1);
@@ -397,8 +402,7 @@ test.describe('Family Tracker core flows', () => {
   test('baby records and task changes appear in action logs', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await app.loginAsDevAdmin();
-    const suffix = Math.random().toString(36).slice(2, 8);
-    const recordText = `action log formula 120 ml ${suffix}`;
+    const recordText = 'action log formula 120 ml at 4:00 pm';
 
     await page.locator('#log-input').fill(recordText);
     await page.locator('#log-form').evaluate((form) => form.requestSubmit());
@@ -417,7 +421,7 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#task-tab').click();
     await page.locator('#open-task-composer').click();
     await page.locator('#task-assignee').selectOption({ index: 0 });
-    const taskTitle = `Action log task ${suffix}`;
+    const taskTitle = `Action log task ${Math.random().toString(36).slice(2, 8)}`;
     await page.locator('#task-title').fill(taskTitle);
     await page.locator('#task-form button[type="submit"]').click();
     await expect(page.locator('#task-list')).toContainText(taskTitle);
