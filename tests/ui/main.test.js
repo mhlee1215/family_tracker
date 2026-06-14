@@ -35,7 +35,7 @@ function mockFetch() {
 function relativeDayHeading(label, offsetDays = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
-  return `${label} · ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
+  return `${label}\n${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
 }
 
 describe('app/main', () => {
