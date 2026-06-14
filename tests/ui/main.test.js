@@ -32,6 +32,12 @@ function mockFetch() {
   });
 }
 
+function relativeDayHeading(label, offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return `${label} · ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
+}
+
 describe('app/main', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -375,15 +381,15 @@ describe('app/main', () => {
 
     await import('../../app/main.js?case=home-date-controls');
 
-    expect(document.querySelector('#home-day-label').textContent).toBe('Today');
+    expect(document.querySelector('#home-day-label').textContent).toBe(relativeDayHeading('Today'));
 
     fireEvent.click(document.querySelector('#next-home-day'));
 
-    await vi.waitFor(() => expect(document.querySelector('#home-day-label').textContent).toBe('Tomorrow'));
+    await vi.waitFor(() => expect(document.querySelector('#home-day-label').textContent).toBe(relativeDayHeading('Tomorrow', 1)));
 
     fireEvent.click(document.querySelector('#baby-tab'));
 
-    expect(document.querySelector('#day-label').textContent).toBe('Tomorrow');
+    expect(document.querySelector('#day-label').textContent).toBe(relativeDayHeading('Tomorrow', 1));
   });
 
 

@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { AppHarness } from '../helpers/app-harness.js';
 
+function relativeDayHeading(label, offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return `${label} · ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
+}
+
 test.describe('Family Tracker core flows', () => {
   test('initial page access releases startup loading while auth is pending', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
@@ -45,24 +51,24 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin('/');
     await app.captureStep('Logged in to home dashboard', 'Dev admin login completed and the Home dashboard opened.');
 
-    await expect(page.locator('#home-view.active #home-day-label')).toHaveText('Today');
+    await expect(page.locator('#home-view.active #home-day-label')).toHaveText(relativeDayHeading('Today'));
     await expect(page.locator('#home-summary-grid .home-card')).toHaveCount(3);
     await expect(page.locator('#home-summary-grid')).toContainText('Baby today');
     await expect(page.locator('#home-summary-grid')).toContainText('Tasks today');
     await expect(page.locator('#home-summary-grid')).toContainText('Meals today');
 
     await page.locator('#next-home-day').click();
-    await expect(page.locator('#home-view.active #home-day-label')).toHaveText('Tomorrow');
+    await expect(page.locator('#home-view.active #home-day-label')).toHaveText(relativeDayHeading('Tomorrow', 1));
     await expect(page).toHaveURL(/day=/);
     await app.captureStep('Changed the Home dashboard day', 'Home date controls moved the shared dashboard context to tomorrow.');
 
     await page.locator('#baby-tab').click();
-    await expect(page.locator('#baby-view.active #day-label')).toHaveText('Tomorrow');
+    await expect(page.locator('#baby-view.active #day-label')).toHaveText(relativeDayHeading('Tomorrow', 1));
     await expect(page.locator('#timeline')).toBeVisible();
     await app.captureStep('Navigated to baby tab', 'Baby log form and timeline are visible.');
 
     await page.locator('#task-tab').click();
-    await expect(page.locator('#task-view.active #task-day-label')).toHaveText('Tomorrow');
+    await expect(page.locator('#task-view.active #task-day-label')).toHaveText(relativeDayHeading('Tomorrow', 1));
     await expect(page.locator('#task-list')).toBeVisible();
     await app.captureStep('Navigated to task tab', 'Task view rendered with today context and list.');
 
