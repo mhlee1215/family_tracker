@@ -38,6 +38,17 @@ function relativeDayHeading(label, offsetDays = 0) {
   return `${label}\n${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
 }
 
+function dayHeadingAtOffset(offsetDays = 0) {
+  if (offsetDays === 0) return relativeDayHeading('Today');
+  if (offsetDays === 1) return relativeDayHeading('Tomorrow', 1);
+  if (offsetDays === -1) return relativeDayHeading('Yesterday', -1);
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const shortDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
+  return `${weekday}\n${shortDate}`;
+}
+
 describe('app/main', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -387,9 +398,13 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(document.querySelector('#home-day-label').textContent).toBe(relativeDayHeading('Tomorrow', 1)));
 
+    fireEvent.click(document.querySelector('#next-home-day'));
+
+    await vi.waitFor(() => expect(document.querySelector('#home-day-label').textContent).toBe(dayHeadingAtOffset(2)));
+
     fireEvent.click(document.querySelector('#baby-tab'));
 
-    expect(document.querySelector('#day-label').textContent).toBe(relativeDayHeading('Tomorrow', 1));
+    expect(document.querySelector('#day-label').textContent).toBe(dayHeadingAtOffset(2));
   });
 
 

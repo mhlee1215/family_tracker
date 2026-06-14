@@ -5263,7 +5263,8 @@ function dayHeading(day) {
   if (day === today) return `${copy.today}\n${shortDate}`;
   if (day === shiftDateKey(today, -1)) return `${copy.yesterday}\n${shortDate}`;
   if (day === shiftDateKey(today, 1)) return `${copy.tomorrow}\n${shortDate}`;
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', weekday: 'short' }).format(dateFromKey(day));
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(dateFromKey(day));
+  return `${weekday}\n${shortDate}`;
 }
 
 function relativeDateTime(value) {

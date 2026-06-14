@@ -438,6 +438,9 @@ input {
 .date-step {
   display: inline-grid;
   place-items: center;
+  position: relative;
+  z-index: 1;
+  flex: 0 0 44px;
   width: 44px;
   min-height: 44px;
   background: var(--surface-pearl);
@@ -454,12 +457,21 @@ input {
 .date-picker-label {
   position: relative;
   display: grid;
+  align-items: center;
+  justify-items: center;
+  flex: 0 0 clamp(150px, 24vw, 260px);
+  inline-size: clamp(150px, 24vw, 260px);
   min-width: 0;
-  max-width: 100%;
+  max-width: min(100%, 260px);
   margin: 0;
 }
 
 .day-label {
+  display: grid;
+  align-items: center;
+  justify-self: stretch;
+  inline-size: 100%;
+  min-block-size: 1.96em;
   color: var(--ink);
   font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 56px;
@@ -467,8 +479,10 @@ input {
   line-height: 0.98;
   letter-spacing: 0;
   white-space: pre-line;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
   text-align: center;
+  pointer-events: none;
 }
 
 .day-picker {
@@ -2475,6 +2489,8 @@ label {
   }
 
   .date-picker-label {
+    flex-basis: clamp(168px, 46vw, 188px);
+    inline-size: clamp(168px, 46vw, 188px);
     min-width: 0;
   }
 

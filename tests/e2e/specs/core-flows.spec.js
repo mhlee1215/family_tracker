@@ -7,6 +7,17 @@ function relativeDayHeading(label, offsetDays = 0) {
   return `${label}\n${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}`;
 }
 
+function dayHeadingAtOffset(offsetDays = 0) {
+  if (offsetDays === 0) return relativeDayHeading('Today');
+  if (offsetDays === 1) return relativeDayHeading('Tomorrow', 1);
+  if (offsetDays === -1) return relativeDayHeading('Yesterday', -1);
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const shortDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
+  return `${weekday}\n${shortDate}`;
+}
+
 test.describe('Family Tracker core flows', () => {
   test('initial page access releases startup loading while auth is pending', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
@@ -200,6 +211,51 @@ test.describe('Family Tracker core flows', () => {
       expect(metrics.documentScrollHeight, `${viewport.name} should not create page scroll`).toBeLessThanOrEqual(metrics.viewportHeight + 1);
       expect(metrics.homeHeight, `${viewport.name} home view should fit viewport below nav`).toBeLessThanOrEqual(metrics.viewportHeight - 44 + 1);
       expect(metrics.homeBottom, `${viewport.name} home view should end within the visible page`).toBeLessThanOrEqual(metrics.viewportHeight + 1);
+    }
+
+    app.assertNoRuntimeErrors();
+    await app.attachDiagnostics();
+  });
+
+  test('date heading footprint stays stable when days change', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const viewports = [
+      { name: 'iphone-se', width: 375, height: 667 },
+      { name: 'iphone-max', width: 430, height: 932 },
+      { name: 'desktop', width: 1280, height: 900 },
+    ];
+
+    const readFootprint = async () => page.evaluate(() => {
+      const heading = document.querySelector('#home-view.active .date-heading')?.getBoundingClientRect();
+      const label = document.querySelector('#home-view.active .date-picker-label')?.getBoundingClientRect();
+      const next = document.querySelector('#next-home-day')?.getBoundingClientRect();
+      return {
+        headingHeight: heading?.height ?? 0,
+        headingWidth: heading?.width ?? 0,
+        labelHeight: label?.height ?? 0,
+        labelWidth: label?.width ?? 0,
+        nextOffset: heading && next ? next.left - heading.left : 0,
+      };
+    });
+
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await app.loginAsDevAdmin('/');
+      await expect(page.locator('#home-view.active #home-day-label')).toHaveText(dayHeadingAtOffset(0));
+      const today = await readFootprint();
+
+      await page.locator('#next-home-day').click();
+      await expect(page.locator('#home-view.active #home-day-label')).toHaveText(dayHeadingAtOffset(1));
+      const tomorrow = await readFootprint();
+
+      await page.locator('#next-home-day').click();
+      await expect(page.locator('#home-view.active #home-day-label')).toHaveText(dayHeadingAtOffset(2));
+      const future = await readFootprint();
+
+      for (const metric of ['headingHeight', 'headingWidth', 'labelHeight', 'labelWidth', 'nextOffset']) {
+        expect(tomorrow[metric], `${viewport.name} ${metric} should stay stable for relative dates`).toBeCloseTo(today[metric], 0);
+        expect(future[metric], `${viewport.name} ${metric} should stay stable for non-relative dates`).toBeCloseTo(today[metric], 0);
+      }
     }
 
     app.assertNoRuntimeErrors();
