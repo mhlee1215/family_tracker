@@ -49,6 +49,53 @@ function dayHeadingAtOffset(offsetDays = 0) {
   return `${weekday}\n${shortDate}`;
 }
 
+function mockPushNotifications({ permission = 'granted', requestPermission, serviceWorker = {} } = {}) {
+  const permissionRequest = requestPermission || vi.fn().mockResolvedValue(permission);
+  Object.defineProperty(window, 'Notification', {
+    configurable: true,
+    value: { permission, requestPermission: permissionRequest },
+  });
+  Object.defineProperty(window, 'PushManager', {
+    configurable: true,
+    value: function PushManager() {},
+  });
+  Object.defineProperty(window.navigator, 'serviceWorker', {
+    configurable: true,
+    value: {
+      register: vi.fn().mockResolvedValue(undefined),
+      ...serviceWorker,
+    },
+  });
+  return permissionRequest;
+}
+
+function mockAuthenticatedFetchForNotifications() {
+  global.fetch = vi.fn(async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+    if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+    if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+    if (url.endsWith('/api/notification-settings')) {
+      return new Response(JSON.stringify({
+        settings: { milkReminderEnabled: false, milkReminderOffsetMinutes: 30 },
+        pushConfigured: true,
+        subscribed: false,
+      }), { status: 200 });
+    }
+    if (url.endsWith('/api/push/vapid-public-key')) {
+      return new Response(JSON.stringify({ publicKey: 'BDGyZARdiH7cZTORfuMIczdSl3-uf6yzehdkIckM_7YyYTzJPfm_Mj81ywryJEYQVm5VLPKU6DJuIKL9jimTLFA' }), { status: 200 });
+    }
+    if (url.endsWith('/api/push/subscribe') && init.method === 'POST') {
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+    if (url.startsWith('/api/logs/today')) {
+      return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+    }
+    if (url.startsWith('/api/sync/state')) return new Response(JSON.stringify({ modules: {} }), { status: 200 });
+    return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null, overview: [] }), { status: 200 });
+  });
+}
+
 describe('app/main', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -792,6 +839,58 @@ describe('app/main', () => {
     fireEvent.click(document.querySelector('#open-baby-log'));
     expect(document.querySelector('#workspace').classList.contains('hidden')).toBe(false);
     expect(summaryPanel.classList.contains('hidden')).toBe(true);
+  });
+
+  it('asks notification permission before waiting for the service worker', async () => {
+    localStorage.setItem('familyTracker.activeTab', 'baby');
+    mockAuthenticatedFetchForNotifications();
+    const requestPermission = mockPushNotifications({
+      permission: 'default',
+      requestPermission: vi.fn().mockResolvedValue('denied'),
+      serviceWorker: {
+        ready: new Promise(() => {}),
+      },
+    });
+
+    await import('../../app/main.js?case=push-permission-before-service-worker');
+    fireEvent.click(document.querySelector('#open-baby-settings'));
+
+    const enableButton = document.querySelector('#enable-push-notifications');
+    fireEvent.click(enableButton);
+
+    await vi.waitFor(() => expect(requestPermission).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(document.querySelector('#push-notification-status').textContent).toContain('Notifications are blocked.'));
+    expect(window.navigator.serviceWorker.register).toHaveBeenCalledTimes(1);
+    expect(enableButton.disabled).toBe(false);
+  });
+
+  it('recovers when notification service worker readiness hangs', async () => {
+    vi.useFakeTimers();
+    localStorage.setItem('familyTracker.activeTab', 'baby');
+    mockAuthenticatedFetchForNotifications();
+    mockPushNotifications({
+      permission: 'granted',
+      serviceWorker: {
+        getRegistration: vi.fn().mockResolvedValue(null),
+        ready: new Promise(() => {}),
+      },
+    });
+
+    try {
+      await import('../../app/main.js?case=push-service-worker-timeout');
+      fireEvent.click(document.querySelector('#open-baby-settings'));
+
+      const enableButton = document.querySelector('#enable-push-notifications');
+      fireEvent.click(enableButton);
+
+      await vi.waitFor(() => expect(document.querySelector('#push-notification-status').textContent).toContain('Preparing notification service...'));
+      await vi.advanceTimersByTimeAsync(15_000);
+
+      await vi.waitFor(() => expect(document.querySelector('#push-notification-status').textContent).toContain('Notification service is not ready.'));
+      expect(enableButton.disabled).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens task actions as floating panels that dismiss outside', async () => {

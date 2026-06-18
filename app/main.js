@@ -7,6 +7,7 @@ const BUILD_PLACEHOLDER = '---';
 const BUILD_CHECK_INTERVAL_MS = 60_000;
 const REMOTE_SYNC_CHECK_INTERVAL_MS = 60_000;
 const REMOTE_SYNC_FOCUS_MIN_INTERVAL_MS = 15_000;
+const PUSH_ENABLE_STEP_TIMEOUT_MS = 15_000;
 const PULL_REFRESH_THRESHOLD_PX = 72;
 const PULL_REFRESH_MAX_DISTANCE_PX = 112;
 const PULL_REFRESH_BLOCKING_SELECTOR = [
@@ -890,27 +891,32 @@ async function enablePushNotifications() {
   elements.enablePushNotifications.disabled = true;
   setPushNotificationStatus('Enabling notifications...');
   try {
-    const registration = await navigator.serviceWorker.ready;
+    setPushNotificationStatus('Waiting for notification permission...');
     const permission = Notification.permission === 'granted'
       ? 'granted'
-      : await Notification.requestPermission();
+      : await withTimeout(Notification.requestPermission(), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Notification permission did not respond. Close and reopen the home screen app, then try again.');
     if (permission !== 'granted') {
       setPushNotificationStatus('Notifications are blocked.');
       return;
     }
-    const keyResponse = await fetch('/api/push/vapid-public-key');
+    setPushNotificationStatus('Preparing notification service...');
+    const registration = await getReadyServiceWorkerRegistration();
+    setPushNotificationStatus('Reading notification key...');
+    const keyResponse = await withTimeout(fetch('/api/push/vapid-public-key'), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Notification key request timed out.');
     const keyPayload = await keyResponse.json().catch(() => ({}));
     if (!keyResponse.ok || !keyPayload.publicKey) throw new Error(keyPayload.error || 'Push key unavailable.');
-    const existing = await registration.pushManager.getSubscription();
-    const subscription = existing || await registration.pushManager.subscribe({
+    setPushNotificationStatus('Creating notification subscription...');
+    const existing = await withTimeout(registration.pushManager.getSubscription(), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Could not read the current notification subscription.');
+    const subscription = existing || await withTimeout(registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(keyPayload.publicKey),
-    });
-    const response = await fetch('/api/push/subscribe', {
+    }), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Could not create the notification subscription. Reopen the home screen app and try again.');
+    setPushNotificationStatus('Saving notification subscription...');
+    const response = await withTimeout(fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ subscription }),
-    });
+    }), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Could not save the notification subscription.');
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || 'Could not enable notifications.');
     state.pushSubscribed = true;
@@ -921,6 +927,27 @@ async function enablePushNotifications() {
   } finally {
     elements.enablePushNotifications.disabled = false;
   }
+}
+
+async function getReadyServiceWorkerRegistration() {
+  const existing = typeof navigator.serviceWorker.getRegistration === 'function'
+    ? await withTimeout(navigator.serviceWorker.getRegistration(), 5_000, 'Could not check the notification service.')
+    : null;
+  if (!existing && typeof navigator.serviceWorker.register === 'function') {
+    await withTimeout(navigator.serviceWorker.register('/app/sw.js'), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Could not start the notification service.');
+  }
+  const registration = await withTimeout(navigator.serviceWorker.ready, PUSH_ENABLE_STEP_TIMEOUT_MS, 'Notification service is not ready. Close and reopen the home screen app, then try again.');
+  if (!registration?.pushManager) throw new Error('Push subscriptions are not available in this app.');
+  return registration;
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
 }
 
 function normalizeNotificationSettings(settings = {}) {
