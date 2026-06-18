@@ -2,6 +2,12 @@ name = "family-tracker-notifications"
 main = "workers/notification-worker.js"
 compatibility_date = "2026-06-07"
 compatibility_flags = ["nodejs_compat"]
+keep_vars = true
 
 [triggers]
 crons = ["*/5 * * * *"]
+
+[vars]
+TURSO_DATABASE_URL = "libsql://family-tracker-mhlee1215.aws-us-west-2.turso.io"
+VAPID_PUBLIC_KEY = "BDGyZARdiH7cZTORfuMIczdSl3-uf6yzehdkIckM_7YyYTZJPfm_Mj81ywryJEYQVm5VLPKU6DJuIKL9jimTLFA"
+VAPID_SUBJECT = "mailto:mhlee1215@gmail.com"
