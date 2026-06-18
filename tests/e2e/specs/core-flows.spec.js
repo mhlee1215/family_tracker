@@ -92,6 +92,56 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+  test('baby settings save milk reminder notification preferences', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let savedNotificationSettings = null;
+    await page.route('**/api/notification-settings', async (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON();
+        savedNotificationSettings = body.settings;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            settings: body.settings,
+            pushConfigured: true,
+            subscribed: false,
+            job: null,
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          settings: { milkReminderEnabled: false, milkReminderOffsetMinutes: 30 },
+          pushConfigured: true,
+          subscribed: false,
+        }),
+      });
+    });
+
+    await app.loginAsDevAdmin('/baby');
+    await page.locator('#open-baby-settings').click();
+    await expect(page.locator('#baby-settings-panel')).toBeVisible();
+    await expect(page.locator('#milk-reminder-enabled')).toBeVisible();
+
+    await page.locator('#milk-reminder-enabled').check();
+    await page.locator('#milk-reminder-offset').selectOption('45');
+    await page.locator('#baby-settings-form button[type="submit"]').click();
+
+    await expect.poll(() => savedNotificationSettings).toEqual({
+      milkReminderEnabled: true,
+      milkReminderOffsetMinutes: 45,
+    });
+    await app.captureStep('Saved milk reminder preferences', 'Baby settings persisted the reminder toggle and lead time.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
 
   test('baby tab supports pull-to-refresh for user-requested updates', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);

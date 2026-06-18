@@ -275,6 +275,22 @@
               </select>
             </label>
             <p class="settings-note">Care forecasts use this history window for next milk and diaper estimates.</p>
+            <fieldset class="tracker-preferences notification-preferences" aria-label="Milk reminder notifications">
+              <legend>Milk reminder</legend>
+              <label><input id="milk-reminder-enabled" type="checkbox" name="milkReminderEnabled"> <span>Notify before estimated milk</span></label>
+              <label class="select-control">
+                <span>Lead time</span>
+                <select id="milk-reminder-offset" name="milkReminderOffsetMinutes">
+                  <option value="10">10 minutes</option>
+                  <option value="20">20 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </label>
+              <button id="enable-push-notifications" type="button" class="menu-action secondary-action">Enable notifications</button>
+              <p id="push-notification-status" class="settings-note" role="status"></p>
+            </fieldset>
             <fieldset class="tracker-preferences" aria-label="Visible baby trackers">
               <legend>Visible trackers</legend>
               <p class="settings-note">Choose the cards and quick log buttons that match your baby’s current stage.</p>
@@ -608,6 +624,6 @@
     <script src="/app/vendor/Chart.umd.js"></script>
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
-    <script type="module" src="/app/main.js?build=146"></script>
+    <script type="module" src="/app/main.js?build=147"></script>
   </body>
 </html>

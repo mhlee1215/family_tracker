@@ -53,6 +53,35 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+self.addEventListener('push', (event) => {
+  event.waitUntil((async () => {
+    const payload = readPushPayload(event);
+    await self.registration.showNotification(payload.title || 'Family Tracker', {
+      body: payload.body || '',
+      icon: '/app/icons/family-tracker-icon-192.png',
+      badge: '/app/icons/family-tracker-icon-180.png',
+      tag: payload.data?.jobId || payload.data?.type || 'family-tracker',
+      data: payload.data || { url: '/baby' },
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const targetUrl = new URL(event.notification.data?.url || '/baby', self.location.origin).href;
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if ('focus' in client) {
+        await client.focus();
+        if ('navigate' in client) await client.navigate(targetUrl);
+        return;
+      }
+    }
+    await self.clients.openWindow(targetUrl);
+  })());
+});
+
 async function networkFirst(request) {
   try {
     const response = await fetch(request, { cache: 'no-store' });
@@ -63,6 +92,18 @@ async function networkFirst(request) {
     return response;
   } catch {
     return (await caches.match(request)) || Response.error();
+  }
+}
+
+function readPushPayload(event) {
+  try {
+    return event.data ? event.data.json() : {};
+  } catch {
+    return {
+      title: 'Family Tracker',
+      body: event.data?.text() || '',
+      data: { url: '/baby' },
+    };
   }
 }
 

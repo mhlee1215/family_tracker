@@ -19,6 +19,7 @@ import {
 } from '../auth.js';
 import { createBabyStore, getStorageConfig } from '../db/store-factory.js';
 import { getMediaStorageConfig, publicMediaStorageConfig } from '../media-config.js';
+import { buildMilkReminderJob, normalizeNotificationSettings } from '../../domain/milk-reminder.js';
 import { createId } from '../../utils/ids.js';
 import { localDateKeyFromIso, normalizeTimeZone } from '../../utils/time.js';
 import { colorForBabyEventType } from '../../utils/tracker-colors.js';
@@ -216,6 +217,67 @@ async function handleApi(request, response) {
     if (!session) return;
     const scope = scopeForUser(session.user);
 
+    if (request.method === 'GET' && requestUrl.pathname === '/api/push/vapid-public-key') {
+      sendJson(response, 200, notificationConfigPayload());
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/notification-settings') {
+      const settings = await store.getNotificationSettings({ ...scope, userId: session.user.id });
+      const subscriptions = await store.listPushSubscriptionsForUser({ ...scope, userId: session.user.id });
+      sendJson(response, 200, {
+        settings: publicNotificationSettings(settings),
+        pushConfigured: Boolean(process.env.VAPID_PUBLIC_KEY),
+        subscribed: subscriptions.length > 0,
+      });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/notification-settings') {
+      const body = await readJson(request);
+      const settings = normalizeNotificationSettings(body.settings || body);
+      const saved = await store.saveNotificationSettings(settings, { ...scope, userId: session.user.id });
+      const job = await rebuildMilkReminderJobForUser(scope, session.user.id);
+      sendJson(response, 200, {
+        settings: publicNotificationSettings(saved),
+        job,
+        pushConfigured: Boolean(process.env.VAPID_PUBLIC_KEY),
+      });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/push/subscribe') {
+      if (!process.env.VAPID_PUBLIC_KEY) {
+        sendJson(response, 503, { error: 'Push notifications are not configured.' });
+        return;
+      }
+      const body = await readJson(request);
+      const subscription = normalizePushSubscription(body.subscription || body);
+      if (!subscription) {
+        sendJson(response, 400, { error: 'Push subscription is invalid.' });
+        return;
+      }
+      await store.savePushSubscription(subscription, {
+        ...scope,
+        userId: session.user.id,
+        id: createId('pushsub'),
+        userAgent: request.headers['user-agent'] || '',
+      });
+      const job = await rebuildMilkReminderJobForUser(scope, session.user.id);
+      sendJson(response, 200, { ok: true, subscribed: true, job });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/push/unsubscribe') {
+      const body = await readJson(request);
+      const endpoint = String(body.endpoint || '').trim();
+      if (endpoint) await store.disablePushSubscription(endpoint, { ...scope, userId: session.user.id });
+      const subscriptions = await store.listPushSubscriptionsForUser({ ...scope, userId: session.user.id });
+      if (!subscriptions.length) await store.cancelPendingNotificationJobs({ ...scope, userId: session.user.id, type: 'milk_reminder' });
+      sendJson(response, 200, { ok: true, subscribed: subscriptions.length > 0 });
+      return;
+    }
+
     if (request.method === 'POST' && requestUrl.pathname === '/api/llm-config') {
       const body = await readJson(request);
       const provider = normalizeLLMProvider(body.provider || runtimeLLMConfig.provider);
@@ -333,6 +395,7 @@ async function handleApi(request, response) {
       const parts = requestUrl.pathname.split('/');
       const actionLogId = decodeURIComponent(parts[3] || '');
       const result = await undoActionLog(store, scope, actionLogId, session.user.id || defaultAuthorId);
+      if (result.actionLog?.module === 'baby') await rebuildMilkReminderJobForUser(scope, session.user.id);
       sendJson(response, 200, { actionLog: publicActionLog(result.actionLog), undoLog: publicActionLog(result.undoLog) });
       return;
     }
@@ -462,6 +525,7 @@ async function handleApi(request, response) {
       const saved = await store.saveLogWithEvents(rawLog, events);
       await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLog.id, action: 'add', actorId: session.user.id || defaultAuthorId, message: `added baby record "${summarizeActionText(rawText)}"`, metadata: { after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
+      await rebuildMilkReminderJobForUser(scope, session.user.id);
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
     }
@@ -478,6 +542,7 @@ async function handleApi(request, response) {
       if (request.method === 'DELETE') {
         await store.deleteRawLog(rawLogId, scope);
         await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLogId, action: 'delete', actorId: session.user.id || defaultAuthorId, message: `deleted baby record "${summarizeActionText(existing.rawText)}"`, metadata: { before: { rawLog: existing } } });
+        await rebuildMilkReminderJobForUser(scope, session.user.id);
         sendJson(response, 200, { ok: true });
         return;
       }
@@ -512,6 +577,7 @@ async function handleApi(request, response) {
       const saved = await store.replaceRawLogWithEvents(rawLogId, { rawText, timezone: rawLog.timezone }, events, scope);
       await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLogId, action: 'edit', actorId: session.user.id || defaultAuthorId, message: `edited baby record "${summarizeActionText(rawText)}"`, metadata: { before: { rawLog: existing }, after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
+      await rebuildMilkReminderJobForUser(scope, session.user.id);
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
     }
@@ -1029,6 +1095,68 @@ async function markLinkedSleepStartsCompleted(events, openSleep) {
   const endEvent = events.find((event) => event.type === 'sleep' && event.linkedStartEventId === openSleep.id);
   const update = completedOpenSleepUpdate(endEvent, openSleep);
   if (update) await store.updateEvent(update);
+}
+
+function notificationConfigPayload() {
+  const publicKey = process.env.VAPID_PUBLIC_KEY || '';
+  return {
+    publicKey,
+    configured: Boolean(publicKey),
+  };
+}
+
+function publicNotificationSettings(settings = {}) {
+  const normalized = normalizeNotificationSettings(settings);
+  return {
+    milkReminderEnabled: normalized.milkReminderEnabled,
+    milkReminderOffsetMinutes: normalized.milkReminderOffsetMinutes,
+  };
+}
+
+function normalizePushSubscription(subscription = {}) {
+  const endpoint = String(subscription.endpoint || '').trim();
+  const p256dh = String(subscription.keys?.p256dh || '').trim();
+  const auth = String(subscription.keys?.auth || '').trim();
+  if (!endpoint || endpoint.length > 2048 || !p256dh || !auth) return null;
+  return {
+    endpoint,
+    keys: {
+      p256dh,
+      auth,
+    },
+  };
+}
+
+async function rebuildMilkReminderJobForUser(scope, userId) {
+  if (!userId || typeof store.getNotificationSettings !== 'function') return null;
+  const settings = await store.getNotificationSettings({ ...scope, userId });
+  const subscriptions = typeof store.listPushSubscriptionsForUser === 'function'
+    ? await store.listPushSubscriptionsForUser({ ...scope, userId })
+    : [];
+  if (!settings.milkReminderEnabled || !subscriptions.length) {
+    await store.cancelPendingNotificationJobs?.({ ...scope, userId, type: 'milk_reminder' });
+    return null;
+  }
+  const events = await store.listEvents({ ...scope, limit: 1000 });
+  const job = buildMilkReminderJob(settings, events, {
+    ...scope,
+    userId,
+    now: new Date(),
+    periodDays: 7,
+  });
+  if (!job) {
+    await store.cancelPendingNotificationJobs?.({ ...scope, userId, type: 'milk_reminder' });
+    return null;
+  }
+  const saved = await store.replacePendingNotificationJob({
+    ...job,
+    id: createId('notifjob'),
+  }, { ...scope, userId, type: 'milk_reminder' });
+  return saved ? {
+    type: saved.type,
+    targetAt: saved.targetAt,
+    notifyAt: saved.notifyAt,
+  } : null;
 }
 
 async function readJson(request) {

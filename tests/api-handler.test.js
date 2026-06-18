@@ -197,3 +197,89 @@ test('POST and PATCH /api/logs use the selected day as the parser default date',
     }
   }
 });
+
+test('notification settings rebuild the next milk reminder job after push subscription', async () => {
+  const originalCwd = process.cwd();
+  const originalEnv = {
+    DATABASE_PROVIDER: process.env.DATABASE_PROVIDER,
+    TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
+    TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
+    LLM_PROVIDER: process.env.LLM_PROVIDER,
+    VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+  const tempCwd = mkdtempSync(join(tmpdir(), 'family-tracker-notification-api-'));
+
+  process.chdir(tempCwd);
+  process.env.DATABASE_PROVIDER = 'sqlite';
+  process.env.LLM_PROVIDER = 'mock';
+  process.env.VAPID_PUBLIC_KEY = 'test-public-key';
+  delete process.env.TURSO_DATABASE_URL;
+  delete process.env.TURSO_AUTH_TOKEN;
+  process.env.NODE_ENV = 'production';
+
+  try {
+    const { handleWebApiRequest } = await import(`../src/server/api/handler.js?test=notification-${Date.now()}`);
+    const loginResponse = await handleWebApiRequest(new Request('https://family.test/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'admin-test' }),
+    }));
+    const sessionCookie = loginResponse.headers.get('set-cookie');
+
+    const baseNow = Date.now();
+    const logTimes = [
+      new Date(baseNow - 5 * 60 * 60000),
+      new Date(baseNow - 3 * 60 * 60000),
+      new Date(baseNow - 1 * 60 * 60000),
+    ];
+    for (const [index, now] of logTimes.entries()) {
+      const response = await handleWebApiRequest(new Request('https://family.test/api/logs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: sessionCookie },
+        body: JSON.stringify({
+          text: `breast milk ${80 + index * 10} ml`,
+          parserMode: 'heuristic',
+          inputSource: 'text',
+          timezone: 'UTC',
+          day: now.toISOString().slice(0, 10),
+          now: now.toISOString(),
+        }),
+      }));
+      assert.equal(response.status, 200, await response.text());
+    }
+
+    const subscribeResponse = await handleWebApiRequest(new Request('https://family.test/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({
+        subscription: {
+          endpoint: 'https://push.example.test/subscription',
+          keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
+        },
+      }),
+    }));
+    assert.equal(subscribeResponse.status, 200, await subscribeResponse.text());
+
+    const settingsResponse = await handleWebApiRequest(new Request('https://family.test/api/notification-settings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({
+        settings: { milkReminderEnabled: true, milkReminderOffsetMinutes: 30 },
+      }),
+    }));
+    const settings = await settingsResponse.json();
+
+    assert.equal(settingsResponse.status, 200, JSON.stringify(settings));
+    assert.equal(settings.settings.milkReminderEnabled, true);
+    assert.equal(settings.job.type, 'milk_reminder');
+    assert.ok(new Date(settings.job.targetAt).getTime() > Date.now());
+    assert.ok(new Date(settings.job.notifyAt).getTime() <= new Date(settings.job.targetAt).getTime());
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

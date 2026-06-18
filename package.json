@@ -32,7 +32,8 @@
     "@libsql/client": "^0.15.15",
     "chart.js": "^4.5.1",
     "sortablejs": "^1.15.7",
-    "swiped": "^0.1.4"
+    "swiped": "^0.1.4",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
