@@ -88,6 +88,7 @@ Family Tracker 저장소에서 Meta Harness 기본 설치본과 기존 프로젝
 - Cloudflare Pages 런타임은 `wrangler.toml`, `functions/api/[[path]].js`, `src/server/api/handler.js`를 기준으로 검증한다.
 - Cloudflare Pages 배포는 Turso 전용이며, SQLite는 Node 로컬 개발/테스트 백엔드로만 유지한다.
 - Pages 로컬 검증은 `.dev.vars`에 Turso/secret 값을 두고 `npm run pages:dev`로 수행한다. `.dev.vars`는 커밋하지 않는다.
+- Cloudflare scheduled/background runtime은 Pages와 분리된 Worker config(`wrangler.notifications.toml`)로 검증하며, Web Push 발송은 `web-push`의 request 생성과 Worker `fetch()` 조합을 유지한다.
 
 ## Lightweight Refresh Sync Policy
 - Automatic refresh behavior must poll a small sync-state endpoint first and avoid full data reloads unless a module version changed.

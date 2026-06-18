@@ -109,6 +109,9 @@ const state = {
   recentBabyLogs: loadRecentBabyLogs(),
   user: null,
   profile: null,
+  notificationSettings: { milkReminderEnabled: false, milkReminderOffsetMinutes: 30 },
+  pushConfigured: false,
+  pushSubscribed: false,
   growthRecords: [],
   tasks: [],
   taskOverview: [],
@@ -305,6 +308,10 @@ const elements = {
   milkAmount: $('#milk-amount'),
   napDuration: $('#nap-duration'),
   forecastBaseline: $('#forecast-baseline'),
+  milkReminderEnabled: $('#milk-reminder-enabled'),
+  milkReminderOffset: $('#milk-reminder-offset'),
+  enablePushNotifications: $('#enable-push-notifications'),
+  pushNotificationStatus: $('#push-notification-status'),
   babyTrackerToggles: document.querySelectorAll('[name="babyTrackerTypes"]'),
   assigneeForm: $('#assignee-form'),
   assigneeName: $('#assignee-name'),
@@ -513,6 +520,7 @@ elements.llmProviderList?.addEventListener('click', async (event) => {
 
 elements.growthRecordMode?.addEventListener('change', renderGrowthRecordDateControls);
 elements.forecastBaseline?.addEventListener('change', () => changeCareForecastPeriod(elements.forecastBaseline.value));
+elements.enablePushNotifications?.addEventListener('click', enablePushNotifications);
 
 elements.assigneeForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -837,10 +845,139 @@ function queuePreviousBabyDay() {
     .catch(() => {});
 }
 
+async function loadNotificationSettings() {
+  if (!state.user) return;
+  const response = await fetch('/api/notification-settings');
+  const payload = await response.json().catch(() => ({}));
+  if (handleAuthFailure(response)) return;
+  if (!response.ok) throw new Error(payload.error || 'Notification settings unavailable');
+  state.notificationSettings = normalizeNotificationSettings(payload.settings);
+  state.pushConfigured = Boolean(payload.pushConfigured);
+  state.pushSubscribed = Boolean(payload.subscribed);
+  renderNotificationSettings();
+}
+
+async function saveNotificationSettings() {
+  if (!state.user || !elements.milkReminderEnabled || !elements.milkReminderOffset) return;
+  const settings = normalizeNotificationSettings({
+    milkReminderEnabled: elements.milkReminderEnabled.checked,
+    milkReminderOffsetMinutes: elements.milkReminderOffset.value,
+  });
+  const response = await fetch('/api/notification-settings', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    setPushNotificationStatus(payload.error || 'Could not save notification settings.');
+    return;
+  }
+  state.notificationSettings = normalizeNotificationSettings(payload.settings);
+  state.pushConfigured = Boolean(payload.pushConfigured);
+  renderNotificationSettings();
+}
+
+async function enablePushNotifications() {
+  if (!supportsPushNotifications()) {
+    setPushNotificationStatus('Notifications are not available in this browser.');
+    return;
+  }
+  if (!state.pushConfigured) {
+    setPushNotificationStatus('Notification server settings are missing.');
+    return;
+  }
+  elements.enablePushNotifications.disabled = true;
+  setPushNotificationStatus('Enabling notifications...');
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const permission = Notification.permission === 'granted'
+      ? 'granted'
+      : await Notification.requestPermission();
+    if (permission !== 'granted') {
+      setPushNotificationStatus('Notifications are blocked.');
+      return;
+    }
+    const keyResponse = await fetch('/api/push/vapid-public-key');
+    const keyPayload = await keyResponse.json().catch(() => ({}));
+    if (!keyResponse.ok || !keyPayload.publicKey) throw new Error(keyPayload.error || 'Push key unavailable.');
+    const existing = await registration.pushManager.getSubscription();
+    const subscription = existing || await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(keyPayload.publicKey),
+    });
+    const response = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ subscription }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Could not enable notifications.');
+    state.pushSubscribed = true;
+    setPushNotificationStatus('Notifications are on.');
+    renderNotificationSettings();
+  } catch (error) {
+    setPushNotificationStatus(error?.message || 'Could not enable notifications.');
+  } finally {
+    elements.enablePushNotifications.disabled = false;
+  }
+}
+
+function normalizeNotificationSettings(settings = {}) {
+  const offset = Number(settings.milkReminderOffsetMinutes);
+  return {
+    milkReminderEnabled: Boolean(settings.milkReminderEnabled),
+    milkReminderOffsetMinutes: [10, 20, 30, 45, 60].includes(offset) ? offset : 30,
+  };
+}
+
+function renderNotificationSettings() {
+  if (!elements.milkReminderEnabled || !elements.milkReminderOffset) return;
+  const settings = normalizeNotificationSettings(state.notificationSettings);
+  elements.milkReminderEnabled.checked = settings.milkReminderEnabled;
+  elements.milkReminderOffset.value = String(settings.milkReminderOffsetMinutes);
+  const supported = supportsPushNotifications();
+  elements.enablePushNotifications.disabled = !supported || !state.pushConfigured;
+  elements.enablePushNotifications.textContent = state.pushSubscribed ? 'Notifications enabled' : 'Enable notifications';
+  if (!supported) {
+    setPushNotificationStatus('Notifications are not available in this browser.');
+  } else if (!state.pushConfigured) {
+    setPushNotificationStatus('Notification server settings are missing.');
+  } else if (state.pushSubscribed) {
+    setPushNotificationStatus('Notifications are on.');
+  } else {
+    setPushNotificationStatus('Notifications are off.');
+  }
+}
+
+function setPushNotificationStatus(message) {
+  if (elements.pushNotificationStatus) elements.pushNotificationStatus.textContent = message || '';
+}
+
+function supportsPushNotifications() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+function urlBase64ToUint8Array(value) {
+  const padding = '='.repeat((4 - value.length % 4) % 4);
+  const base64 = `${value}${padding}`.replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
 async function loadBabyProfile() {
-  const response = await fetch('/api/profile');
+  const [profileResult, notificationResult] = await Promise.allSettled([
+    fetch('/api/profile'),
+    loadNotificationSettings(),
+  ]);
+  if (profileResult.status !== 'fulfilled') throw profileResult.reason;
+  const response = profileResult.value;
   const payload = await response.json();
   if (handleAuthFailure(response)) return;
+  if (notificationResult.status === 'rejected') {
+    state.pushConfigured = false;
+    state.pushSubscribed = false;
+  }
   state.profile = payload.profile || null;
   state.growthRecords = payload.growthRecords || [];
   renderBabySettings();
@@ -873,6 +1010,7 @@ async function saveBabyProfile() {
   });
   const payload = await response.json();
   if (!response.ok) return;
+  await saveNotificationSettings();
   state.profile = payload.profile;
   state.growthRecords = payload.growthRecords || state.growthRecords;
   renderBabySettings();
@@ -1548,6 +1686,7 @@ function renderBabySettings() {
   elements.milkAmount.value = profile.milkAmountMlOverride ?? '';
   elements.napDuration.value = profile.napDurationMinutesOverride ?? '';
   if (elements.forecastBaseline) elements.forecastBaseline.value = String(state.careForecastPeriodDays);
+  renderNotificationSettings();
   elements.babyTrackerToggles.forEach((input) => {
     input.checked = isBabyTrackerActive(input.value);
   });

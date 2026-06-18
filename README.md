@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 146](https://img.shields.io/badge/build-146-0066cc)
+![Build 147](https://img.shields.io/badge/build-147-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -38,6 +38,7 @@ Designed for very short natural-language input such as `낮잠`, `깸`, `분유 
 - Marks inferred values separately from user-provided values
 - Shows Baby status for last milk, diaper, and sleep state in a compact strip with a Recent 24h/Today toggle
 - Estimates next milk timing, typical milk amount, and next diaper timing from selectable day/week/month history windows with expandable basis details and a time-vs-interval prediction plot
+- Supports opt-in Web Push reminders before the forecast next milk time when the installed PWA has notification permission
 - Adds a Baby menu Patterns panel with selectable day/week/month-style periods, 24-hour activity lanes, interval insight cards, and comparison statistics
 - Reuses successful natural-language logs as smart recent suggestions
 - Tracks staged LLM-first baby work in `docs/llm-first-baby-tracker-roadmap.md`
@@ -227,6 +228,32 @@ MISTRAL_API_KEY
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
 APP_BASE_URL=https://family-tracker-9f9.pages.dev
+```
+
+### Milk reminder notifications
+
+Milk reminder notifications use browser Web Push plus a separate Cloudflare Worker cron. The Pages app stores notification settings, push subscriptions, and pending notification jobs in Turso. The Worker reads due jobs every five minutes, generates encrypted Web Push request details with `web-push`, and sends them with standard Worker `fetch()`.
+
+Required Pages environment variables:
+
+```text
+VAPID_PUBLIC_KEY=...
+```
+
+Required Worker secrets/variables:
+
+```text
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:admin@example.com
+```
+
+Deploy the notification worker separately from Pages:
+
+```bash
+wrangler deploy --config wrangler.notifications.toml
 ```
 
 Render should be connected to `mhlee1215/family_tracker` with `autoDeploy` enabled.

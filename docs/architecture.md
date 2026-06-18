@@ -20,6 +20,9 @@ src/server/api/
 functions/
   Cloudflare Pages Functions entry points for hosted `/api/*` routes.
 
+workers/
+  Cloudflare Workers for scheduled background jobs such as Web Push notification delivery.
+
 tests/
   Unit tests for product logic and persistence hydration.
 ```
@@ -44,6 +47,8 @@ Node local server.
 
 Hosted Cloudflare Pages deployments must use Turso for persistence. SQLite is retained for local Node
 development and automated tests, but it is not a Cloudflare runtime backend.
+
+Milk reminder notifications split request-time work from delivery work. Browser/API routes store user-scoped notification settings, Web Push subscriptions, and pending reminder jobs in Turso whenever baby records or notification settings change. The separate `workers/notification-worker.js` cron runs every five minutes, reads due pending jobs from Turso, generates encrypted Web Push request details with the `web-push` library, and sends them with the Worker `fetch()` API. The Pages app exposes only the VAPID public key to the browser; VAPID private key and Turso auth token stay in Worker environment secrets.
 
 Action logs store add/edit/delete/complete transactions separately from baby records and task records so user-facing records remain distinct from provenance/audit history. Undoable actions keep server-side before/after snapshots so an action can be reversed without exposing snapshot payloads to browser clients.
 

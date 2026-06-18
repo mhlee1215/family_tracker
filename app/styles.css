@@ -633,6 +633,27 @@ input {
   white-space: nowrap;
 }
 
+.notification-preferences {
+  grid-template-columns: 1fr;
+}
+
+.notification-preferences .select-control {
+  align-items: stretch;
+  border-radius: 14px;
+  display: grid;
+  padding: 10px 12px;
+}
+
+.notification-preferences .select-control span {
+  white-space: normal;
+}
+
+.notification-preferences .secondary-action {
+  background: var(--surface-pearl);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
 .baby-status-range {
   display: flex;
   justify-content: center;

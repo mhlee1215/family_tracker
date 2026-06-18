@@ -140,6 +140,49 @@ export class TursoBabyStore {
         undone_by TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
+      `CREATE TABLE IF NOT EXISTS notification_settings (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        baby_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        milk_reminder_enabled INTEGER NOT NULL DEFAULT 0,
+        milk_reminder_offset_minutes INTEGER NOT NULL DEFAULT 30,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, baby_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        endpoint TEXT NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        user_agent TEXT NOT NULL DEFAULT '',
+        disabled_at TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, endpoint)
+      )`,
+      `CREATE TABLE IF NOT EXISTS notification_jobs (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        baby_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        target_at TEXT NOT NULL,
+        notify_at TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        dedupe_key TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'pending',
+        failure_reason TEXT NOT NULL DEFAULT '',
+        sent_at TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(dedupe_key)
+      )`,
       'CREATE INDEX IF NOT EXISTS idx_growth_records_family_baby ON growth_records(family_id, baby_id, occurred_date)',
       'CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at)',
       'CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at)',
@@ -147,6 +190,9 @@ export class TursoBabyStore {
       'CREATE INDEX IF NOT EXISTS idx_task_assignees_family ON task_assignees(family_id, name)',
       'CREATE INDEX IF NOT EXISTS idx_task_items_family_day ON task_items(family_id, due_date, status)',
       'CREATE INDEX IF NOT EXISTS idx_action_logs_family_module ON action_logs(family_id, module, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(family_id, user_id, disabled_at)',
+      'CREATE INDEX IF NOT EXISTS idx_notification_jobs_due ON notification_jobs(status, notify_at)',
+      'CREATE INDEX IF NOT EXISTS idx_notification_jobs_scope ON notification_jobs(family_id, baby_id, user_id, type, status)',
     ], 'write');
     await this.ensureTaskDueModeColumn();
     await this.ensureActionLogColumns();
@@ -628,6 +674,215 @@ export class TursoBabyStore {
     return Object.values(row)[0] || '';
   }
 
+  async getNotificationSettings(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const babyId = options.babyId || defaultBabyId;
+    const userId = options.userId || '';
+    const result = await this.client.execute({
+      sql: `SELECT * FROM notification_settings
+        WHERE family_id = ? AND baby_id = ? AND user_id = ?`,
+      args: [familyId, babyId, userId],
+    });
+    return result.rows[0] ? rowToNotificationSettings(result.rows[0]) : defaultNotificationSettings({ familyId, babyId, userId });
+  }
+
+  async saveNotificationSettings(settings, options = {}) {
+    const familyId = options.familyId || settings.familyId || defaultFamilyId;
+    const babyId = options.babyId || settings.babyId || defaultBabyId;
+    const userId = options.userId || settings.userId || '';
+    const now = new Date().toISOString();
+    const id = settings.id || `notif-settings-${stableUserKey(userId)}-${stableUserKey(babyId)}`;
+    await this.client.execute({
+      sql: `INSERT INTO notification_settings (
+        id, family_id, baby_id, user_id, milk_reminder_enabled, milk_reminder_offset_minutes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, baby_id) DO UPDATE SET
+        milk_reminder_enabled = excluded.milk_reminder_enabled,
+        milk_reminder_offset_minutes = excluded.milk_reminder_offset_minutes,
+        updated_at = excluded.updated_at`,
+      args: [
+        id,
+        familyId,
+        babyId,
+        userId,
+        settings.milkReminderEnabled ? 1 : 0,
+        settings.milkReminderOffsetMinutes || 30,
+        now,
+        now,
+      ],
+    });
+    return this.getNotificationSettings({ familyId, babyId, userId });
+  }
+
+  async savePushSubscription(subscription, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const userId = options.userId || '';
+    const now = new Date().toISOString();
+    const id = options.id || `push-sub-${stableUserKey(userId)}-${stableUserKey(subscription.endpoint)}`;
+    await this.client.execute({
+      sql: `INSERT INTO push_subscriptions (
+        id, family_id, user_id, endpoint, p256dh, auth, user_agent, disabled_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+      ON CONFLICT(user_id, endpoint) DO UPDATE SET
+        p256dh = excluded.p256dh,
+        auth = excluded.auth,
+        user_agent = excluded.user_agent,
+        disabled_at = NULL,
+        updated_at = excluded.updated_at`,
+      args: [
+        id,
+        familyId,
+        userId,
+        subscription.endpoint,
+        subscription.keys?.p256dh || '',
+        subscription.keys?.auth || '',
+        options.userAgent || '',
+        now,
+        now,
+      ],
+    });
+    const subscriptions = await this.listPushSubscriptionsForUser({ familyId, userId });
+    return subscriptions.find((item) => item.endpoint === subscription.endpoint) || null;
+  }
+
+  async listPushSubscriptionsForUser(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const userId = options.userId || '';
+    const result = await this.client.execute({
+      sql: `SELECT * FROM push_subscriptions
+        WHERE family_id = ? AND user_id = ? AND disabled_at IS NULL
+        ORDER BY updated_at DESC`,
+      args: [familyId, userId],
+    });
+    return result.rows.map(rowToPushSubscription);
+  }
+
+  async disablePushSubscription(endpoint, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const userId = options.userId || '';
+    const now = new Date().toISOString();
+    await this.client.execute({
+      sql: `UPDATE push_subscriptions
+        SET disabled_at = ?, updated_at = ?
+        WHERE family_id = ? AND user_id = ? AND endpoint = ?`,
+      args: [now, now, familyId, userId, endpoint],
+    });
+  }
+
+  async disablePushSubscriptionByEndpoint(endpoint) {
+    const now = new Date().toISOString();
+    await this.client.execute({
+      sql: `UPDATE push_subscriptions
+        SET disabled_at = ?, updated_at = ?
+        WHERE endpoint = ?`,
+      args: [now, now, endpoint],
+    });
+  }
+
+  async replacePendingNotificationJob(job, options = {}) {
+    const familyId = options.familyId || job.familyId || defaultFamilyId;
+    const babyId = options.babyId || job.babyId || defaultBabyId;
+    const userId = options.userId || job.userId || '';
+    const type = options.type || job.type;
+    const now = new Date().toISOString();
+    await this.client.batch([
+      {
+        sql: `UPDATE notification_jobs
+          SET status = 'canceled', updated_at = ?
+          WHERE family_id = ? AND baby_id = ? AND user_id = ? AND type = ? AND status = 'pending' AND dedupe_key <> ?`,
+        args: [now, familyId, babyId, userId, type, job.dedupeKey],
+      },
+      {
+        sql: `INSERT INTO notification_jobs (
+          id, family_id, baby_id, user_id, type, target_at, notify_at, title, body,
+          dedupe_key, metadata_json, status, failure_reason, sent_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', '', NULL, ?, ?)
+        ON CONFLICT(dedupe_key) DO UPDATE SET
+          notify_at = excluded.notify_at,
+          title = excluded.title,
+          body = excluded.body,
+          metadata_json = excluded.metadata_json,
+          status = 'pending',
+          failure_reason = '',
+          sent_at = NULL,
+          updated_at = excluded.updated_at`,
+        args: [
+          job.id,
+          familyId,
+          babyId,
+          userId,
+          type,
+          job.targetAt,
+          job.notifyAt,
+          job.title,
+          job.body,
+          job.dedupeKey,
+          JSON.stringify(job.metadata || {}),
+          now,
+          now,
+        ],
+      },
+    ], 'write');
+    return (await this.getNotificationJob(job.id)) || this.getNotificationJobByDedupeKey(job.dedupeKey);
+  }
+
+  async cancelPendingNotificationJobs(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const babyId = options.babyId || defaultBabyId;
+    const userId = options.userId || '';
+    const type = options.type || 'milk_reminder';
+    const now = new Date().toISOString();
+    await this.client.execute({
+      sql: `UPDATE notification_jobs
+        SET status = 'canceled', updated_at = ?
+        WHERE family_id = ? AND baby_id = ? AND user_id = ? AND type = ? AND status = 'pending'`,
+      args: [now, familyId, babyId, userId, type],
+    });
+  }
+
+  async listDueNotificationJobs(options = {}) {
+    const now = options.now || new Date().toISOString();
+    const limit = Number.isInteger(options.limit) ? options.limit : 50;
+    const result = await this.client.execute({
+      sql: `SELECT * FROM notification_jobs
+        WHERE status = 'pending' AND notify_at <= ?
+        ORDER BY notify_at ASC, created_at ASC
+        LIMIT ?`,
+      args: [now, limit],
+    });
+    return result.rows.map(rowToNotificationJob);
+  }
+
+  async getNotificationJob(id) {
+    const result = await this.client.execute({ sql: 'SELECT * FROM notification_jobs WHERE id = ?', args: [id] });
+    return result.rows[0] ? rowToNotificationJob(result.rows[0]) : null;
+  }
+
+  async getNotificationJobByDedupeKey(dedupeKey) {
+    const result = await this.client.execute({ sql: 'SELECT * FROM notification_jobs WHERE dedupe_key = ?', args: [dedupeKey] });
+    return result.rows[0] ? rowToNotificationJob(result.rows[0]) : null;
+  }
+
+  async markNotificationJobSent(id, options = {}) {
+    const now = options.sentAt || new Date().toISOString();
+    await this.client.execute({
+      sql: `UPDATE notification_jobs
+        SET status = 'sent', sent_at = ?, updated_at = ?
+        WHERE id = ?`,
+      args: [now, now, id],
+    });
+  }
+
+  async markNotificationJobFailed(id, options = {}) {
+    const now = options.failedAt || new Date().toISOString();
+    await this.client.execute({
+      sql: `UPDATE notification_jobs
+        SET status = ?, failure_reason = ?, updated_at = ?
+        WHERE id = ?`,
+      args: [options.status || 'failed', String(options.failureReason || '').slice(0, 500), now, id],
+    });
+  }
+
   async appendActionLog(entry) {
     const now = entry.createdAt || new Date().toISOString();
     await this.client.execute({
@@ -909,6 +1164,70 @@ function rowToGrowthRecord(row) {
     weightG: row.weight_g,
     apgarPercent: row.apgar_percent,
     createdAt: row.created_at,
+  };
+}
+
+function defaultNotificationSettings({ familyId = defaultFamilyId, babyId = defaultBabyId, userId = '' } = {}) {
+  return {
+    id: '',
+    familyId,
+    babyId,
+    userId,
+    milkReminderEnabled: false,
+    milkReminderOffsetMinutes: 30,
+    createdAt: '',
+    updatedAt: '',
+  };
+}
+
+function rowToNotificationSettings(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    babyId: row.baby_id,
+    userId: row.user_id,
+    milkReminderEnabled: Boolean(row.milk_reminder_enabled),
+    milkReminderOffsetMinutes: Number(row.milk_reminder_offset_minutes) || 30,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToPushSubscription(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    userId: row.user_id,
+    endpoint: row.endpoint,
+    keys: {
+      p256dh: row.p256dh,
+      auth: row.auth,
+    },
+    userAgent: row.user_agent || '',
+    disabledAt: row.disabled_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToNotificationJob(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    babyId: row.baby_id,
+    userId: row.user_id,
+    type: row.type,
+    targetAt: row.target_at,
+    notifyAt: row.notify_at,
+    title: row.title,
+    body: row.body,
+    dedupeKey: row.dedupe_key,
+    metadata: parseJson(row.metadata_json, {}),
+    status: row.status,
+    failureReason: row.failure_reason || '',
+    sentAt: row.sent_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

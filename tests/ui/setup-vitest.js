@@ -8,6 +8,22 @@ const bodyHtml = (bodyMatch ? bodyMatch[1] : html).replace(/<script[\s\S]*?<\/sc
 
 beforeEach(() => {
   document.body.innerHTML = bodyHtml;
+  if (!window.localStorage) {
+    const store = new Map();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        clear: () => store.clear(),
+        getItem: (key) => store.get(String(key)) ?? null,
+        key: (index) => Array.from(store.keys())[index] ?? null,
+        removeItem: (key) => store.delete(String(key)),
+        setItem: (key, value) => store.set(String(key), String(value)),
+        get length() {
+          return store.size;
+        },
+      },
+    });
+  }
   window.localStorage.clear();
   window.history.replaceState({}, '', '/app/');
   Object.defineProperty(window.navigator, 'serviceWorker', {

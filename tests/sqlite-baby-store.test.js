@@ -38,6 +38,42 @@ test('SQLiteBabyStore saves raw logs with structured events', () => {
   assert.equal(events[0].amountMl.value, 160);
 });
 
+test('SQLiteBabyStore saves notification settings, subscriptions, and pending jobs', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const scope = { familyId: 'family-push', babyId: 'baby-push', userId: 'user-push' };
+
+  const settings = store.saveNotificationSettings({
+    milkReminderEnabled: true,
+    milkReminderOffsetMinutes: 45,
+  }, scope);
+  const subscription = store.savePushSubscription({
+    endpoint: 'https://push.example.test/abc',
+    keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
+  }, { ...scope, id: 'push-sub-1', userAgent: 'test-agent' });
+  const job = store.replacePendingNotificationJob({
+    id: 'notifjob-1',
+    ...scope,
+    type: 'milk_reminder',
+    targetAt: '2026-06-18T17:00:00.000Z',
+    notifyAt: '2026-06-18T16:15:00.000Z',
+    title: 'Milk reminder',
+    body: 'Next milk is estimated around 5:00 PM.',
+    dedupeKey: 'milk-reminder:baby-push:2026-06-18T17:00:00.000Z:45',
+    metadata: { offsetMinutes: 45 },
+  }, { ...scope, type: 'milk_reminder' });
+  const dueJobs = store.listDueNotificationJobs({ now: '2026-06-18T16:15:00.000Z' });
+
+  store.close();
+
+  assert.equal(settings.milkReminderEnabled, true);
+  assert.equal(settings.milkReminderOffsetMinutes, 45);
+  assert.equal(subscription.userAgent, 'test-agent');
+  assert.equal(job.status, 'pending');
+  assert.equal(dueJobs.length, 1);
+  assert.equal(dueJobs[0].metadata.offsetMinutes, 45);
+});
+
 test('SQLiteBabyStore saves editable baby profile defaults', () => {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
   const store = new SQLiteBabyStore(dbPath);
