@@ -6,3 +6,4 @@ pages_build_output_dir = ".cloudflare-pages"
 [vars]
 DATABASE_PROVIDER = "turso"
 MEDIA_STORAGE_PROVIDER = "local"
+VAPID_PUBLIC_KEY = "BDGyZARdiH7cZTORfuMIczdSl3-uf6yzehdkIckM_7YyYTZJPfm_Mj81ywryJEYQVm5VLPKU6DJuIKL9jimTLFA"
