@@ -757,6 +757,45 @@ test.describe('Family Tracker core flows', () => {
   });
 
 
+  test('milk reminder notification deep link opens and highlights next milk forecast', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const eventsByDay = {
+      '2026-05-30': [
+        { id: 'deep-link-milk-0', type: 'feeding_milk', rawText: 'formula 90', occurredAt: { value: '2026-05-30T00:00:00.000Z' }, amountMl: { value: 90 }, createdAt: '2026-05-30T00:01:00.000Z' },
+        { id: 'deep-link-milk-1', type: 'feeding_milk', rawText: 'formula 100', occurredAt: { value: '2026-05-30T03:00:00.000Z' }, amountMl: { value: 100 }, createdAt: '2026-05-30T03:01:00.000Z' },
+        { id: 'deep-link-milk-2', type: 'feeding_milk', rawText: 'formula 120', occurredAt: { value: '2026-05-30T06:00:00.000Z' }, amountMl: { value: 120 }, createdAt: '2026-05-30T06:01:00.000Z' },
+        { id: 'deep-link-diaper', type: 'diaper', rawText: 'pee diaper', occurredAt: { value: '2026-05-30T07:00:00.000Z' }, diaperKind: { value: 'wet' }, createdAt: '2026-05-30T07:01:00.000Z' },
+      ],
+    };
+
+    await page.route('**/api/logs/today**', async (route) => {
+      const url = new URL(route.request().url());
+      const day = url.searchParams.get('day') || '2026-05-30';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: eventsByDay[day] || [], summary: {}, context: null }),
+      });
+    });
+
+    await app.loginAsDevAdmin('/baby?day=2026-05-30&panel=summary&focus=next-milk');
+
+    await expect(page.locator('#baby-summary-panel')).toBeVisible();
+    await expect(page.locator('#open-baby-summary')).toHaveAttribute('aria-expanded', 'true');
+    const nextMilk = page.locator('#care-forecast .care-forecast-milk');
+    await expect(nextMilk).toBeVisible();
+    await expect(nextMilk).toHaveAttribute('open', '');
+    await expect(nextMilk).toHaveClass(/deep-link-highlight/);
+    await expect(nextMilk).toContainText('Next milk');
+    await expect(nextMilk).toContainText('Estimate');
+    await app.captureStep('Opened milk reminder notification deep link', 'The Baby summary panel opened directly with the Next milk forecast expanded and highlighted.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+
   test('baby weekly patterns summarize seven-day rhythm and type filters', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     const eventsByDay = {

@@ -891,6 +891,15 @@ input {
 .care-forecast-detail dt { color: var(--muted); }
 .care-forecast-detail dd { color: var(--ink); font-weight: 600; }
 
+.care-forecast-card.deep-link-highlight {
+  border-color: rgba(0, 102, 204, 0.62);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+.care-forecast-card.deep-link-highlight summary strong {
+  color: var(--primary);
+}
+
 .care-forecast-explainer {
   display: grid;
   gap: 10px;

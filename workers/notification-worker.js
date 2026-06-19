@@ -42,7 +42,7 @@ async function sendJob(client, job, env) {
     title: job.title,
     body: job.body,
     data: {
-      url: `/baby?day=${String(job.target_at || '').slice(0, 10)}`,
+      url: notificationTargetUrl(job),
       jobId: job.id,
       type: job.type,
       targetAt: job.target_at,
@@ -72,6 +72,15 @@ async function sendJob(client, job, env) {
   } else {
     await markJobFailed(client, job.id, failures.slice(0, 3).join('; ') || 'Push delivery failed.');
   }
+}
+
+function notificationTargetUrl(job) {
+  const day = String(job.target_at || '').slice(0, 10);
+  const params = new URLSearchParams();
+  if (day) params.set('day', day);
+  params.set('panel', 'summary');
+  if (job.type === 'milk_reminder') params.set('focus', 'next-milk');
+  return `/baby?${params.toString()}`;
 }
 
 async function sendPush(row, payload, env) {

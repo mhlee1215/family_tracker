@@ -139,7 +139,7 @@ const state = {
   mealCalendarMonth: null,
   mealCalendarDots: {},
   taskPanel: 'today',
-  babyPanel: null,
+  babyPanel: getInitialBabyPanel(),
   momentPanelMode: 'gallery',
   meals: emptyMealState(),
   llmConfig: { provider: 'mock', model: 'mock-local', providers: [] },
@@ -159,6 +159,7 @@ const state = {
   careForecastError: '',
   careForecastRequestId: 0,
   careForecastPeriodDays: normalizeForecastPeriodDays(localStorage.getItem(storageKeys.careForecastPeriodDays)),
+  deepLinkFocus: getDeepLinkFocusFromLocation(),
   syncVersions: null,
   syncCheckInFlight: false,
   syncLastCheckedAt: 0,
@@ -644,17 +645,26 @@ window.addEventListener('popstate', () => {
   const nextTab = normalizeTab(tab || state.activeTab);
   const nextDay = getDayParamFromLocation('day', state.selectedDay);
   const nextPeriod = getSummaryPeriodFromLocation();
+  const nextBabyPanel = getBabyPanelFromLocation();
+  const nextFocus = getDeepLinkFocusFromLocation();
   const tabChanged = nextTab !== state.activeTab;
   const dayChanged = nextDay !== state.selectedDay;
   const periodChanged = nextPeriod !== (elements.summaryPeriod?.value || 'week');
+  const focusChanged = nextFocus !== state.deepLinkFocus;
 
   state.selectedDay = nextDay;
+  state.deepLinkFocus = nextFocus;
   if (dayChanged || periodChanged) invalidateDeferredForCurrentDate();
   if (elements.summaryPeriod) elements.summaryPeriod.value = nextPeriod;
   renderSharedDayControls();
 
   if (tabChanged) setActiveTab(nextTab, { pushHistory: false });
-  else if (dayChanged || (state.activeTab === 'task' && periodChanged)) refreshActiveTab();
+  if (state.activeTab === 'baby' && nextBabyPanel !== state.babyPanel) {
+    setBabyPanel(nextBabyPanel);
+  } else if (!tabChanged && (dayChanged || (state.activeTab === 'task' && periodChanged))) {
+    refreshActiveTab();
+  }
+  if (focusChanged) applyDeepLinkFocus();
 });
 
 async function saveLog(text, options = {}) {
@@ -2821,6 +2831,7 @@ function renderCareForecast() {
     ${state.careForecastLoading ? '<p class="care-forecast-loading">Refreshing forecast…</p>' : ''}
     <div class="care-forecast-grid">${cards}</div>
   `;
+  applyDeepLinkFocus();
 }
 
 function careForecastCard(kind, title, forecast) {
@@ -2828,8 +2839,9 @@ function careForecastCard(kind, title, forecast) {
   const timer = ready ? forecastTimerLabel(forecast) : 'More logs needed';
   const subtitle = kind === 'milk' ? milkForecastSubtitle(forecast) : diaperForecastSubtitle(forecast);
   const detail = ready ? careForecastDetail(kind, forecast) : notEnoughForecastDetail(forecast);
+  const isFocused = deepLinkFocusMatchesForecast(kind);
   return `
-    <details class="care-forecast-card care-forecast-${escapeHtml(kind)}">
+    <details class="care-forecast-card care-forecast-${escapeHtml(kind)}${isFocused ? ' deep-link-highlight' : ''}"${isFocused ? ' open' : ''}>
       <summary>
         <span>${escapeHtml(title)}</span>
         <strong>${escapeHtml(timer)}</strong>
@@ -5513,7 +5525,17 @@ function normalizeTab(value) {
   return ['home', 'baby', 'task', 'meal'].includes(value) ? value : 'home';
 }
 
+function normalizeBabyPanel(value) {
+  return ['summary', 'settings', 'patterns', 'moments', 'actionLog'].includes(value) ? value : null;
+}
+
+function normalizeDeepLinkFocus(value) {
+  return ['next-milk', 'next-diaper'].includes(value) ? value : '';
+}
+
 function tabFromLocation() {
+  const tabParam = new URLSearchParams(window.location.search).get('tab');
+  if (['home', 'baby', 'task', 'meal'].includes(tabParam)) return tabParam;
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (path === '/') return 'home';
   if (path === '/baby') return 'baby';
@@ -5524,6 +5546,37 @@ function tabFromLocation() {
 
 function getInitialTab() {
   return tabFromLocation() || normalizeTab(localStorage.getItem(storageKeys.activeTab));
+}
+
+function getBabyPanelFromLocation() {
+  return normalizeBabyPanel(new URLSearchParams(window.location.search).get('panel'));
+}
+
+function getInitialBabyPanel() {
+  return getInitialTab() === 'baby' ? getBabyPanelFromLocation() : null;
+}
+
+function getDeepLinkFocusFromLocation() {
+  return normalizeDeepLinkFocus(new URLSearchParams(window.location.search).get('focus'));
+}
+
+function deepLinkFocusMatchesForecast(kind) {
+  return state.deepLinkFocus === `next-${kind}`;
+}
+
+function applyDeepLinkFocus() {
+  if (!state.deepLinkFocus) return;
+  const target = state.deepLinkFocus === 'next-milk'
+    ? elements.careForecast?.querySelector('.care-forecast-milk')
+    : state.deepLinkFocus === 'next-diaper'
+      ? elements.careForecast?.querySelector('.care-forecast-diaper')
+      : null;
+  if (!target) return;
+  target.classList.add('deep-link-highlight');
+  target.setAttribute('open', '');
+  if (!state.careForecastLoading) {
+    window.requestAnimationFrame(() => target.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  }
 }
 
 function syncUrlForTab(tab, { pushHistory = false } = {}) {
