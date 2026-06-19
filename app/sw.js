@@ -6,7 +6,7 @@ const NETWORK_FIRST_PATHS = new Set([
   '/app/styles.css',
   '/app/main.js',
   '/app/build.json',
-  '/app/sw.js',
+  '/sw.js',
 ]);
 
 self.addEventListener('install', (event) => {
@@ -20,6 +20,7 @@ self.addEventListener('install', (event) => {
       '/app/styles.css',
       '/app/main.js',
       '/app/build.json',
+      '/sw.js',
       '/app/manifest.webmanifest',
       '/app/icons/family-tracker-icon-180.png',
       '/app/icons/family-tracker-icon-192.png',

@@ -2,6 +2,7 @@
   "name": "Family Tracker",
   "short_name": "FamilyTracker",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f7f3ea",
   "theme_color": "#f7f3ea",

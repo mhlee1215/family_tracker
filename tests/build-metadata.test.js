@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 function read(path) {
   return readFileSync(path, 'utf8');
@@ -41,6 +42,12 @@ test('recovery page clears stale app service worker caches', () => {
   assert.match(sw, /'\/app\/recover\.html'/);
 });
 
+test('Cloudflare Pages build exposes service worker at root scope', () => {
+  execFileSync(process.execPath, ['scripts/build-cloudflare-pages.js']);
+
+  assert.equal(existsSync('.cloudflare-pages/sw.js'), true);
+  assert.equal(read('.cloudflare-pages/sw.js'), read('app/sw.js'));
+});
 
 test('npm start uses the proxy-aware server launcher for Turso environments', () => {
   const pkg = JSON.parse(read('package.json'));

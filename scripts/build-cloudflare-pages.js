@@ -14,6 +14,7 @@ rmSync(outputDir, { recursive: true, force: true });
 mkdirSync(outputDir, { recursive: true });
 cpSync(join(root, 'app'), join(outputDir, 'app'), { recursive: true });
 cpSync(join(root, 'app', 'index.html'), join(outputDir, 'index.html'));
+cpSync(join(root, 'app', 'sw.js'), join(outputDir, 'sw.js'));
 for (const modulePath of clientModules) {
   mkdirSync(join(outputDir, ...modulePath.slice(0, -1)), { recursive: true });
   cpSync(join(root, ...modulePath), join(outputDir, ...modulePath));
