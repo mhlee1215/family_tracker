@@ -525,7 +525,7 @@ async function handleApi(request, response) {
       const saved = await store.saveLogWithEvents(rawLog, events);
       await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLog.id, action: 'add', actorId: session.user.id || defaultAuthorId, message: `added baby record "${summarizeActionText(rawText)}"`, metadata: { after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
-      await rebuildMilkReminderJobForUser(scope, session.user.id);
+      await rebuildMilkReminderJobForUser(scope, session.user.id, { timezone });
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
     }
@@ -542,7 +542,7 @@ async function handleApi(request, response) {
       if (request.method === 'DELETE') {
         await store.deleteRawLog(rawLogId, scope);
         await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLogId, action: 'delete', actorId: session.user.id || defaultAuthorId, message: `deleted baby record "${summarizeActionText(existing.rawText)}"`, metadata: { before: { rawLog: existing } } });
-        await rebuildMilkReminderJobForUser(scope, session.user.id);
+        await rebuildMilkReminderJobForUser(scope, session.user.id, { timezone: existing.timezone });
         sendJson(response, 200, { ok: true });
         return;
       }
@@ -577,7 +577,7 @@ async function handleApi(request, response) {
       const saved = await store.replaceRawLogWithEvents(rawLogId, { rawText, timezone: rawLog.timezone }, events, scope);
       await appendActionLog(store, scope, { module: 'baby', entityType: 'record', entityId: rawLogId, action: 'edit', actorId: session.user.id || defaultAuthorId, message: `edited baby record "${summarizeActionText(rawText)}"`, metadata: { before: { rawLog: existing }, after: { rawLog: saved } } });
       await markLinkedSleepStartsCompleted(events, openSleep);
-      await rebuildMilkReminderJobForUser(scope, session.user.id);
+      await rebuildMilkReminderJobForUser(scope, session.user.id, { timezone: rawLog.timezone });
       sendJson(response, 200, { rawLog: saved, events: saved.events });
       return;
     }
@@ -1127,7 +1127,7 @@ function normalizePushSubscription(subscription = {}) {
   };
 }
 
-async function rebuildMilkReminderJobForUser(scope, userId) {
+async function rebuildMilkReminderJobForUser(scope, userId, options = {}) {
   if (!userId || typeof store.getNotificationSettings !== 'function') return null;
   const settings = await store.getNotificationSettings({ ...scope, userId });
   const subscriptions = typeof store.listPushSubscriptionsForUser === 'function'
@@ -1138,11 +1138,13 @@ async function rebuildMilkReminderJobForUser(scope, userId) {
     return null;
   }
   const events = await store.listEvents({ ...scope, limit: 1000 });
+  const timezone = await resolveTimeZone(scope, options.timezone);
   const job = buildMilkReminderJob(settings, events, {
     ...scope,
     userId,
     now: new Date(),
     periodDays: 7,
+    timezone,
   });
   if (!job) {
     await store.cancelPendingNotificationJobs?.({ ...scope, userId, type: 'milk_reminder' });

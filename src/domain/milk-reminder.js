@@ -34,6 +34,7 @@ export function buildMilkReminderJob(settings = {}, events = [], options = {}) {
   const notifyAt = rawNotifyAt < now ? now : rawNotifyAt;
   const targetAt = target.toISOString();
   const offset = normalized.milkReminderOffsetMinutes;
+  const timezone = normalizeTimeZone(options.timezone || 'UTC');
   return {
     familyId: options.familyId,
     babyId: options.babyId,
@@ -42,10 +43,11 @@ export function buildMilkReminderJob(settings = {}, events = [], options = {}) {
     targetAt,
     notifyAt: notifyAt.toISOString(),
     title: 'Milk reminder',
-    body: `Next milk is estimated around ${clockLabel(target)}.`,
+    body: `Next milk is estimated around ${clockLabel(target, timezone)}.`,
     dedupeKey: `milk-reminder:${options.babyId}:${targetAt}:${offset}`,
     metadata: {
       offsetMinutes: offset,
+      timezone,
       forecast,
     },
   };
@@ -58,6 +60,16 @@ function coerceDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function clockLabel(date) {
-  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+function clockLabel(date, timeZone = 'UTC') {
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone }).format(date);
+}
+
+function normalizeTimeZone(value) {
+  try {
+    const timeZone = value || 'UTC';
+    new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date(0));
+    return timeZone;
+  } catch {
+    return 'UTC';
+  }
 }

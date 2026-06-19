@@ -43,6 +43,27 @@ test('buildMilkReminderJob schedules a milk push before the forecast next time',
   assert.match(job.dedupeKey, /^milk-reminder:baby-1:2026-06-18T17:00:00.000Z:45$/);
 });
 
+test('buildMilkReminderJob formats notification body in the family timezone', () => {
+  const job = buildMilkReminderJob(
+    { milkReminderEnabled: true, milkReminderOffsetMinutes: 30 },
+    [
+      milk('m1', '2026-06-18T19:00:00.000Z'),
+      milk('m2', '2026-06-18T22:00:00.000Z'),
+      milk('m3', '2026-06-19T01:00:00.000Z'),
+    ],
+    {
+      babyId: 'baby-1',
+      now: new Date('2026-06-19T02:30:00.000Z'),
+      periodDays: 7,
+      timezone: 'America/Los_Angeles',
+    },
+  );
+
+  assert.equal(job.targetAt, '2026-06-19T04:00:00.000Z');
+  assert.equal(job.body, 'Next milk is estimated around 9:00 PM.');
+  assert.equal(job.metadata.timezone, 'America/Los_Angeles');
+});
+
 test('buildMilkReminderJob returns null when reminders are disabled or forecast is overdue', () => {
   const events = [
     milk('m1', '2026-06-18T08:00:00.000Z'),
