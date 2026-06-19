@@ -7,5 +7,8 @@ test('notification worker generates Web Push request details and sends with fetc
 
   assert.match(source, /generateRequestDetails/);
   assert.match(source, /fetch\(request\.endpoint/);
+  assert.match(source, /notificationTargetUrl\(job\)/);
+  assert.match(source, /params\.set\('panel', 'summary'\)/);
+  assert.match(source, /params\.set\('focus', 'next-milk'\)/);
   assert.doesNotMatch(source, /sendNotification\s*\(/);
 });
