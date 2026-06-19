@@ -26,6 +26,7 @@ test('home screen and PWA raster artwork is linked and cacheable', () => {
   assert.match(html, /class="home-hero-art" src="\/app\/icons\/family-tracker-icon-512\.png"/);
 
   const manifest = JSON.parse(read('app/manifest.webmanifest'));
+  assert.equal(manifest.scope, '/');
   assert.deepEqual(manifest.icons.map((icon) => icon.src), [
     '/app/icons/family-tracker-icon-192.png',
     '/app/icons/family-tracker-icon-512.png',
@@ -33,6 +34,9 @@ test('home screen and PWA raster artwork is linked and cacheable', () => {
   assert.equal(manifest.icons[1].purpose, 'any maskable');
 
   const serviceWorker = read('app/sw.js');
+  assert.match(read('app/main.js'), /serviceWorker\.register\('\/sw\.js'\)/);
+  assert.match(serviceWorker, /'\/sw\.js'/);
+  assert.doesNotMatch(serviceWorker, /'\/app\/sw\.js'/);
   for (const asset of [
     '/app/icons/family-tracker-icon-180.png',
     '/app/icons/family-tracker-icon-192.png',

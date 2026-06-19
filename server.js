@@ -52,7 +52,11 @@ createServer(async (request, response) => {
 
 function resolveRequestPath(url) {
   const parsedUrl = new URL(url, `http://localhost:${port}`);
-  const pathname = parsedUrl.pathname === '/' ? '/app/index.html' : parsedUrl.pathname;
+  const pathname = parsedUrl.pathname === '/'
+    ? '/app/index.html'
+    : parsedUrl.pathname === '/sw.js'
+      ? '/app/sw.js'
+      : parsedUrl.pathname;
   const filePath = normalize(join(root, pathname));
   if (!filePath.startsWith(root)) return null;
   return filePath;

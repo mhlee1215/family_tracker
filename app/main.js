@@ -934,7 +934,7 @@ async function getReadyServiceWorkerRegistration() {
     ? await withTimeout(navigator.serviceWorker.getRegistration(), 5_000, 'Could not check the notification service.')
     : null;
   if (!existing && typeof navigator.serviceWorker.register === 'function') {
-    await withTimeout(navigator.serviceWorker.register('/app/sw.js'), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Could not start the notification service.');
+    await withTimeout(navigator.serviceWorker.register('/sw.js'), PUSH_ENABLE_STEP_TIMEOUT_MS, 'Could not start the notification service.');
   }
   const registration = await withTimeout(navigator.serviceWorker.ready, PUSH_ENABLE_STEP_TIMEOUT_MS, 'Notification service is not ready. Close and reopen the home screen app, then try again.');
   if (!registration?.pushManager) throw new Error('Push subscriptions are not available in this app.');
@@ -6043,7 +6043,7 @@ async function hydrateMealThumbnail(imageElement, url) {
 window.setInterval(() => renderCareForecast(), 60_000);
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/app/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 startBuildWatcher();
 startRemoteSyncWatcher();

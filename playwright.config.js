@@ -16,6 +16,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'off',
     video: 'retain-on-failure',
+    serviceWorkers: 'block',
   },
   webServer: {
     command: 'MEDIA_STORAGE_PROVIDER=local DATABASE_PROVIDER=sqlite npm start',

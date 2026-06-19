@@ -860,7 +860,7 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(requestPermission).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(document.querySelector('#push-notification-status').textContent).toContain('Notifications are blocked.'));
-    expect(window.navigator.serviceWorker.register).toHaveBeenCalledTimes(1);
+    expect(window.navigator.serviceWorker.register).toHaveBeenCalledWith('/sw.js');
     expect(enableButton.disabled).toBe(false);
   });
 
