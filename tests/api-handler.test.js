@@ -283,3 +283,71 @@ test('notification settings rebuild the next milk reminder job after push subscr
     }
   }
 });
+
+test('PATCH /api/tasks persists due mode edits', async () => {
+  const originalCwd = process.cwd();
+  const originalEnv = {
+    DATABASE_PROVIDER: process.env.DATABASE_PROVIDER,
+    TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
+    TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+  const tempCwd = mkdtempSync(join(tmpdir(), 'family-tracker-task-patch-api-'));
+
+  process.chdir(tempCwd);
+  process.env.DATABASE_PROVIDER = 'sqlite';
+  delete process.env.TURSO_DATABASE_URL;
+  delete process.env.TURSO_AUTH_TOKEN;
+  process.env.NODE_ENV = 'production';
+
+  try {
+    const { handleWebApiRequest } = await import(`../src/server/api/handler.js?test=task-patch-${Date.now()}`);
+    const loginResponse = await handleWebApiRequest(new Request('https://family.test/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'admin-test' }),
+    }));
+    const sessionCookie = loginResponse.headers.get('set-cookie');
+
+    const assigneesResponse = await handleWebApiRequest(new Request('https://family.test/api/task-assignees', {
+      headers: { cookie: sessionCookie },
+    }));
+    const { assignees } = await assigneesResponse.json();
+
+    const createResponse = await handleWebApiRequest(new Request('https://family.test/api/tasks', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({
+        title: 'Patch due mode task',
+        assigneeId: assignees[0].id,
+        dueMode: 'on_date',
+        dueDate: '2026-06-23',
+        timezone: 'America/Los_Angeles',
+      }),
+    }));
+    const created = await createResponse.json();
+    assert.equal(createResponse.status, 200, JSON.stringify(created));
+
+    const patchResponse = await handleWebApiRequest(new Request(`https://family.test/api/tasks/${created.task.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({
+        title: 'Patch due mode task',
+        assigneeId: assignees[0].id,
+        dueMode: 'someday',
+        dueDate: '',
+      }),
+    }));
+    const patched = await patchResponse.json();
+
+    assert.equal(patchResponse.status, 200, JSON.stringify(patched));
+    assert.equal(patched.task.dueMode, 'someday');
+    assert.equal(patched.task.dueDate, '');
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

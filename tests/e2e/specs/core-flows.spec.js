@@ -18,6 +18,12 @@ function dayHeadingAtOffset(offsetDays = 0) {
   return `${weekday}\n${shortDate}`;
 }
 
+function dayKeyAtOffset(offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 test.describe('Family Tracker core flows', () => {
   test('initial page access releases startup loading while auth is pending', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
@@ -418,6 +424,16 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#task-list')).not.toContainText('E2E task creation');
     await app.captureStep('Edited task successfully', 'The task edit action reuses the composer and updates the list after Save.');
 
+    const editedRow = page.locator('#task-list .task-swipe', { hasText: 'E2E task edited' }).first();
+    await editedRow.getByRole('checkbox', { name: /Complete E2E task edited/ }).check();
+    await expect(page.locator('.completed-task-section')).toContainText('E2E task edited');
+    const completedRow = page.locator('.completed-task-section .task-swipe', { hasText: 'E2E task edited' }).first();
+    await expect(completedRow.getByRole('checkbox')).toBeChecked();
+
+    await completedRow.getByRole('checkbox', { name: /Reopen E2E task edited/ }).uncheck();
+    await expect(page.locator('#task-list .task-swipe', { hasText: 'E2E task edited' }).first().getByRole('checkbox')).not.toBeChecked();
+    await app.captureStep('Reopened task successfully', 'A completed task can be reopened from the completed section and remains visible as an open task.');
+
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
     await app.attachDiagnostics();
@@ -651,6 +667,30 @@ test.describe('Family Tracker core flows', () => {
     await undoTaskAction(page, `reopened task "${reopenTitle}"`);
     await expect(page.locator('.task-item', { hasText: reopenTitle }).first().getByRole('checkbox')).toBeChecked();
     await app.captureStep('Undid task reopen', 'Undoing a reopen transaction restores the task to completed state.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+  test('completed task can be reopened even when its due date is not today', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin('/tasks');
+    const title = `Reopen completed off-day task ${Date.now()}`;
+    const dueDate = dayKeyAtOffset(-1);
+    const task = await createTaskViaApi(page, title, dueDate);
+    await patchTaskViaApi(page, task.id, { status: 'done' });
+    await gotoAndSettle(page, '/tasks');
+
+    const completedRow = page.locator('.completed-task-section .task-swipe', { hasText: title }).first();
+    await expect(completedRow).toBeVisible();
+    await expect(completedRow.getByRole('checkbox', { name: new RegExp(`Reopen ${title}`) })).toBeChecked();
+    await completedRow.getByRole('checkbox', { name: new RegExp(`Reopen ${title}`) }).uncheck();
+
+    await expect(page.locator('#task-day-picker')).toHaveValue(dueDate);
+    const reopenedRow = page.locator('#task-list .task-swipe', { hasText: title }).first();
+    await expect(reopenedRow.getByRole('checkbox', { name: new RegExp(`Complete ${title}`) })).not.toBeChecked();
+    await app.captureStep('Reopened off-day completed task', 'Reopening a completed task that was only visible from its completion date moves the task view to its due day so the reopened item remains visible.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
