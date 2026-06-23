@@ -399,6 +399,25 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#task-list')).toContainText('E2E task creation');
     await app.captureStep('Created task successfully', 'Task list shows the newly created task title.');
 
+    const taskRow = page.locator('#task-list .task-swipe', { hasText: 'E2E task creation' }).first();
+    await expect(taskRow).toBeVisible();
+    await taskRow.locator('.swipe-card').hover();
+    await page.mouse.wheel(220, 0);
+    await expect(taskRow.locator('.swipe-actions')).toHaveAttribute('aria-hidden', 'false');
+    await taskRow.getByRole('button', { name: /Edit/ }).click();
+    await expect(page.locator('#task-form')).toBeVisible();
+    await expect(page.locator('#task-title')).toHaveValue('E2E task creation');
+    await expect(page.locator('#task-form button[type="submit"]')).toHaveText('Save');
+
+    await page.locator('#task-title').fill('E2E task edited');
+    await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/api/tasks/') && response.request().method() === 'PATCH'),
+      page.locator('#task-form button[type="submit"]').click(),
+    ]);
+    await expect(page.locator('#task-list')).toContainText('E2E task edited');
+    await expect(page.locator('#task-list')).not.toContainText('E2E task creation');
+    await app.captureStep('Edited task successfully', 'The task edit action reuses the composer and updates the list after Save.');
+
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
     await app.attachDiagnostics();
