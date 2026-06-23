@@ -3494,6 +3494,11 @@ label {
   padding-top: 20px;
 }
 
+.task-column .completed-task-section {
+  margin-top: 0;
+  padding: 12px 14px 0;
+}
+
 .completed-task-section h3 {
   margin: 0 0 12px;
   color: var(--muted);
