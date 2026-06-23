@@ -1224,7 +1224,23 @@ async function toggleTask(task) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ status: nextStatus }),
   });
-  if (response.ok) await loadTaskData();
+  if (!response.ok) return;
+  if (nextStatus === 'open' && !taskIsVisibleWhenOpen(task, state.selectedDay) && isDayKey(task.dueDate)) {
+    setSelectedDay(task.dueDate, { pushHistory: true });
+    return;
+  }
+  await loadTaskData();
+}
+
+function taskIsVisibleWhenOpen(task, day) {
+  if (task.dueMode === 'asap' || task.dueMode === 'someday') return true;
+  if (!isDayKey(task.dueDate)) return true;
+  if (task.dueMode === 'before_date') return task.dueDate >= day;
+  return task.dueDate === day;
+}
+
+function isDayKey(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 }
 
 let activeFloatingAction = null;

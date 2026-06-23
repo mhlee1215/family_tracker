@@ -752,9 +752,11 @@ async function handleApi(request, response) {
       const taskId = requestUrl.pathname.split('/').pop();
       const body = await readJson(request);
       const beforeTask = await store.getTask(taskId, scope);
+      const dueMode = ['on_date','before_date','asap','someday'].includes(body.dueMode) ? body.dueMode : undefined;
       const task = await store.updateTask(taskId, {
         title: body.title,
         assigneeId: body.assigneeId,
+        dueMode,
         dueDate: body.dueDate,
         status: body.status,
         completedBy: session.user.id,
