@@ -168,6 +168,7 @@ const state = {
     baby: false,
     tasks: false,
   },
+  editingTaskId: '',
   deferredLoaded: {
     babyRecent24: false,
     babyActionLog: false,
@@ -331,6 +332,7 @@ const elements = {
   taskTitle: $('#task-title'),
   taskDueMode: $('#task-due-mode'),
   taskDueDate: $('#task-due-date'),
+  taskSubmit: $('#task-submit'),
   summaryPeriod: $('#summary-period'),
   eventSummary: $('#event-summary'),
   taskList: $('#task-list'),
@@ -438,11 +440,17 @@ elements.resetLogForm?.addEventListener('click', () => {
 
 elements.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  await createTask();
+  await saveTaskForm();
 });
 elements.openTaskComposer.addEventListener('click', () => {
   setTaskPanel('today');
-  setTaskComposerOpen(elements.taskForm.classList.contains('hidden'));
+  const isOpen = !elements.taskForm.classList.contains('hidden');
+  if (isOpen && !state.editingTaskId) {
+    setTaskComposerOpen(false);
+    return;
+  }
+  prepareTaskComposer();
+  setTaskComposerOpen(true);
 });
 elements.openWishModal?.addEventListener('click', () => openMealModal({ slot: 'wish' }));
 elements.toggleMealLog?.addEventListener('click', toggleMealLogPanel);
@@ -1142,21 +1150,71 @@ async function createAssignee() {
   }
 }
 
-async function createTask() {
+function currentTaskFormPayload() {
   const title = elements.taskTitle.value.trim();
   const assigneeId = elements.taskAssignee.value;
-  if (!title || !assigneeId) return;
+  if (!title || !assigneeId) return null;
   const dueMode = elements.taskDueMode.value;
   const chosenDate = elements.taskDueDate.value || state.selectedDay;
+  return { title, assigneeId, dueMode, dueDate: chosenDate, timezone: localTimezone() };
+}
+
+async function saveTaskForm() {
+  if (state.editingTaskId) {
+    await updateTaskFromForm(state.editingTaskId);
+    return;
+  }
+  await createTask();
+}
+
+async function createTask() {
+  const payload = currentTaskFormPayload();
+  if (!payload) return;
   const response = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ title, assigneeId, dueMode, dueDate: chosenDate, timezone: localTimezone() }),
+    body: JSON.stringify(payload),
   });
   if (!response.ok) return;
-  elements.taskTitle.value = '';
+  prepareTaskComposer();
   setTaskComposerOpen(false);
   await loadTaskData();
+}
+
+async function updateTaskFromForm(taskId) {
+  const payload = currentTaskFormPayload();
+  if (!payload) return;
+  const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) return;
+  prepareTaskComposer();
+  setTaskComposerOpen(false);
+  await loadTaskData();
+}
+
+function prepareTaskComposer(task = null) {
+  state.editingTaskId = task?.id || '';
+  if (task) {
+    elements.taskAssignee.value = task.assigneeId || elements.taskAssignee.value;
+    elements.taskTitle.value = task.title || '';
+    elements.taskDueMode.value = task.dueMode || 'on_date';
+    elements.taskDueDate.value = task.dueDate || state.selectedDay;
+  } else {
+    elements.taskTitle.value = '';
+    elements.taskDueMode.value = 'on_date';
+    elements.taskDueDate.value = state.selectedDay;
+  }
+  renderTaskComposerMode();
+  renderTaskComposerDueState();
+}
+
+function editTask(task) {
+  setTaskPanel('today');
+  prepareTaskComposer(task);
+  setTaskComposerOpen(true);
 }
 
 async function toggleTask(task) {
@@ -1668,6 +1726,7 @@ function setTaskComposerOpen(open) {
   elements.taskForm.setAttribute('aria-hidden', String(!open));
   elements.openTaskComposer.setAttribute('aria-expanded', String(open));
   elements.openTaskComposer.classList.toggle('active', open);
+  if (!open) prepareTaskComposer();
   renderTaskPanel();
   if (open) elements.taskTitle.focus();
 }
@@ -4403,12 +4462,14 @@ function closeTimelineDetail() {
 }
 
 function renderAssignees() {
+  const selectedAssignee = elements.taskAssignee.value;
   elements.taskAssignee.replaceChildren(...state.assignees.map((assignee) => {
     const option = document.createElement('option');
     option.value = assignee.id;
     option.textContent = assignee.name;
     return option;
   }));
+  if (selectedAssignee) elements.taskAssignee.value = selectedAssignee;
 }
 
 
@@ -4434,6 +4495,12 @@ function renderTaskComposerDueState() {
   const mode = elements.taskDueMode.value;
   elements.taskDueDate.disabled = !(mode === 'on_date' || mode === 'before_date');
   if (!elements.taskDueDate.value) elements.taskDueDate.value = state.selectedDay;
+}
+
+function renderTaskComposerMode() {
+  const editing = Boolean(state.editingTaskId);
+  elements.taskForm?.setAttribute('aria-label', editing ? 'Edit task' : 'Add task');
+  if (elements.taskSubmit) elements.taskSubmit.textContent = editing ? 'Save' : 'Add';
 }
 
 
@@ -5250,6 +5317,7 @@ function renderTask(task) {
     ? { label: 'Reopen', icon: 'reopen' }
     : { label: 'Complete', icon: 'check' };
   return makeSwipeItem(row, [
+    makeSwipeAction({ label: 'Edit', icon: 'edit', onClick: () => editTask(task) }),
     makeSwipeAction({ ...statusAction, onClick: () => toggleTask(task) }),
   ], 'task-swipe');
 }
