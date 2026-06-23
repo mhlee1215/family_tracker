@@ -4777,28 +4777,15 @@ function renderTasks() {
   renderTaskDayControls();
   renderTaskPanel();
   renderAssignees();
-  const openTasks = state.tasks.filter((task) => task.status !== 'done');
-  const completedTasks = state.tasks.filter((task) => task.status === 'done');
   elements.taskCount.textContent = `${state.tasks.length} tasks`;
   const sections = [];
-  if (openTasks.length) {
-    sections.push(renderTaskBoard(openTasks));
+  if (state.tasks.length) {
+    sections.push(renderTaskBoard(state.tasks));
   } else {
     const empty = document.createElement('p');
     empty.className = 'empty';
     empty.textContent = copy.emptyTasks;
     sections.push(empty);
-  }
-  if (completedTasks.length) {
-    const completedSection = document.createElement('section');
-    completedSection.className = 'completed-task-section';
-    const heading = document.createElement('h3');
-    heading.textContent = 'Completed';
-    const completedList = document.createElement('div');
-    completedList.className = 'completed-task-list';
-    completedList.replaceChildren(...completedTasks.map(renderTask));
-    completedSection.replaceChildren(heading, completedList);
-    sections.push(completedSection);
   }
   elements.taskList.replaceChildren(...sections);
   if (!state.taskOverview.length) {
@@ -5300,13 +5287,28 @@ function renderTaskBoard(tasks) {
 function renderTaskColumn(group) {
   const column = document.createElement('section');
   column.className = 'task-column';
+  const openTasks = group.tasks.filter((task) => task.status !== 'done');
+  const completedTasks = group.tasks.filter((task) => task.status === 'done');
   const header = document.createElement('header');
   header.className = 'task-column-header';
   header.innerHTML = `<span class="assignee-dot" style="background:${escapeHtml(group.color)}"></span><strong>${escapeHtml(group.name)}</strong><span>${group.tasks.length}</span>`;
   const list = document.createElement('div');
   list.className = 'task-column-list';
-  list.replaceChildren(...group.tasks.map(renderTask));
-  column.replaceChildren(header, list);
+  list.replaceChildren(...openTasks.map(renderTask));
+  const children = [header];
+  if (openTasks.length) children.push(list);
+  if (completedTasks.length) {
+    const completedSection = document.createElement('section');
+    completedSection.className = 'completed-task-section';
+    const heading = document.createElement('h3');
+    heading.textContent = 'Completed';
+    const completedList = document.createElement('div');
+    completedList.className = 'completed-task-list';
+    completedList.replaceChildren(...completedTasks.map(renderTask));
+    completedSection.replaceChildren(heading, completedList);
+    children.push(completedSection);
+  }
+  column.replaceChildren(...children);
   return column;
 }
 

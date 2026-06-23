@@ -697,6 +697,35 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+  test('open and completed tasks stay grouped under one assignee column', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await app.loginAsDevAdmin('/tasks');
+    const assigneesResponse = await page.request.get('/api/task-assignees');
+    expect(assigneesResponse.ok()).toBeTruthy();
+    const { assignees } = await assigneesResponse.json();
+    const dad = assignees.find((item) => item.name === 'Dad') || assignees[0];
+    const selectedDay = await page.locator('#task-day-picker').inputValue();
+    const suffix = Date.now();
+    const openTitle = `Dad grouped open ${suffix}`;
+    const doneTitle = `Dad grouped done ${suffix}`;
+
+    await createTaskViaApi(page, openTitle, selectedDay, { assigneeId: dad.id });
+    const completed = await createTaskViaApi(page, doneTitle, selectedDay, { assigneeId: dad.id });
+    await patchTaskViaApi(page, completed.id, { status: 'done' });
+    await gotoAndSettle(page, `/tasks?day=${selectedDay}`);
+
+    const dadColumns = page.locator('.task-column').filter({ has: page.locator('.task-column-header', { hasText: dad.name }) });
+    await expect(dadColumns).toHaveCount(1);
+    await expect(dadColumns.first()).toContainText(openTitle);
+    await expect(dadColumns.first()).toContainText(doneTitle);
+    await expect(dadColumns.first().locator('.completed-task-section')).toContainText('Completed');
+    await app.captureStep('Grouped Dad tasks in one column', 'Open and completed Dad tasks render in one assignee column instead of duplicated Dad blocks.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
 
   test('baby timeline sort and filter controls reorder visible logs', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
@@ -1377,15 +1406,15 @@ async function undoBabyAction(page, message) {
   await confirmUndoAndWaitForRefresh(page, 'baby');
 }
 
-async function createTaskViaApi(page, title, dueDate = new Date().toISOString().slice(0, 10)) {
+async function createTaskViaApi(page, title, dueDate = new Date().toISOString().slice(0, 10), options = {}) {
   const assigneesResponse = await page.request.get('/api/task-assignees');
   expect(assigneesResponse.ok()).toBeTruthy();
   const { assignees } = await assigneesResponse.json();
   const response = await page.request.post('/api/tasks', {
     data: {
       title,
-      assigneeId: assignees[0].id,
-      dueMode: 'on_date',
+      assigneeId: options.assigneeId || assignees[0].id,
+      dueMode: options.dueMode || 'on_date',
       dueDate,
     },
   });
