@@ -373,6 +373,31 @@ test('SQLiteBabyStore shows on-date tasks only on their due day and records comp
   assert.equal(overview[0].completedBy, 'user-admin-test');
 });
 
+test('SQLiteBabyStore matches completed task visibility by caller timezone', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const [mom] = store.ensureDefaultTaskAssignees('family-admin-test');
+
+  const task = store.createTask({
+    id: 'task-la-evening-complete',
+    familyId: 'family-admin-test',
+    title: 'Evening bottles',
+    assigneeId: mom.id,
+    dueDate: '2026-06-22',
+  });
+  store.updateTask(task.id, {
+    status: 'done',
+    completedAt: '2026-06-24T01:30:00.000Z',
+  }, { familyId: 'family-admin-test' });
+  const losAngelesTasks = store.listTasksForDay('2026-06-23', { familyId: 'family-admin-test', timezone: 'America/Los_Angeles' });
+  const utcTasks = store.listTasksForDay('2026-06-23', { familyId: 'family-admin-test', timezone: 'UTC' });
+  store.close();
+
+  assert.equal(losAngelesTasks.length, 1);
+  assert.equal(losAngelesTasks[0].id, task.id);
+  assert.equal(utcTasks.length, 0);
+});
+
 test('SQLiteBabyStore task overview uses the caller timezone for today fallback', () => {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
   const store = new SQLiteBabyStore(dbPath);
@@ -568,6 +593,33 @@ test('SQLiteBabyStore deletes tasks for undoing task add transactions', () => {
   assert.equal(store.deleteTask(task.id, { familyId: 'family-admin-test' }), true);
   assert.equal(store.getTask(task.id, { familyId: 'family-admin-test' }), null);
   store.close();
+});
+
+test('SQLiteBabyStore dedupes default task assignees and adds family assignee', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const familyId = 'family-duplicates';
+
+  const mom = store.createTaskAssignee({ id: 'assignee-custom-mom', familyId, name: 'Mom', color: '#111111' });
+  const duplicateMom = store.createTaskAssignee({ id: 'assignee-duplicate-mom', familyId, name: 'Mom', color: '#222222' });
+  store.createTaskAssignee({ id: 'assignee-custom-dad', familyId, name: 'Dad', color: '#333333' });
+  store.createTaskAssignee({ id: 'assignee-duplicate-dad', familyId, name: 'Dad', color: '#444444' });
+  store.createTask({
+    id: 'task-duplicate-assignee',
+    familyId,
+    title: 'Shared duplicate task',
+    assigneeId: duplicateMom.id,
+    dueDate: '2026-06-23',
+  });
+
+  const assignees = store.ensureDefaultTaskAssignees(familyId);
+  const task = store.getTask('task-duplicate-assignee', { familyId });
+  store.close();
+
+  assert.deepEqual(assignees.map((item) => item.name), ['Mom', 'Dad', 'Family']);
+  assert.equal(new Set(assignees.map((item) => item.name)).size, 3);
+  assert.equal(task.assigneeId, mom.id);
+  assert.equal(task.assigneeName, 'Mom');
 });
 
 test('SQLiteBabyStore exposes lightweight sync versions for changed modules', () => {

@@ -8,6 +8,11 @@ const legacyDevAdminFamilyId = 'family-admin';
 const legacyDevAdminBabyId = 'family-admin-baby';
 const currentDevAdminFamilyId = 'family-admin-dev';
 const currentDevAdminBabyId = 'family-admin-dev-baby';
+const defaultTaskAssignees = Object.freeze([
+  { key: 'mom', name: 'Mom', color: '#0066cc' },
+  { key: 'dad', name: 'Dad', color: '#34a853' },
+  { key: 'family', name: 'Family', color: '#7a7a7a' },
+]);
 
 export class TursoBabyStore {
   static async create(options = {}) {
@@ -618,22 +623,56 @@ export class TursoBabyStore {
   }
 
   async ensureDefaultTaskAssignees(familyId = defaultFamilyId) {
-    const existing = await this.listTaskAssignees({ familyId });
-    if (existing.length) return existing;
     const now = new Date().toISOString();
-    await this.client.batch([
-      {
-        sql: `INSERT OR IGNORE INTO task_assignees (id, family_id, name, color, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [`assignee-${familyId}-mom`, familyId, 'Mom', '#0066cc', now, now],
-      },
-      {
-        sql: `INSERT OR IGNORE INTO task_assignees (id, family_id, name, color, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [`assignee-${familyId}-dad`, familyId, 'Dad', '#34a853', now, now],
-      },
-    ], 'write');
+    await this.dedupeTaskAssignees(familyId);
+    let existing = await this.listTaskAssignees({ familyId });
+    const insertStatements = [];
+    for (const assignee of defaultTaskAssignees) {
+      if (!existing.some((item) => normalizedAssigneeName(item.name) === normalizedAssigneeName(assignee.name))) {
+        insertStatements.push({
+          sql: `INSERT OR IGNORE INTO task_assignees (id, family_id, name, color, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+          args: [`assignee-${familyId}-${assignee.key}`, familyId, assignee.name, assignee.color, now, now],
+        });
+        existing = [...existing, { name: assignee.name }];
+      }
+    }
+    if (insertStatements.length) await this.client.batch(insertStatements, 'write');
+    await this.dedupeTaskAssignees(familyId);
     return this.listTaskAssignees({ familyId });
+  }
+
+  async dedupeTaskAssignees(familyId = defaultFamilyId) {
+    const grouped = new Map();
+    for (const assignee of await this.listTaskAssignees({ familyId })) {
+      const key = normalizedAssigneeName(assignee.name);
+      if (!key) continue;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(assignee);
+    }
+    const now = new Date().toISOString();
+    const statements = [];
+    for (const [key, assignees] of grouped.entries()) {
+      const canonical = assignees[0];
+      const defaultAssignee = defaultTaskAssignees.find((item) => normalizedAssigneeName(item.name) === key);
+      if (defaultAssignee) {
+        statements.push({
+          sql: 'UPDATE task_assignees SET name = ?, color = ?, updated_at = ? WHERE id = ? AND family_id = ?',
+          args: [defaultAssignee.name, defaultAssignee.color, now, canonical.id, familyId],
+        });
+      }
+      for (const duplicate of assignees.slice(1)) {
+        statements.push({
+          sql: 'UPDATE task_items SET assignee_id = ?, updated_at = ? WHERE family_id = ? AND assignee_id = ?',
+          args: [canonical.id, now, familyId, duplicate.id],
+        });
+        statements.push({
+          sql: 'DELETE FROM task_assignees WHERE family_id = ? AND id = ?',
+          args: [familyId, duplicate.id],
+        });
+      }
+    }
+    if (statements.length) await this.client.batch(statements, 'write');
   }
 
   async listTaskAssignees(options = {}) {
@@ -1014,6 +1053,7 @@ export class TursoBabyStore {
 
   async listTasksForDay(day, options = {}) {
     const familyId = options.familyId || defaultFamilyId;
+    const { start, end } = utcRangeForLocalDay(day, options.timezone || 'UTC');
     const result = await this.client.execute({
       sql: `SELECT task_items.*, task_assignees.name AS assignee_name, task_assignees.color AS assignee_color
         FROM task_items
@@ -1026,7 +1066,7 @@ export class TursoBabyStore {
               OR (task_items.due_mode in ('asap','someday'))
             ))
             OR (task_items.status = 'done' AND (
-              substr(task_items.completed_at, 1, 10) = ?
+              (task_items.completed_at >= ? AND task_items.completed_at < ?)
               OR (task_items.due_mode = 'on_date' AND task_items.due_date = ?)
               OR (task_items.due_mode = 'before_date' AND task_items.due_date >= ?)
             ))
@@ -1035,7 +1075,7 @@ export class TursoBabyStore {
           CASE task_items.status WHEN 'open' THEN 0 ELSE 1 END,
           task_items.created_at ASC,
           task_items.rowid ASC`,
-      args: [familyId, day, day, day, day, day],
+      args: [familyId, day, day, start, end, day, day],
     });
     return result.rows.map(rowToTask);
   }
@@ -1269,6 +1309,10 @@ function rowToTaskAssignee(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function normalizedAssigneeName(name = '') {
+  return String(name).trim().toLowerCase();
 }
 
 function rowToTask(row) {
