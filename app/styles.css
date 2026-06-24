@@ -2300,13 +2300,14 @@ label {
   line-height: 1.35;
 }
 
-.task-item.done {
-  opacity: 0.64;
-}
-
 .task-item.done .task-text strong {
   color: var(--muted);
   text-decoration: line-through;
+}
+
+.task-item.done .task-text span,
+.task-item.done .assignee-marker {
+  opacity: 0.64;
 }
 
 .overview-item {
