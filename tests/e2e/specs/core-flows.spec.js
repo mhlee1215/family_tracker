@@ -395,6 +395,7 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#task-tab').click();
     await page.locator('#open-task-composer').click();
     await expect(page.locator('#task-form')).toBeVisible();
+    await expect(page.locator('#task-assignee option')).toHaveText(['Mom', 'Dad', 'Family']);
     await app.captureStep('Opened task composer', 'Task creation form is visible.');
 
     await page.locator('#task-assignee').selectOption({ index: 0 });
@@ -679,7 +680,7 @@ test.describe('Family Tracker core flows', () => {
     const title = `Reopen completed off-day task ${Date.now()}`;
     const dueDate = dayKeyAtOffset(-1);
     const task = await createTaskViaApi(page, title, dueDate);
-    await patchTaskViaApi(page, task.id, { status: 'done' });
+    await patchTaskViaApi(page, task.id, { status: 'done', completedAt: `${dayKeyAtOffset(0)}T12:00:00.000Z` });
     await gotoAndSettle(page, '/tasks');
 
     const completedRow = page.locator('.completed-task-section .task-swipe', { hasText: title }).first();
@@ -1424,7 +1425,9 @@ async function createTaskViaApi(page, title, dueDate = new Date().toISOString().
 }
 
 async function patchTaskViaApi(page, taskId, patch) {
-  const response = await page.request.patch(`/api/tasks/${encodeURIComponent(taskId)}`, { data: patch });
+  const response = await page.request.patch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+    data: { timezone: 'America/Los_Angeles', ...patch },
+  });
   expect(response.ok()).toBeTruthy();
   const payload = await response.json();
   return payload.task;

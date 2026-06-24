@@ -687,7 +687,7 @@ async function handleApi(request, response) {
       const timezone = await resolveTimeZone(scope, requestUrl.searchParams.get('timezone'));
       const day = requestUrl.searchParams.get('day') || localTodayKey(timezone);
       await store.ensureDefaultTaskAssignees(scope.familyId);
-      sendJson(response, 200, { tasks: await store.listTasksForDay(day, scope) });
+      sendJson(response, 200, { tasks: await store.listTasksForDay(day, { ...scope, timezone }) });
       return;
     }
 
@@ -759,6 +759,7 @@ async function handleApi(request, response) {
         dueMode,
         dueDate: body.dueDate,
         status: body.status,
+        completedAt: body.completedAt,
         completedBy: session.user.id,
       }, scope);
       if (!task) {
