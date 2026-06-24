@@ -624,6 +624,12 @@ describe('app/main', () => {
 
     await vi.waitFor(() => expect(document.querySelectorAll('#task-list .task-swipe').length).toBe(2));
     expect([...document.querySelectorAll('#task-list .swipe-action span')].map((node) => node.textContent)).toEqual(expect.arrayContaining(['Complete', 'Reopen']));
+    const completedCheckbox = screen.getByRole('checkbox', { name: 'Reopen Fold laundry' });
+    expect(completedCheckbox.disabled).toBe(false);
+    const completedRow = completedCheckbox.closest('.task-swipe');
+    const reopenAction = [...completedRow.querySelectorAll('.swipe-action')].find((button) => button.textContent.includes('Reopen'));
+    expect(reopenAction.disabled).toBe(false);
+    expect(reopenAction.getAttribute('aria-disabled')).not.toBe('true');
     expect(swipedInit).toHaveBeenCalledWith(expect.objectContaining({
       query: expect.stringContaining('data-swipe-id'),
       right: expect.any(Number),

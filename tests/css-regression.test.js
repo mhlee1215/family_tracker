@@ -50,6 +50,20 @@ test('core layout CSS blocks stay present after tracker UI updates', () => {
   ]);
 });
 
+test('completed task rows keep interactive controls visually enabled', () => {
+  const completedRowRules = ruleBodies('.task-item.done');
+  assert.ok(
+    completedRowRules.every((body) => !/\bopacity\s*:/.test(body)),
+    'Completed task row must not set whole-row opacity because it dims enabled checkbox and Reopen actions.',
+  );
+  ruleIncludes('.task-item.done .task-text strong', [
+    'text-decoration:\\s*line-through',
+  ]);
+  ruleIncludes('.task-item.done .task-text span,\n.task-item.done .assignee-marker', [
+    'opacity:\\s*0\\.64',
+  ]);
+});
+
 test('floating panels and gallery CSS keep usable tablet/desktop layout', () => {
   ruleIncludes('.app-floating-panel', [
     'position:\\s*fixed',
