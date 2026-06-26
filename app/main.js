@@ -381,6 +381,7 @@ const elements = {
   actionDialogInputLabel: $('#action-dialog-input-label'),
   actionDialogInput: $('#action-dialog-input'),
   actionDialogQuickActions: $('#action-dialog-quick-actions'),
+  actionDialogStatus: $('#action-dialog-status'),
   actionDialogClose: $('#action-dialog-close'),
   actionDialogCancel: $('#action-dialog-cancel'),
   actionDialogConfirm: $('#action-dialog-confirm'),
@@ -1264,12 +1265,15 @@ function hideFloatingDialog(dialog) {
   }
 }
 
-function openFloatingAction({ kicker = 'Item action', title, description, input = false, inputLabel = 'Details', value = '', confirmLabel = 'Save', quickPicker = false }) {
+function openFloatingAction({ kicker = 'Item action', title, description, input = false, inputLabel = 'Details', value = '', confirmLabel = 'Save', quickPicker = false, onSubmit = null }) {
   if (!elements.actionDialog || !elements.actionDialogForm) {
-    if (input) return Promise.resolve(window.prompt(title, value));
-    return Promise.resolve(window.confirm(description || title));
+    const fallbackResult = input ? window.prompt(title, value) : window.confirm(description || title);
+    const shouldSubmit = input ? fallbackResult !== null : fallbackResult;
+    if (shouldSubmit && typeof onSubmit === 'function') return Promise.resolve(onSubmit(fallbackResult));
+    return Promise.resolve(fallbackResult);
   }
   if (activeFloatingAction) closeFloatingAction(null);
+  setActionDialogSaving(false);
   elements.actionDialogKicker.textContent = kicker;
   elements.actionDialogTitle.textContent = title;
   elements.actionDialogDescription.textContent = description || '';
@@ -1280,7 +1284,7 @@ function openFloatingAction({ kicker = 'Item action', title, description, input 
   renderActionDialogQuickPicker(quickPicker);
   elements.actionDialogConfirm.textContent = confirmLabel;
   return new Promise((resolve) => {
-    activeFloatingAction = { resolve, input };
+    activeFloatingAction = { resolve, input, onSubmit };
     showFloatingDialog(elements.actionDialog);
     if (input) elements.actionDialogInput.focus();
     else elements.actionDialogConfirm.focus();
@@ -1291,16 +1295,25 @@ function submitFloatingAction(event) {
   event.preventDefault();
   if (!activeFloatingAction) return;
   const result = activeFloatingAction.input ? elements.actionDialogInput.value : true;
+  if (typeof activeFloatingAction.onSubmit === 'function') {
+    Promise.resolve(activeFloatingAction.onSubmit(result)).catch(() => {
+      elements.answer.textContent = copy.saveFailed;
+      setActionDialogSaving(false);
+    });
+    return;
+  }
   closeFloatingAction(result);
 }
 
 function closeFloatingAction(result) {
   if (!activeFloatingAction) {
+    setActionDialogSaving(false);
     hideFloatingDialog(elements.actionDialog);
     return;
   }
   const { resolve } = activeFloatingAction;
   activeFloatingAction = null;
+  setActionDialogSaving(false);
   hideFloatingDialog(elements.actionDialog);
   elements.actionDialogForm?.reset();
   elements.actionDialogQuickActions?.replaceChildren();
@@ -1308,9 +1321,30 @@ function closeFloatingAction(result) {
   resolve(result);
 }
 
+function setActionDialogSaving(isSaving, label = 'Saving...') {
+  elements.actionDialogForm?.classList.toggle('saving', isSaving);
+  elements.actionDialogForm?.setAttribute('aria-busy', String(isSaving));
+  if (elements.actionDialogStatus) {
+    const labelNode = elements.actionDialogStatus.querySelector('span:last-child');
+    if (labelNode) labelNode.textContent = label;
+    elements.actionDialogStatus.classList.toggle('hidden', !isSaving);
+  }
+  [
+    elements.actionDialogConfirm,
+    elements.actionDialogCancel,
+    elements.actionDialogClose,
+    elements.actionDialogInput,
+  ].forEach((element) => {
+    if (element) element.disabled = isSaving;
+  });
+  elements.actionDialogQuickActions?.querySelectorAll('button').forEach((button) => {
+    button.disabled = isSaving;
+  });
+}
+
 async function editBabyLog(event) {
   if (!event.rawLogId) return;
-  const nextText = await openFloatingAction({
+  await openFloatingAction({
     kicker: 'Baby record',
     title: 'Edit baby record',
     description: 'Update the original note and Family Tracker will re-parse the timeline record.',
@@ -1319,60 +1353,73 @@ async function editBabyLog(event) {
     value: event.rawText || '',
     quickPicker: true,
     confirmLabel: 'Save',
-  });
-  if (nextText === null) return;
-  const cleanText = nextText.trim();
-  if (!cleanText) return;
-  setLogSaving(true);
-  try {
-    const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: cleanText, timezone: localTimezone(), day: state.selectedDay }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
-        showClarificationWarning(payload);
-        return;
+    onSubmit: async (nextText) => {
+      const cleanText = String(nextText || '').trim();
+      if (!cleanText) return;
+      setActionDialogSaving(true, 'Saving...');
+      try {
+        const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            text: cleanText,
+            timezone: localTimezone(),
+            day: state.selectedDay,
+            parserMode: parserModeForBabyEdit(event),
+            inputSource: event.inputSource || 'text',
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          if (payload.code === 'needs_clarification' || payload.status === 'needs_clarification') {
+            showClarificationWarning(payload);
+            return;
+          }
+          elements.answer.textContent = payload.error || copy.saveFailed;
+          return;
+        }
+        state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
+        closeFloatingAction(true);
+        await loadToday();
+      } catch {
+        elements.answer.textContent = copy.saveFailed;
+      } finally {
+        setActionDialogSaving(false);
       }
-      elements.answer.textContent = payload.error || copy.saveFailed;
-      return;
-    }
-    state.selectedDay = dayFromSavedEvents(payload.events) || state.selectedDay;
-    setLogSaving(false);
-    await loadToday();
-  } catch {
-    elements.answer.textContent = copy.saveFailed;
-  } finally {
-    setLogSaving(false);
-  }
+    },
+  });
 }
 
 async function deleteBabyLog(event) {
   if (!event.rawLogId) return;
-  const ok = await openFloatingAction({
+  await openFloatingAction({
     kicker: 'Baby record',
     title: 'Delete baby record?',
     description: event.rawText || eventTitle(event),
     confirmLabel: 'Delete',
+    onSubmit: async () => {
+      setActionDialogSaving(true, 'Deleting...');
+      try {
+        const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, { method: 'DELETE' });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          elements.answer.textContent = payload.error || copy.saveFailed;
+          return;
+        }
+        closeFloatingAction(true);
+        await loadToday();
+      } catch {
+        elements.answer.textContent = copy.saveFailed;
+      } finally {
+        setActionDialogSaving(false);
+      }
+    },
   });
-  if (!ok) return;
-  setLogSaving(true);
-  try {
-    const response = await fetch(`/api/logs/${encodeURIComponent(event.rawLogId)}`, { method: 'DELETE' });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      elements.answer.textContent = payload.error || copy.saveFailed;
-      return;
-    }
-    setLogSaving(false);
-    await loadToday();
-  } catch {
-    elements.answer.textContent = copy.saveFailed;
-  } finally {
-    setLogSaving(false);
-  }
+}
+
+function parserModeForBabyEdit(event = {}) {
+  if (event.inputSource === 'button' || event.parserInfo?.kind === 'heuristic') return 'heuristic';
+  return event.parserMode === 'heuristic' ? 'heuristic' : 'auto';
 }
 
 
