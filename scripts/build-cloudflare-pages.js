@@ -19,7 +19,7 @@ for (const modulePath of clientModules) {
   mkdirSync(join(outputDir, ...modulePath.slice(0, -1)), { recursive: true });
   cpSync(join(root, ...modulePath), join(outputDir, ...modulePath));
 }
-for (const route of ['baby', 'tasks', 'meals']) {
+for (const route of ['baby', 'tasks', 'meals', 'fund']) {
   mkdirSync(join(outputDir, route), { recursive: true });
   cpSync(join(root, 'app', 'index.html'), join(outputDir, route, 'index.html'));
 }

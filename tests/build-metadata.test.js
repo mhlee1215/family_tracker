@@ -47,6 +47,8 @@ test('Cloudflare Pages build exposes service worker at root scope', () => {
 
   assert.equal(existsSync('.cloudflare-pages/sw.js'), true);
   assert.equal(read('.cloudflare-pages/sw.js'), read('app/sw.js'));
+  assert.equal(existsSync('.cloudflare-pages/fund/index.html'), true);
+  assert.equal(read('.cloudflare-pages/fund/index.html'), read('app/index.html'));
 });
 
 test('npm start uses the proxy-aware server launcher for Turso environments', () => {

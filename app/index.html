@@ -23,6 +23,7 @@
           <button id="baby-tab" type="button" class="module-tab" data-tab="baby">Baby</button>
           <button id="task-tab" type="button" class="module-tab" data-tab="task">Task</button>
           <button id="meal-tab" type="button" class="module-tab" data-tab="meal">Meal</button>
+          <button id="fund-tab" type="button" class="module-tab" data-tab="fund">Fund</button>
         </nav>
         <div class="top-actions">
           <section id="auth-panel" class="auth-panel hidden" aria-live="polite">
@@ -592,6 +593,29 @@
           </form>
         </dialog>
       </section>
+
+      <section id="fund-view" class="module-view fund-view" aria-label="Fund dashboard">
+        <header class="fund-header">
+          <div>
+            <p class="eyebrow">Fund</p>
+            <h1>Live Dashboard</h1>
+          </div>
+          <a class="fund-open-link" href="https://trader-agent.pages.dev/live_dashboard" target="_blank" rel="noopener noreferrer">
+            Open full dashboard
+          </a>
+        </header>
+        <section class="fund-frame-shell" aria-label="Trader Agent live dashboard">
+          <iframe
+            id="fund-dashboard-frame"
+            class="fund-dashboard-frame"
+            title="Trader Agent live dashboard"
+            data-src="https://trader-agent.pages.dev/live_dashboard"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          ></iframe>
+        </section>
+      </section>
     </main>
     <dialog id="action-dialog" class="floating-window action-dialog" aria-labelledby="action-dialog-title" aria-describedby="action-dialog-description">
       <form id="action-dialog-form" class="floating-window-form" method="dialog" autocomplete="off">
@@ -624,6 +648,6 @@
     <script src="/app/vendor/Chart.umd.js"></script>
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
-    <script type="module" src="/app/main.js?build=149"></script>
+    <script type="module" src="/app/main.js?build=150"></script>
   </body>
 </html>

@@ -338,6 +338,7 @@ const elements = {
   taskList: $('#task-list'),
   taskCount: $('#task-count'),
   taskOverviewList: $('#task-overview-list'),
+  fundDashboardFrame: $('#fund-dashboard-frame'),
   wishList: $('#wish-list'),
   mealDayLabel: $('#meal-day-label'),
   mealToday: $('#meal-today'),
@@ -1642,7 +1643,15 @@ function renderTabs() {
   elements.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === state.activeTab));
   elements.views.forEach((view) => view.classList.toggle('active', view.id === `${state.activeTab}-view`));
   elements.settings.forEach((panel) => panel.classList.toggle('hidden', panel.dataset.settings !== state.activeTab));
+  if (state.activeTab === 'fund') loadFundDashboardFrame();
   renderHomeDashboard();
+}
+
+function loadFundDashboardFrame() {
+  const frame = elements.fundDashboardFrame;
+  if (!frame || frame.src) return;
+  const source = frame.dataset.src;
+  if (source) frame.src = source;
 }
 
 
@@ -5461,7 +5470,7 @@ async function refreshActiveTab(options = {}) {
     jobs.push(loadBabyProfile(), loadToday(loadOptions));
   } else if (state.activeTab === 'meal') {
     renderMeals();
-  } else {
+  } else if (state.activeTab === 'task') {
     jobs.push(loadTaskData(loadOptions));
   }
   if (jobs.length) await Promise.all(jobs);
@@ -5608,7 +5617,7 @@ function normalizePatternStatUnit(value) {
 }
 
 function normalizeTab(value) {
-  return ['home', 'baby', 'task', 'meal'].includes(value) ? value : 'home';
+  return ['home', 'baby', 'task', 'meal', 'fund'].includes(value) ? value : 'home';
 }
 
 function normalizeBabyPanel(value) {
@@ -5621,12 +5630,13 @@ function normalizeDeepLinkFocus(value) {
 
 function tabFromLocation() {
   const tabParam = new URLSearchParams(window.location.search).get('tab');
-  if (['home', 'baby', 'task', 'meal'].includes(tabParam)) return tabParam;
+  if (['home', 'baby', 'task', 'meal', 'fund'].includes(tabParam)) return tabParam;
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (path === '/') return 'home';
   if (path === '/baby') return 'baby';
   if (path === '/tasks') return 'task';
   if (path === '/meals') return 'meal';
+  if (path === '/fund') return 'fund';
   return null;
 }
 
@@ -5666,7 +5676,7 @@ function applyDeepLinkFocus() {
 }
 
 function syncUrlForTab(tab, { pushHistory = false } = {}) {
-  const targetPath = tab === 'baby' ? '/baby' : tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : '/';
+  const targetPath = tab === 'baby' ? '/baby' : tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : tab === 'fund' ? '/fund' : '/';
   const params = new URLSearchParams(window.location.search);
   params.set('day', state.selectedDay);
   params.delete('taskDay');
