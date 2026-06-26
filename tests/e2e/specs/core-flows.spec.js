@@ -89,6 +89,12 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#task-list')).toBeVisible();
     await app.captureStep('Navigated to task tab', 'Task view rendered with today context and list.');
 
+    await page.locator('#fund-tab').click();
+    await expect(page.locator('#fund-view.active #fund-dashboard-frame')).toHaveAttribute('src', 'https://trader-agent.pages.dev/live_dashboard');
+    await expect(page.locator('#fund-view.active #fund-dashboard-frame')).toHaveAttribute('data-src', 'https://trader-agent.pages.dev/live_dashboard');
+    await expect(page.locator('#fund-view.active .fund-open-link')).toHaveAttribute('href', 'https://trader-agent.pages.dev/live_dashboard');
+    await app.captureStep('Navigated to fund tab', 'Fund tab embeds the Trader Agent live dashboard.');
+
     await page.locator('#brand-home').click();
     await expect(page.locator('#home-view.active #home-summary-grid')).toBeVisible();
     await app.captureStep('Returned to home dashboard from brand', 'The Family Tracker brand returns to the Home dashboard.');

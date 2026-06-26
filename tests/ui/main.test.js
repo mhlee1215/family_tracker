@@ -600,6 +600,30 @@ describe('app/main', () => {
   });
 
 
+  it('opens the Fund tab with the embedded Trader Agent dashboard', async () => {
+    await import('../../app/main.js?case=fund-tab');
+
+    const fundTab = document.querySelector('#fund-tab');
+    const fundView = document.querySelector('#fund-view');
+    const frame = document.querySelector('#fund-dashboard-frame');
+    const link = document.querySelector('.fund-open-link');
+
+    expect(fundTab).toBeTruthy();
+    expect(fundView.classList.contains('active')).toBe(false);
+    expect(frame.hasAttribute('src')).toBe(false);
+    expect(frame.dataset.src).toBe('https://trader-agent.pages.dev/live_dashboard');
+    frame.dataset.src = 'about:blank';
+
+    fireEvent.click(fundTab);
+
+    expect(fundTab.classList.contains('active')).toBe(true);
+    expect(fundView.classList.contains('active')).toBe(true);
+    expect(frame.getAttribute('src')).toBe('about:blank');
+    expect(link.getAttribute('href')).toBe('https://trader-agent.pages.dev/live_dashboard');
+    expect(window.location.pathname).toBe('/fund');
+  });
+
+
   it('renders task swipe actions for open and completed tasks', async () => {
     const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
     window.Swiped = { init: swipedInit };
