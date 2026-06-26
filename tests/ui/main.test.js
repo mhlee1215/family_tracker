@@ -1616,6 +1616,7 @@ describe('app/main', () => {
             rawLogId: 'rawlog-1',
             type: 'feeding_milk',
             rawText: 'formula',
+            parserInfo: { kind: 'heuristic' },
             occurredAt: { value: '2026-05-28T10:00:00.000Z' },
             amountMl: { value: 120 },
           }],
@@ -1663,7 +1664,10 @@ describe('app/main', () => {
       body: expect.stringContaining('formula 80 ml'),
     })));
     const patchRequest = global.fetch.mock.calls.find(([url, init = {}]) => url === '/api/logs/rawlog-1' && init.method === 'PATCH');
-    expect(JSON.parse(patchRequest[1].body).day).toBe(document.querySelector('#day-picker').value);
+    expect(JSON.parse(patchRequest[1].body)).toMatchObject({
+      day: document.querySelector('#day-picker').value,
+      parserMode: 'heuristic',
+    });
 
     fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Delete baby record?' })).toBeTruthy());
@@ -1689,6 +1693,7 @@ describe('app/main', () => {
             rawLogId: 'rawlog-1',
             type: 'feeding_milk',
             rawText: 'formula',
+            parserInfo: { kind: 'heuristic' },
             occurredAt: { value: '2026-05-28T10:00:00.000Z' },
             amountMl: { value: 120 },
           }],
@@ -1710,30 +1715,37 @@ describe('app/main', () => {
 
     await import('../../app/main.js?case=baby-log-edit-delete-saving-mark');
 
-    const form = document.querySelector('#log-form');
-    const status = document.querySelector('#log-save-status');
     await vi.waitFor(() => expect(document.querySelector('#timeline .raw-text')?.textContent).toBe('formula'));
 
     fireEvent.click(screen.getByText('Edit', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Edit baby record' })).toBeTruthy());
+    const dialogForm = document.querySelector('#action-dialog-form');
+    const dialogStatus = document.querySelector('#action-dialog-status');
     fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(resolvePatch).toBeTypeOf('function'));
-    expect(form.getAttribute('aria-busy')).toBe('true');
-    expect(status.classList.contains('hidden')).toBe(false);
+    expect(dialogForm.getAttribute('aria-busy')).toBe('true');
+    expect(dialogStatus.classList.contains('hidden')).toBe(false);
+    expect(dialogStatus.textContent).toContain('Saving...');
+    expect(document.querySelector('#action-dialog-confirm').disabled).toBe(true);
+    const patchRequest = global.fetch.mock.calls.find(([url, init = {}]) => url === '/api/logs/rawlog-1' && init.method === 'PATCH');
+    expect(JSON.parse(patchRequest[1].body).parserMode).toBe('heuristic');
 
     resolvePatch();
-    await vi.waitFor(() => expect(form.getAttribute('aria-busy')).toBe('false'));
+    await vi.waitFor(() => expect(document.querySelector('#action-dialog').open).toBe(false));
+    expect(dialogForm.getAttribute('aria-busy')).toBe('false');
 
     fireEvent.click(screen.getByText('Delete', { selector: '#timeline .swipe-action span' }));
     await vi.waitFor(() => expect(screen.getByRole('heading', { name: 'Delete baby record?' })).toBeTruthy());
     fireEvent.submit(document.querySelector('#action-dialog-form'));
     await vi.waitFor(() => expect(resolveDelete).toBeTypeOf('function'));
-    expect(form.getAttribute('aria-busy')).toBe('true');
-    expect(status.classList.contains('hidden')).toBe(false);
+    expect(dialogForm.getAttribute('aria-busy')).toBe('true');
+    expect(dialogStatus.classList.contains('hidden')).toBe(false);
+    expect(dialogStatus.textContent).toContain('Deleting...');
+    expect(document.querySelector('#action-dialog-confirm').disabled).toBe(true);
 
     resolveDelete();
-    await vi.waitFor(() => expect(form.getAttribute('aria-busy')).toBe('false'));
-    expect(status.classList.contains('hidden')).toBe(true);
+    await vi.waitFor(() => expect(document.querySelector('#action-dialog').open).toBe(false));
+    expect(dialogForm.getAttribute('aria-busy')).toBe('false');
   });
 
   it('keeps completed tasks in a separate bottom section', async () => {

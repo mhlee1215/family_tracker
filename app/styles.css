@@ -2983,7 +2983,23 @@ label {
 }
 
 .action-dialog .floating-window-actions {
+  align-items: center;
   margin-top: 2px;
+}
+
+.action-dialog-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.action-dialog-status.hidden {
+  display: none;
 }
 
 .action-dialog-quick-actions {
