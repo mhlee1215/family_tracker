@@ -1991,6 +1991,9 @@ function editCampingQuery(query) {
 }
 
 function deleteCampingQuery(queryId) {
+  const query = state.camping.queries.find((item) => item.id === queryId);
+  if (!query) return;
+  if (!window.confirm(`Delete saved search "${query.name || query.campgroundName}"?`)) return;
   state.camping.queries = state.camping.queries.filter((item) => item.id !== queryId);
   clearCampingTimer(queryId);
   saveCampingQueries();
