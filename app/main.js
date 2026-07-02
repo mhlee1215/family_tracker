@@ -180,7 +180,7 @@ const state = {
   careForecastError: '',
   careForecastRequestId: 0,
   careForecastPeriodDays: normalizeForecastPeriodDays(localStorage.getItem(storageKeys.careForecastPeriodDays)),
-  camping: { candidates: [], queries: loadCampingQueries(), editingId: '', runningIds: new Set(), timers: new Map(), status: '', datePickers: { start: null, end: null } },
+  camping: { candidates: [], queries: loadCampingQueries(), editingId: '', selectedCampgrounds: [], runningIds: new Set(), timers: new Map(), status: '', datePickers: { start: null, end: null } },
   travel: { results: [], sources: [], watches: loadTravelWatches(), recentSearches: loadTravelRecentSearches(), runningIds: new Set(), timers: new Map(), status: '' },
   deepLinkFocus: getDeepLinkFocusFromLocation(),
   syncVersions: null,
@@ -1799,9 +1799,9 @@ async function searchCampingCandidates() {
 
 function saveCampingQuery(event) {
   event.preventDefault();
-  const campground = resolveSelectedCampground();
-  if (!campground) {
-    renderCampingStatus('Choose a campground from search results.');
+  const campgrounds = resolveSelectedCampgrounds();
+  if (!campgrounds.length) {
+    renderCampingStatus('Choose one or more campgrounds from search results.');
     return;
   }
   syncCampingEndDateMin();
@@ -1809,21 +1809,24 @@ function saveCampingQuery(event) {
     renderCampingStatus('Range end must be after range start.');
     return;
   }
+  const primaryCampground = campgrounds[0];
+  const multipleCampgrounds = campgrounds.length > 1;
   const query = {
     id: state.camping.editingId || `camp-${Date.now()}`,
-    name: (elements.campingQueryName?.value.trim() || campground.name).slice(0, 80),
-    campgroundId: campground.id,
-    campgroundName: campground.name,
-    location: campground.location || '',
+    name: (campgrounds.map((campground) => campground.name).join(', ') || elements.campingQueryName?.value.trim()).slice(0, 80),
+    campgroundId: primaryCampground.id,
+    campgroundName: primaryCampground.name,
+    location: primaryCampground.location || '',
+    campgrounds,
     rangeStart: elements.campingStartDate?.value || '',
     rangeEnd: elements.campingEndDate?.value || '',
     stayNights: normalizeCampingNumber(elements.campingStayNights?.value, 2, 1, 14),
     checkMinutes: normalizeCampingNumber(elements.campingCheckMinutes?.value, 30, 1, 1440),
     weekendOnly: Boolean(elements.campingWeekendOnly?.checked),
-    autoConfirm: Boolean(elements.campingAutoConfirm?.checked),
+    autoConfirm: !multipleCampgrounds && Boolean(elements.campingAutoConfirm?.checked),
     matches: [],
     lastCheckedAt: '',
-    lastStatus: 'Saved.',
+    lastStatus: multipleCampgrounds ? 'Saved. Auto reservation disabled for multiple campgrounds.' : 'Saved.',
     autoOpenedUrl: '',
   };
   const existingIndex = state.camping.queries.findIndex((item) => item.id === query.id);
@@ -1841,38 +1844,42 @@ async function runCampingQuery(queryId) {
   const query = state.camping.queries.find((item) => item.id === queryId);
   if (!query || state.camping.runningIds.has(queryId)) return;
   state.camping.runningIds.add(queryId);
+  const campgrounds = campingQueryCampgrounds(query);
   const windowCount = countCampingWindows(query);
   const windowLabel = `${windowCount || 'date'} candidate window${windowCount === 1 ? '' : 's'}`;
-  query.lastStatus = `Checking ${query.campgroundName}.`;
-  query.progress = `Step 1/2: preparing ${windowLabel} from ${query.rangeStart} to ${query.rangeEnd}${query.weekendOnly ? ' (weekends only)' : ''}.`;
+  query.lastStatus = `Checking ${campingQueryCampgroundLabel(query)}.`;
+  query.progress = `Step 1/2: preparing ${windowLabel} across ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
   query.matches = [];
   renderCampingQueries();
   const waitingTimer = window.setTimeout(() => {
     if (!state.camping.runningIds.has(queryId)) return;
-    query.progress = `Step 2/2: waiting for Recreation.gov availability across ${windowLabel}.`;
+    query.progress = `Step 2/2: waiting for Recreation.gov availability across ${windowLabel} and ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
     renderCampingQueries();
   }, 800);
   try {
-    query.progress = `Step 2/2: requesting Recreation.gov availability across ${windowLabel}.`;
+    query.progress = `Step 2/2: requesting Recreation.gov availability across ${windowLabel} and ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
     renderCampingQueries();
-    const response = await fetch('/api/camping/national/availability', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        campgroundId: query.campgroundId,
-        rangeStart: query.rangeStart,
-        rangeEnd: query.rangeEnd,
-        stayNights: query.stayNights,
-        weekendOnly: query.weekendOnly,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Availability failed.');
-    query.matches = data.matches || [];
+    const results = await Promise.all(campgrounds.map(async (campground) => {
+      const response = await fetch('/api/camping/national/availability', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          campgroundId: campground.id,
+          rangeStart: query.rangeStart,
+          rangeEnd: query.rangeEnd,
+          stayNights: query.stayNights,
+          weekendOnly: query.weekendOnly,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Availability failed.');
+      return (data.matches || []).map((match) => ({ ...match, campgroundName: campground.name }));
+    }));
+    query.matches = results.flat();
     query.lastCheckedAt = new Date().toISOString();
     query.lastStatus = query.matches.length ? `${query.matches.length} available.` : 'No sites available.';
     query.progress = '';
-    if (query.autoConfirm && query.matches[0] && query.autoOpenedUrl !== query.matches[0].checkoutUrl) {
+    if (query.autoConfirm && campgrounds.length === 1 && query.matches[0] && query.autoOpenedUrl !== query.matches[0].checkoutUrl) {
       query.autoOpenedUrl = query.matches[0].checkoutUrl;
       openCampingReservation(query.matches[0]);
     }
@@ -1889,6 +1896,10 @@ async function runCampingQuery(queryId) {
 
 function renderCampingCandidates(candidates) {
   state.camping.candidates = candidates;
+  const visibleCandidates = [
+    ...state.camping.selectedCampgrounds,
+    ...candidates.filter((campground) => !state.camping.selectedCampgrounds.some((item) => item.id === campground.id)),
+  ];
   elements.campingCandidates?.replaceChildren(...candidates.map((campground) => {
     const option = document.createElement('option');
     option.value = campground.name;
@@ -1897,31 +1908,37 @@ function renderCampingCandidates(candidates) {
     return option;
   }));
   if (!elements.campingRecommendations) return;
-  elements.campingRecommendations.classList.toggle('hidden', !candidates.length);
-  elements.campingRecommendations.replaceChildren(...candidates.map((campground) => {
+  elements.campingRecommendations.classList.toggle('hidden', !visibleCandidates.length);
+  elements.campingRecommendations.replaceChildren(...visibleCandidates.map((campground) => {
     const button = document.createElement('button');
+    const selected = state.camping.selectedCampgrounds.some((item) => item.id === campground.id);
     button.type = 'button';
     button.dataset.campgroundId = campground.id;
+    button.setAttribute('aria-pressed', String(selected));
+    button.classList.toggle('selected', selected);
     button.textContent = campground.location ? `${campground.name} - ${campground.location}` : campground.name;
     return button;
   }));
+  syncCampingAutoConfirmAvailability();
 }
 
-function resolveSelectedCampground() {
+function resolveSelectedCampgrounds() {
   const query = elements.campingQueryName?.value.trim() || '';
+  if (state.camping.selectedCampgrounds.length) return state.camping.selectedCampgrounds;
   const exact = state.camping.candidates.find((campground) => campground.name === query);
   const campground = exact || state.camping.candidates[0];
-  if (!campground) return null;
-  return campground;
+  return campground ? [campground] : [];
 }
 
 function chooseCampingRecommendation(event) {
   const button = event.target.closest('[data-campground-id]');
   if (!button || !elements.campingQueryName) return;
-  const campground = state.camping.candidates.find((item) => item.id === button.dataset.campgroundId);
+  const campground = [...state.camping.selectedCampgrounds, ...state.camping.candidates].find((item) => item.id === button.dataset.campgroundId);
   if (!campground) return;
-  elements.campingQueryName.value = campground.name;
-  renderCampingCandidates([campground]);
+  const selectedIndex = state.camping.selectedCampgrounds.findIndex((item) => item.id === campground.id);
+  if (selectedIndex >= 0) state.camping.selectedCampgrounds.splice(selectedIndex, 1);
+  else state.camping.selectedCampgrounds.push(campground);
+  renderCampingCandidates(state.camping.candidates);
 }
 
 function renderCampingStatus(message) {
@@ -1944,20 +1961,22 @@ function renderCampingQuery(query) {
   const statusLabel = query.progress ? 'Checking' : query.matches?.length ? 'Available' : 'Watching';
   const matches = (query.matches || []).slice(0, 5).map((match) => `
     <li>
-      <span>Site ${escapeHtml(match.site)} · ${escapeHtml(match.startDate)} to ${escapeHtml(match.endDate)}</span>
+      <span>${match.campgroundName ? `${escapeHtml(match.campgroundName)} · ` : ''}Site ${escapeHtml(match.site)} · ${escapeHtml(match.startDate)} to ${escapeHtml(match.endDate)}</span>
       <a href="${escapeHtml(match.checkoutUrl)}" target="_blank" rel="noopener noreferrer">Reserve</a>
     </li>
   `).join('');
+  const campgrounds = campingQueryCampgrounds(query);
   article.innerHTML = `
     <div class="camping-query-head">
       <div>
         <strong>${escapeHtml(query.name)}</strong>
-        <small>${escapeHtml(query.campgroundName)}${query.location ? ` · ${escapeHtml(query.location)}` : ''}</small>
+        <small>${escapeHtml(campingQueryCampgroundLabel(query))}</small>
       </div>
       <span class="camping-status-pill">${statusLabel}</span>
     </div>
     <dl class="camping-query-meta">
       <div><dt>Range</dt><dd>${escapeHtml(query.rangeStart)} to ${escapeHtml(query.rangeEnd)}</dd></div>
+      <div><dt>Sites</dt><dd>${campgrounds.length}</dd></div>
       <div><dt>Nights</dt><dd>${query.stayNights}${query.weekendOnly ? ' · weekends' : ''}</dd></div>
       <div><dt>Every</dt><dd>${query.checkMinutes} min</dd></div>
       <div><dt>Auto</dt><dd>${query.autoConfirm ? 'on' : 'off'}</dd></div>
@@ -1987,7 +2006,9 @@ function handleCampingQueryAction(event) {
 function editCampingQuery(query) {
   state.camping.editingId = query.id;
   elements.campingQueryName.value = query.name || query.campgroundName || '';
-  renderCampingCandidates([{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }]);
+  const campgrounds = campingQueryCampgrounds(query);
+  state.camping.selectedCampgrounds = campgrounds;
+  renderCampingCandidates(campgrounds);
   elements.campingStartDate.value = query.rangeStart || '';
   elements.campingEndDate.value = query.rangeEnd || '';
   state.camping.datePickers.start?.setDate(query.rangeStart || '', false);
@@ -1997,6 +2018,7 @@ function editCampingQuery(query) {
   elements.campingCheckMinutes.value = String(query.checkMinutes || 30);
   elements.campingWeekendOnly.checked = Boolean(query.weekendOnly);
   elements.campingAutoConfirm.checked = Boolean(query.autoConfirm);
+  syncCampingAutoConfirmAvailability();
   elements.campingSaveQuery.textContent = 'Update query';
   elements.campingQueryName?.focus();
 }
@@ -2021,6 +2043,7 @@ function resetCampingForm() {
   if (elements.campingStayNights) elements.campingStayNights.value = '2';
   if (elements.campingCheckMinutes) elements.campingCheckMinutes.value = '30';
   if (elements.campingSaveQuery) elements.campingSaveQuery.textContent = 'Save query';
+  state.camping.selectedCampgrounds = [];
   renderCampingCandidates([]);
 }
 
@@ -2106,6 +2129,24 @@ function campingDateKey(date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
+function campingQueryCampgrounds(query) {
+  if (Array.isArray(query.campgrounds) && query.campgrounds.length) return query.campgrounds;
+  return [{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }];
+}
+
+function campingQueryCampgroundLabel(query) {
+  const campgrounds = campingQueryCampgrounds(query);
+  if (campgrounds.length === 1) return `${campgrounds[0].name}${campgrounds[0].location ? ` · ${campgrounds[0].location}` : ''}`;
+  return campgrounds.map((campground) => campground.name).join(', ');
+}
+
+function syncCampingAutoConfirmAvailability() {
+  if (!elements.campingAutoConfirm) return;
+  const disabled = state.camping.selectedCampgrounds.length > 1;
+  if (disabled) elements.campingAutoConfirm.checked = false;
+  elements.campingAutoConfirm.disabled = disabled;
+}
+
 function clearCampingTimer(queryId) {
   const timer = state.camping.timers.get(queryId);
   if (timer) window.clearInterval(timer);
@@ -2115,7 +2156,7 @@ function clearCampingTimer(queryId) {
 function loadCampingQueries() {
   try {
     const raw = JSON.parse(localStorage.getItem(storageKeys.campingQueries) || '[]');
-    return Array.isArray(raw) ? raw.filter((item) => item?.id && item?.campgroundId) : [];
+    return Array.isArray(raw) ? raw.filter((item) => item?.id && (item?.campgroundId || item?.campgrounds?.length)) : [];
   } catch {
     return [];
   }

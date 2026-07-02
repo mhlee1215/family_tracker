@@ -106,7 +106,7 @@ test.describe('Family Tracker core flows', () => {
 
   test('camping tab manages recurring national campground searches', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
-    let availabilityRequest = null;
+    const availabilityRequests = [];
     await page.route('**/api/camping/national/search**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -118,12 +118,14 @@ test.describe('Family Tracker core flows', () => {
       });
     });
     await page.route('**/api/camping/national/availability', async (route) => {
-      availabilityRequest = route.request().postDataJSON();
+      const requestBody = route.request().postDataJSON();
+      availabilityRequests.push(requestBody);
       await new Promise((resolve) => setTimeout(resolve, 100));
+      const isUpperPines = requestBody.campgroundId === '232447';
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ matches: [{ campgroundId: '232447', campsiteId: '100', site: '044', loop: 'Upper Pines', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/232447?checkin=2026-09-04&checkout=2026-09-06&campsite=100' }] }),
+        body: JSON.stringify({ matches: [{ campgroundId: requestBody.campgroundId, campsiteId: isUpperPines ? '100' : '200', site: isUpperPines ? '044' : '012', loop: isUpperPines ? 'Upper Pines' : 'Lower Pines', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: `https://www.recreation.gov/camping/campgrounds/${requestBody.campgroundId}?checkin=2026-09-04&checkout=2026-09-06` }] }),
       });
     });
 
@@ -134,6 +136,9 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-candidates option')).toHaveCount(2);
     await expect(page.locator('#camping-recommendations button')).toHaveCount(2);
     await page.locator('#camping-recommendations button', { hasText: 'Upper Pines Campground' }).click();
+    await page.locator('#camping-recommendations button', { hasText: 'Lower Pines Campground' }).click();
+    await expect(page.locator('#camping-recommendations button.selected')).toHaveCount(2);
+    await expect(page.locator('#camping-auto-confirm')).toBeDisabled();
     await page.locator('#camping-start-date').fill('2026-09-01');
     await expect(page.locator('#camping-end-date')).toHaveAttribute('min', '2026-09-02');
     await page.locator('#camping-end-date').click();
@@ -143,16 +148,25 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#camping-stay-nights').fill('2');
     await page.locator('#camping-check-minutes').fill('15');
     await page.locator('#camping-weekend-only').check();
-    await page.locator('#camping-auto-confirm').check();
     await page.locator('#camping-save-query').click();
 
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
+    await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
+    await expect(page.locator('#camping-query-list')).toContainText('Autooff');
     await page.locator('[data-camping-action="run"]').click();
-    await expect(page.locator('#camping-query-list')).toContainText('Checking Upper Pines Campground');
+    await expect(page.locator('#camping-query-list')).toContainText('Checking Upper Pines Campground, Lower Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('candidate windows');
 
-    await expect.poll(() => availabilityRequest).toMatchObject({
+    await expect.poll(() => availabilityRequests.length).toBe(2);
+    expect(availabilityRequests[0]).toMatchObject({
       campgroundId: '232447',
+      rangeStart: '2026-09-01',
+      rangeEnd: '2026-11-15',
+      stayNights: 2,
+      weekendOnly: true,
+    });
+    expect(availabilityRequests[1]).toMatchObject({
+      campgroundId: '232450',
       rangeStart: '2026-09-01',
       rangeEnd: '2026-11-15',
       stayNights: 2,
@@ -160,18 +174,20 @@ test.describe('Family Tracker core flows', () => {
     });
     await expect(page.locator('#camping-query-list')).toContainText('Available');
     await expect(page.locator('#camping-query-list')).toContainText('Site 044');
-    await expect(page.locator('#camping-query-list a[href*="recreation.gov"]')).toHaveCount(1);
+    await expect(page.locator('#camping-query-list')).toContainText('Site 012');
+    await expect(page.locator('#camping-query-list a[href*="recreation.gov"]')).toHaveCount(2);
 
     await page.locator('[data-camping-action="edit"]').click();
     await expect(page.locator('#camping-save-query')).toHaveText('Update query');
+    await expect(page.locator('#camping-auto-confirm')).toBeDisabled();
     page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground"?');
+      expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground, Lower Pines Campground"?');
       await dialog.dismiss();
     });
     await page.locator('[data-camping-action="delete"]').click();
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground"?');
+      expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground, Lower Pines Campground"?');
       await dialog.accept();
     });
     await page.locator('[data-camping-action="delete"]').click();

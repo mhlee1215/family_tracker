@@ -1708,6 +1708,10 @@ input {
   flex: 0 0 auto;
 }
 
+.camping-check:has(input:disabled) {
+  opacity: 0.55;
+}
+
 .camping-recommendations {
   display: grid;
   gap: 6px;
@@ -1731,6 +1735,11 @@ input {
 .camping-recommendations button:focus-visible {
   border-color: var(--primary);
   outline: none;
+}
+
+.camping-recommendations button.selected {
+  border-color: var(--primary);
+  background: #eaf3ff;
 }
 
 .camping-results {
