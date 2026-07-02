@@ -1754,6 +1754,17 @@ input {
   border-color: var(--primary);
 }
 
+.camping-progress {
+  margin: 0;
+  border-left: 3px solid var(--primary);
+  border-radius: 5px;
+  padding: 8px 10px;
+  background: var(--surface-pearl);
+  color: var(--body);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
 .camping-query-head,
 .camping-actions {
   display: flex;

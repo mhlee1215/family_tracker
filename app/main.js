@@ -1833,10 +1833,20 @@ async function runCampingQuery(queryId) {
   const query = state.camping.queries.find((item) => item.id === queryId);
   if (!query || state.camping.runningIds.has(queryId)) return;
   state.camping.runningIds.add(queryId);
-  query.lastStatus = 'Checking...';
+  const windowCount = countCampingWindows(query);
+  const windowLabel = `${windowCount || 'date'} candidate window${windowCount === 1 ? '' : 's'}`;
+  query.lastStatus = `Checking ${query.campgroundName}.`;
+  query.progress = `Step 1/2: preparing ${windowLabel} from ${query.rangeStart} to ${query.rangeEnd}${query.weekendOnly ? ' (weekends only)' : ''}.`;
   query.matches = [];
   renderCampingQueries();
+  const waitingTimer = window.setTimeout(() => {
+    if (!state.camping.runningIds.has(queryId)) return;
+    query.progress = `Step 2/2: waiting for Recreation.gov availability across ${windowLabel}.`;
+    renderCampingQueries();
+  }, 800);
   try {
+    query.progress = `Step 2/2: requesting Recreation.gov availability across ${windowLabel}.`;
+    renderCampingQueries();
     const response = await fetch('/api/camping/national/availability', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -1853,13 +1863,16 @@ async function runCampingQuery(queryId) {
     query.matches = data.matches || [];
     query.lastCheckedAt = new Date().toISOString();
     query.lastStatus = query.matches.length ? `${query.matches.length} available.` : 'No sites available.';
+    query.progress = '';
     if (query.autoConfirm && query.matches[0] && query.autoOpenedUrl !== query.matches[0].checkoutUrl) {
       query.autoOpenedUrl = query.matches[0].checkoutUrl;
       openCampingReservation(query.matches[0]);
     }
   } catch (error) {
     query.lastStatus = error.message || 'Could not check availability.';
+    query.progress = '';
   } finally {
+    window.clearTimeout(waitingTimer);
     state.camping.runningIds.delete(queryId);
     saveCampingQueries();
     renderCampingQueries();
@@ -1920,6 +1933,7 @@ function renderCampingQueries() {
 function renderCampingQuery(query) {
   const article = document.createElement('article');
   article.className = `camping-query-card ${query.matches?.length ? 'has-availability' : ''}`;
+  const statusLabel = query.progress ? 'Checking' : query.matches?.length ? 'Available' : 'Watching';
   const matches = (query.matches || []).slice(0, 5).map((match) => `
     <li>
       <span>Site ${escapeHtml(match.site)} · ${escapeHtml(match.startDate)} to ${escapeHtml(match.endDate)}</span>
@@ -1932,7 +1946,7 @@ function renderCampingQuery(query) {
         <strong>${escapeHtml(query.name)}</strong>
         <small>${escapeHtml(query.campgroundName)}${query.location ? ` · ${escapeHtml(query.location)}` : ''}</small>
       </div>
-      <span class="camping-status-pill">${query.matches?.length ? 'Available' : 'Watching'}</span>
+      <span class="camping-status-pill">${statusLabel}</span>
     </div>
     <dl class="camping-query-meta">
       <div><dt>Range</dt><dd>${escapeHtml(query.rangeStart)} to ${escapeHtml(query.rangeEnd)}</dd></div>
@@ -1941,6 +1955,7 @@ function renderCampingQuery(query) {
       <div><dt>Auto</dt><dd>${query.autoConfirm ? 'on' : 'off'}</dd></div>
     </dl>
     <p class="settings-note">${escapeHtml(query.lastStatus || 'Not checked yet.')}${query.lastCheckedAt ? ` Last: ${escapeHtml(relativeDateTime(query.lastCheckedAt))}` : ''}</p>
+    ${query.progress ? `<p class="camping-progress" role="status">${escapeHtml(query.progress)}</p>` : ''}
     ${matches ? `<ul class="camping-match-list">${matches}</ul>` : ''}
     <menu class="camping-actions">
       <button type="button" class="compact-button" data-camping-action="run" data-camping-id="${escapeHtml(query.id)}">Run</button>
@@ -2004,6 +2019,27 @@ function scheduleCampingQuery(query) {
   clearCampingTimer(query.id);
   const delay = normalizeCampingNumber(query.checkMinutes, 30, 1, 1440) * 60_000;
   state.camping.timers.set(query.id, window.setInterval(() => runCampingQuery(query.id), delay));
+}
+
+function countCampingWindows(query) {
+  const start = parseCampingDate(query.rangeStart);
+  const end = parseCampingDate(query.rangeEnd);
+  const nights = normalizeCampingNumber(query.stayNights, 2, 1, 14);
+  if (!start || !end || start >= end) return 0;
+  const lastStart = new Date(end);
+  lastStart.setUTCDate(lastStart.getUTCDate() - nights);
+  let count = 0;
+  for (const cursor = new Date(start); cursor <= lastStart; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    if (query.weekendOnly && ![5, 6].includes(cursor.getUTCDay())) continue;
+    count += 1;
+  }
+  return count;
+}
+
+function parseCampingDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function clearCampingTimer(queryId) {

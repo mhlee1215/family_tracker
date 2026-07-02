@@ -119,6 +119,7 @@ test.describe('Family Tracker core flows', () => {
     });
     await page.route('**/api/camping/national/availability', async (route) => {
       availabilityRequest = route.request().postDataJSON();
+      await new Promise((resolve) => setTimeout(resolve, 100));
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -143,6 +144,8 @@ test.describe('Family Tracker core flows', () => {
 
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     await page.locator('[data-camping-action="run"]').click();
+    await expect(page.locator('#camping-query-list')).toContainText('Checking Upper Pines Campground');
+    await expect(page.locator('#camping-query-list')).toContainText('candidate windows');
 
     await expect.poll(() => availabilityRequest).toMatchObject({
       campgroundId: '232447',
