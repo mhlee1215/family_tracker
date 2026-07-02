@@ -675,20 +675,23 @@
               <input id="camping-query-name" type="search" list="camping-candidates" placeholder="Upper Pines or Yosemite" required>
               <datalist id="camping-candidates"></datalist>
             </label>
+            <div id="camping-recommendations" class="camping-recommendations hidden" aria-label="Recommended campgrounds"></div>
             <div class="camping-date-grid">
               <label class="floating-field"><span>Range start</span><input id="camping-start-date" type="date" required></label>
               <label class="floating-field"><span>Range end</span><input id="camping-end-date" type="date" required></label>
               <label class="floating-field"><span>Stay nights</span><input id="camping-stay-nights" type="number" min="1" max="14" step="1" value="2" required></label>
               <label class="floating-field"><span>Check every, min</span><input id="camping-check-minutes" type="number" min="1" max="1440" step="1" value="30" required></label>
             </div>
-            <label class="camping-check">
-              <input id="camping-weekend-only" type="checkbox">
-              <span>Weekend only</span>
-            </label>
-            <label class="camping-check">
-              <input id="camping-auto-confirm" type="checkbox">
-              <span>Auto reservation launch</span>
-            </label>
+            <div class="camping-check-grid">
+              <label class="camping-check">
+                <input id="camping-weekend-only" type="checkbox">
+                <span>Weekend only</span>
+              </label>
+              <label class="camping-check">
+                <input id="camping-auto-confirm" type="checkbox">
+                <span>Auto reservation launch</span>
+              </label>
+            </div>
             <menu class="camping-actions">
               <button id="camping-save-query" type="submit">Save query</button>
               <button id="camping-reset-query" type="button" class="ghost-button">Clear</button>
@@ -740,6 +743,6 @@
     <script src="/app/vendor/Chart.umd.js"></script>
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
-    <script type="module" src="/app/main.js?build=155"></script>
+    <script type="module" src="/app/main.js?build=156"></script>
   </body>
 </html>

@@ -111,7 +111,10 @@ test.describe('Family Tracker core flows', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ campgrounds: [{ id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA' }] }),
+        body: JSON.stringify({ campgrounds: [
+          { id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA' },
+          { id: '232450', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA' },
+        ] }),
       });
     });
     await page.route('**/api/camping/national/availability', async (route) => {
@@ -127,8 +130,9 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-view.active')).toBeVisible();
     await page.evaluate(() => localStorage.removeItem('familyTracker.campingQueries'));
     await page.locator('#camping-query-name').fill('Upper');
-    await expect(page.locator('#camping-candidates option')).toHaveCount(1);
-    await page.locator('#camping-query-name').fill('Upper Pines Campground');
+    await expect(page.locator('#camping-candidates option')).toHaveCount(2);
+    await expect(page.locator('#camping-recommendations button')).toHaveCount(2);
+    await page.locator('#camping-recommendations button', { hasText: 'Upper Pines Campground' }).click();
     await page.locator('#camping-start-date').fill('2026-09-01');
     await page.locator('#camping-end-date').fill('2026-11-15');
     await page.locator('#camping-stay-nights').fill('2');

@@ -362,6 +362,7 @@ const elements = {
   campingForm: $('#camping-form'),
   campingQueryName: $('#camping-query-name'),
   campingCandidates: $('#camping-candidates'),
+  campingRecommendations: $('#camping-recommendations'),
   campingStartDate: $('#camping-start-date'),
   campingEndDate: $('#camping-end-date'),
   campingStayNights: $('#camping-stay-nights'),
@@ -602,6 +603,7 @@ elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 elements.campingQueryName?.addEventListener('input', searchCampingCandidates);
 elements.campingForm?.addEventListener('submit', saveCampingQuery);
+elements.campingRecommendations?.addEventListener('click', chooseCampingRecommendation);
 elements.campingResetQuery?.addEventListener('click', resetCampingForm);
 elements.campingRunAll?.addEventListener('click', () => runAllCampingQueries());
 elements.campingQueryList?.addEventListener('click', handleCampingQueryAction);
@@ -1839,13 +1841,21 @@ async function runCampingQuery(queryId) {
 
 function renderCampingCandidates(candidates) {
   state.camping.candidates = candidates;
-  if (!elements.campingCandidates) return;
-  elements.campingCandidates.replaceChildren(...candidates.map((campground) => {
+  elements.campingCandidates?.replaceChildren(...candidates.map((campground) => {
     const option = document.createElement('option');
     option.value = campground.name;
     option.label = campground.location ? `${campground.name} - ${campground.location}` : campground.name;
     option.dataset.campgroundId = campground.id;
     return option;
+  }));
+  if (!elements.campingRecommendations) return;
+  elements.campingRecommendations.classList.toggle('hidden', !candidates.length);
+  elements.campingRecommendations.replaceChildren(...candidates.map((campground) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.campgroundId = campground.id;
+    button.textContent = campground.location ? `${campground.name} - ${campground.location}` : campground.name;
+    return button;
   }));
 }
 
@@ -1855,6 +1865,15 @@ function resolveSelectedCampground() {
   const campground = exact || state.camping.candidates[0];
   if (!campground) return null;
   return campground;
+}
+
+function chooseCampingRecommendation(event) {
+  const button = event.target.closest('[data-campground-id]');
+  if (!button || !elements.campingQueryName) return;
+  const campground = state.camping.candidates.find((item) => item.id === button.dataset.campgroundId);
+  if (!campground) return;
+  elements.campingQueryName.value = campground.name;
+  renderCampingCandidates([campground]);
 }
 
 function renderCampingStatus(message) {
