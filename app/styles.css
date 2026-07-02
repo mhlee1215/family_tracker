@@ -1678,12 +1678,55 @@ input {
   gap: 10px;
 }
 
-.camping-check {
-  display: inline-flex;
-  align-items: center;
+.camping-check-grid {
+  display: grid;
   gap: 8px;
+}
+
+.camping-check {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-pearl);
   color: var(--body);
   font-size: 14px;
+  line-height: 1.2;
+}
+
+.camping-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.camping-recommendations {
+  display: grid;
+  gap: 6px;
+}
+
+.camping-recommendations button {
+  width: 100%;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: var(--surface-pearl);
+  color: var(--body);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.camping-recommendations button:hover,
+.camping-recommendations button:focus-visible {
+  border-color: var(--primary);
+  outline: none;
 }
 
 .camping-results {
