@@ -66,7 +66,26 @@ const storageKeys = {
   quickMilkAmountMl: 'familyTracker.quickMilkAmountMl',
   campingQueries: 'familyTracker.campingQueries',
   travelWatches: 'familyTracker.travelWatches',
+  travelRecentSearches: 'familyTracker.travelRecentSearches',
 };
+
+const travelAirports = [
+  { code: 'SFO', name: 'San Francisco' },
+  { code: 'SJC', name: 'San Jose' },
+  { code: 'OAK', name: 'Oakland' },
+  { code: 'LAX', name: 'Los Angeles' },
+  { code: 'SEA', name: 'Seattle' },
+  { code: 'JFK', name: 'New York JFK' },
+  { code: 'EWR', name: 'Newark' },
+  { code: 'ORD', name: 'Chicago O Hare' },
+  { code: 'DFW', name: 'Dallas Fort Worth' },
+  { code: 'ICN', name: 'Seoul Incheon' },
+  { code: 'GMP', name: 'Seoul Gimpo' },
+  { code: 'NRT', name: 'Tokyo Narita' },
+  { code: 'HND', name: 'Tokyo Haneda' },
+  { code: 'TPE', name: 'Taipei' },
+  { code: 'SIN', name: 'Singapore' },
+];
 
 const copy = {
   today: 'Today',
@@ -162,7 +181,7 @@ const state = {
   careForecastRequestId: 0,
   careForecastPeriodDays: normalizeForecastPeriodDays(localStorage.getItem(storageKeys.careForecastPeriodDays)),
   camping: { candidates: [], queries: loadCampingQueries(), editingId: '', runningIds: new Set(), timers: new Map(), status: '' },
-  travel: { results: [], sources: [], watches: loadTravelWatches(), runningIds: new Set(), timers: new Map(), status: '' },
+  travel: { results: [], sources: [], watches: loadTravelWatches(), recentSearches: loadTravelRecentSearches(), runningIds: new Set(), timers: new Map(), status: '' },
   deepLinkFocus: getDeepLinkFocusFromLocation(),
   syncVersions: null,
   syncCheckInFlight: false,
@@ -346,6 +365,9 @@ const elements = {
   travelForm: $('#travel-form'),
   travelOrigin: $('#travel-origin'),
   travelDestination: $('#travel-destination'),
+  travelAirports: $('#travel-airports'),
+  travelRecommendations: $('#travel-recommendations'),
+  travelHistory: $('#travel-history'),
   travelDepartureDate: $('#travel-departure-date'),
   travelReturnDate: $('#travel-return-date'),
   travelAdults: $('#travel-adults'),
@@ -612,6 +634,10 @@ elements.travelSaveWatch?.addEventListener('click', saveTravelWatch);
 elements.travelRunWatches?.addEventListener('click', () => runAllTravelWatches());
 elements.travelWatchList?.addEventListener('click', handleTravelWatchAction);
 elements.travelEnableNotifications?.addEventListener('click', enableTravelNotifications);
+elements.travelOrigin?.addEventListener('input', renderTravelRecommendations);
+elements.travelDestination?.addEventListener('input', renderTravelRecommendations);
+elements.travelRecommendations?.addEventListener('click', applyTravelRecommendation);
+elements.travelHistory?.addEventListener('click', applyTravelHistory);
 
 elements.dayPicker.addEventListener('change', () => setSelectedDay(elements.dayPicker.value, { pushHistory: true }));
 elements.babyStatusRange?.addEventListener('click', (event) => {
@@ -1652,6 +1678,7 @@ async function initializeApp() {
   try {
     applyPreferences();
     renderTabs();
+    renderTravelAirports();
     scheduleCampingQueries();
     scheduleTravelWatches();
     renderTimelineControls();
@@ -2022,6 +2049,7 @@ async function searchTravel(event) {
     if (!response.ok) throw new Error(payload.error || 'Travel search failed.');
     state.travel.results = payload.results || [];
     state.travel.sources = payload.sources || [];
+    rememberTravelSearch(query);
     renderTravel();
     renderTravelStatus(`${state.travel.results.length} results.`);
   } catch (error) {
@@ -2039,6 +2067,16 @@ function currentTravelQuery() {
     maxPrice: elements.travelMaxPrice?.value || '',
     checkMinutes: normalizeCampingNumber(elements.travelCheckMinutes?.value, 60, 5, 1440),
   };
+}
+
+function renderTravelAirports() {
+  if (!elements.travelAirports) return;
+  elements.travelAirports.replaceChildren(...travelAirports.map((airport) => {
+    const option = document.createElement('option');
+    option.value = airport.code;
+    option.label = `${airport.code} - ${airport.name}`;
+    return option;
+  }));
 }
 
 function saveTravelWatch() {
@@ -2093,8 +2131,54 @@ async function runTravelWatch(watchId) {
 
 function renderTravel() {
   renderTravelSources();
+  renderTravelRecommendations();
+  renderTravelHistory();
   renderTravelResults();
   renderTravelWatches();
+}
+
+function renderTravelRecommendations() {
+  if (!elements.travelRecommendations) return;
+  const origin = normalizeTravelAirportInput(elements.travelOrigin?.value);
+  const destination = normalizeTravelAirportInput(elements.travelDestination?.value);
+  const recentRoutes = state.travel.recentSearches
+    .filter((item) => item.origin && item.destination && (!origin || item.origin.startsWith(origin)) && (!destination || item.destination.startsWith(destination)))
+    .slice(0, 3);
+  const popularRoutes = [
+    { origin: 'SFO', destination: 'ICN' },
+    { origin: 'SFO', destination: 'NRT' },
+    { origin: 'SFO', destination: 'HND' },
+    { origin: 'LAX', destination: 'ICN' },
+  ].filter((item) => (!origin || item.origin.startsWith(origin)) && (!destination || item.destination.startsWith(destination)));
+  const routes = uniqueTravelRoutes([...recentRoutes, ...popularRoutes]).slice(0, 4);
+  if (!routes.length) {
+    elements.travelRecommendations.classList.add('hidden');
+    elements.travelRecommendations.replaceChildren();
+    return;
+  }
+  elements.travelRecommendations.classList.remove('hidden');
+  elements.travelRecommendations.replaceChildren(...routes.map((route) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.travelRoute = `${route.origin}-${route.destination}`;
+    button.textContent = `${route.origin} to ${route.destination}`;
+    return button;
+  }));
+}
+
+function renderTravelHistory() {
+  if (!elements.travelHistory) return;
+  if (!state.travel.recentSearches.length) {
+    elements.travelHistory.replaceChildren();
+    return;
+  }
+  elements.travelHistory.replaceChildren(...state.travel.recentSearches.slice(0, 5).map((item) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.travelHistoryId = item.id;
+    button.textContent = `${item.origin} to ${item.destination}${item.departureDate ? ` · ${item.departureDate}` : ''}`;
+    return button;
+  }));
 }
 
 function renderTravelSources() {
@@ -2139,6 +2223,7 @@ function renderTravelResultCard(result) {
       <div><dt>Source</dt><dd>${escapeHtml(result.source)}</dd></div>
       <div><dt>Detail</dt><dd>${escapeHtml(result.detail || '')}</dd></div>
     </dl>
+    ${result.bookingUrl ? `<a class="compact-button travel-book-link" href="${escapeHtml(result.bookingUrl)}" target="_blank" rel="noopener noreferrer">Open booking search</a>` : ''}
   `;
   return article;
 }
@@ -2207,6 +2292,56 @@ function deleteTravelWatch(watchId) {
   renderTravel();
 }
 
+function applyTravelRecommendation(event) {
+  const button = event.target.closest('[data-travel-route]');
+  if (!button) return;
+  const [origin, destination] = button.dataset.travelRoute.split('-');
+  elements.travelOrigin.value = origin;
+  elements.travelDestination.value = destination;
+  renderTravelRecommendations();
+}
+
+function applyTravelHistory(event) {
+  const button = event.target.closest('[data-travel-history-id]');
+  if (!button) return;
+  const item = state.travel.recentSearches.find((entry) => entry.id === button.dataset.travelHistoryId);
+  if (!item) return;
+  elements.travelOrigin.value = item.origin || '';
+  elements.travelDestination.value = item.destination || '';
+  elements.travelDepartureDate.value = item.departureDate || '';
+  elements.travelReturnDate.value = item.returnDate || '';
+  elements.travelAdults.value = String(item.adults || 1);
+  elements.travelMaxPrice.value = item.maxPrice || '';
+  renderTravelRecommendations();
+}
+
+function rememberTravelSearch(query) {
+  const origin = normalizeTravelAirportInput(query.origin);
+  const destination = normalizeTravelAirportInput(query.destination);
+  if (!origin || !destination) return;
+  const item = {
+    id: `${origin}-${destination}-${query.departureDate || 'any'}-${Date.now()}`,
+    origin,
+    destination,
+    departureDate: query.departureDate || '',
+    returnDate: query.returnDate || '',
+    adults: query.adults || '1',
+    maxPrice: query.maxPrice || '',
+  };
+  state.travel.recentSearches = [item, ...state.travel.recentSearches.filter((entry) => !(entry.origin === origin && entry.destination === destination && entry.departureDate === item.departureDate))].slice(0, 8);
+  localStorage.setItem(storageKeys.travelRecentSearches, JSON.stringify(state.travel.recentSearches));
+}
+
+function uniqueTravelRoutes(routes) {
+  const seen = new Set();
+  return routes.filter((route) => {
+    const key = `${route.origin}-${route.destination}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function notifyTravelDeal(watch) {
   const deal = watch.deals?.[0];
   if (!deal) return;
@@ -2237,6 +2372,15 @@ function loadTravelWatches() {
   }
 }
 
+function loadTravelRecentSearches() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(storageKeys.travelRecentSearches) || '[]');
+    return Array.isArray(raw) ? raw.filter((item) => item?.origin && item?.destination).slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
 function saveTravelWatches() {
   localStorage.setItem(storageKeys.travelWatches, JSON.stringify(state.travel.watches));
 }
@@ -2251,6 +2395,10 @@ function travelTimeLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
+}
+
+function normalizeTravelAirportInput(value) {
+  return String(value || '').trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
 }
 
 

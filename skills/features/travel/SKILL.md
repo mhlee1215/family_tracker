@@ -7,6 +7,7 @@ Travel flight search, fare/deal watches, provider status, and travel notificatio
 - Do not add booking, payment, or reservation mutation unless explicitly requested.
 - Keep travel provider keys server-side through environment variables.
 - Label fare, cached deal, and flight-status results separately so status APIs do not look bookable.
+- Treat "promotions" as fare-deal/cheapest-date monitoring unless an airline-specific promo API is explicitly added.
 - Prefer configured free-tier APIs first; show missing providers as unavailable instead of failing the whole search.
 - Keep saved deal watches local unless cloud sync is explicitly requested.
 

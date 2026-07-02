@@ -180,7 +180,7 @@ test.describe('Family Tracker core flows', () => {
             { id: 'aviationstack', name: 'Aviationstack', status: 'missing_key', coverage: 'Flight status and schedule lookup' },
           ],
           results: [
-            { id: 'fare-1', source: 'Amadeus', kind: 'fare', title: 'SFO to ICN', price: 721, currency: 'USD', airline: 'United Airlines', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: '1 segment' },
+            { id: 'fare-1', source: 'Amadeus', kind: 'fare', title: 'SFO to ICN', price: 721, currency: 'USD', airline: 'United Airlines', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: '1 segment', bookingUrl: 'https://www.google.com/travel/flights/search?q=SFO%20ICN' },
             { id: 'status-1', source: 'Aviationstack', kind: 'status', title: 'UA893', price: null, currency: '', airline: 'United Airlines', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: 'scheduled' },
           ],
         }),
@@ -190,8 +190,9 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin('/travel');
     await expect(page.locator('#travel-view.active')).toBeVisible();
     await page.evaluate(() => localStorage.removeItem('familyTracker.travelWatches'));
-    await page.locator('#travel-origin').fill('SFO');
-    await page.locator('#travel-destination').fill('ICN');
+    await page.locator('#travel-origin').fill('S');
+    await expect(page.locator('#travel-recommendations')).toContainText('SFO to ICN');
+    await page.locator('#travel-recommendations button', { hasText: 'SFO to ICN' }).click();
     await page.locator('#travel-departure-date').fill('2026-10-10');
     await page.locator('#travel-max-price').fill('800');
     await page.locator('#travel-search').click();
@@ -199,6 +200,8 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#travel-status')).toHaveText('2 results.');
     await expect(page.locator('#travel-results')).toContainText('SFO to ICN');
     await expect(page.locator('#travel-results')).toContainText('UA893');
+    await expect(page.locator('#travel-results a[href*="google.com/travel/flights/search"]')).toHaveCount(1);
+    await expect(page.locator('#travel-history')).toContainText('SFO to ICN');
     await expect(page.locator('#travel-sources')).toContainText('Amadeus: ready');
     await page.locator('#travel-save-watch').click();
     await expect(page.locator('#travel-watch-list')).toContainText('SFO to ICN');
