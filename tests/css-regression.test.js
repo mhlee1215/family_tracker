@@ -64,6 +64,15 @@ test('completed task rows keep interactive controls visually enabled', () => {
   ]);
 });
 
+test('mobile tracker navigation keeps a stable footprint while tapping tabs', () => {
+  ruleIncludes('button:active,\n.button-link:active', [
+    'transform:\\s*scale\\(0\\.95\\)',
+  ]);
+  ruleIncludes('.module-tab:active', [
+    'transform:\\s*none',
+  ]);
+});
+
 test('floating panels and gallery CSS keep usable tablet/desktop layout', () => {
   ruleIncludes('.app-floating-panel', [
     'position:\\s*fixed',

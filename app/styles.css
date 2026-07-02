@@ -132,6 +132,10 @@ button:active,
   transform: scale(0.95);
 }
 
+.module-tab:active {
+  transform: none;
+}
+
 button:focus-visible,
 .button-link:focus-visible,
 input:focus-visible,
