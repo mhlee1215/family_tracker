@@ -180,7 +180,7 @@ const state = {
   careForecastError: '',
   careForecastRequestId: 0,
   careForecastPeriodDays: normalizeForecastPeriodDays(localStorage.getItem(storageKeys.careForecastPeriodDays)),
-  camping: { candidates: [], queries: loadCampingQueries(), editingId: '', runningIds: new Set(), timers: new Map(), status: '' },
+  camping: { candidates: [], queries: loadCampingQueries(), editingId: '', runningIds: new Set(), timers: new Map(), status: '', datePickers: { start: null, end: null } },
   travel: { results: [], sources: [], watches: loadTravelWatches(), recentSearches: loadTravelRecentSearches(), runningIds: new Set(), timers: new Map(), status: '' },
   deepLinkFocus: getDeepLinkFocusFromLocation(),
   syncVersions: null,
@@ -624,6 +624,8 @@ elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
 elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 elements.campingQueryName?.addEventListener('input', searchCampingCandidates);
+elements.campingStartDate?.addEventListener('input', syncCampingEndDateMin);
+elements.campingStartDate?.addEventListener('change', syncCampingEndDateMin);
 elements.campingForm?.addEventListener('submit', saveCampingQuery);
 elements.campingRecommendations?.addEventListener('click', chooseCampingRecommendation);
 elements.campingResetQuery?.addEventListener('click', resetCampingForm);
@@ -1679,6 +1681,7 @@ async function initializeApp() {
     applyPreferences();
     renderTabs();
     renderTravelAirports();
+    initializeCampingDatePickers();
     scheduleCampingQueries();
     scheduleTravelWatches();
     renderTimelineControls();
@@ -1799,6 +1802,11 @@ function saveCampingQuery(event) {
   const campground = resolveSelectedCampground();
   if (!campground) {
     renderCampingStatus('Choose a campground from search results.');
+    return;
+  }
+  syncCampingEndDateMin();
+  if (!isCampingRangeValid(elements.campingStartDate?.value, elements.campingEndDate?.value)) {
+    renderCampingStatus('Range end must be after range start.');
     return;
   }
   const query = {
@@ -1982,6 +1990,9 @@ function editCampingQuery(query) {
   renderCampingCandidates([{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }]);
   elements.campingStartDate.value = query.rangeStart || '';
   elements.campingEndDate.value = query.rangeEnd || '';
+  state.camping.datePickers.start?.setDate(query.rangeStart || '', false);
+  state.camping.datePickers.end?.setDate(query.rangeEnd || '', false);
+  syncCampingEndDateMin();
   elements.campingStayNights.value = String(query.stayNights || 2);
   elements.campingCheckMinutes.value = String(query.checkMinutes || 30);
   elements.campingWeekendOnly.checked = Boolean(query.weekendOnly);
@@ -2003,6 +2014,10 @@ function deleteCampingQuery(queryId) {
 function resetCampingForm() {
   state.camping.editingId = '';
   elements.campingForm?.reset();
+  state.camping.datePickers.start?.clear();
+  state.camping.datePickers.end?.clear();
+  if (elements.campingEndDate) elements.campingEndDate.removeAttribute('min');
+  syncCampingEndDateMin();
   if (elements.campingStayNights) elements.campingStayNights.value = '2';
   if (elements.campingCheckMinutes) elements.campingCheckMinutes.value = '30';
   if (elements.campingSaveQuery) elements.campingSaveQuery.textContent = 'Save query';
@@ -2024,6 +2039,48 @@ function scheduleCampingQuery(query) {
   state.camping.timers.set(query.id, window.setInterval(() => runCampingQuery(query.id), delay));
 }
 
+function initializeCampingDatePickers() {
+  if (!window.flatpickr || !elements.campingStartDate || !elements.campingEndDate || state.camping.datePickers.start) return;
+  const datePickerOptions = {
+    allowInput: true,
+    dateFormat: 'Y-m-d',
+    disableMobile: true,
+  };
+  state.camping.datePickers.start = window.flatpickr(elements.campingStartDate, {
+    ...datePickerOptions,
+    onChange: syncCampingEndDateMin,
+  });
+  state.camping.datePickers.end = window.flatpickr(elements.campingEndDate, datePickerOptions);
+  syncCampingEndDateMin();
+}
+
+function syncCampingEndDateMin() {
+  if (!elements.campingStartDate || !elements.campingEndDate) return;
+  const nextDate = addCampingDays(elements.campingStartDate.value, 1);
+  if (!nextDate) {
+    elements.campingEndDate.removeAttribute('min');
+    state.camping.datePickers.end?.set('minDate', null);
+    return;
+  }
+  elements.campingEndDate.setAttribute('min', nextDate);
+  state.camping.datePickers.end?.set('minDate', nextDate);
+  if (elements.campingEndDate.value && elements.campingEndDate.value < nextDate) {
+    elements.campingEndDate.value = '';
+    state.camping.datePickers.end?.clear();
+  }
+}
+
+function isCampingRangeValid(startValue, endValue) {
+  return Boolean(parseCampingDate(startValue) && parseCampingDate(endValue) && endValue > startValue);
+}
+
+function addCampingDays(value, days) {
+  const date = parseCampingDate(value);
+  if (!date) return '';
+  date.setUTCDate(date.getUTCDate() + days);
+  return campingDateKey(date);
+}
+
 function countCampingWindows(query) {
   const start = parseCampingDate(query.rangeStart);
   const end = parseCampingDate(query.rangeEnd);
@@ -2043,6 +2100,10 @@ function parseCampingDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function campingDateKey(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
 function clearCampingTimer(queryId) {

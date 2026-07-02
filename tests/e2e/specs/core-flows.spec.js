@@ -135,6 +135,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-recommendations button')).toHaveCount(2);
     await page.locator('#camping-recommendations button', { hasText: 'Upper Pines Campground' }).click();
     await page.locator('#camping-start-date').fill('2026-09-01');
+    await expect(page.locator('#camping-end-date')).toHaveAttribute('min', '2026-09-02');
+    await page.locator('#camping-end-date').click();
+    await expect(page.locator('.flatpickr-calendar.open .flatpickr-day[aria-label="September 1, 2026"]')).toHaveClass(/flatpickr-disabled/);
+    await page.keyboard.press('Escape');
     await page.locator('#camping-end-date').fill('2026-11-15');
     await page.locator('#camping-stay-nights').fill('2');
     await page.locator('#camping-check-minutes').fill('15');
