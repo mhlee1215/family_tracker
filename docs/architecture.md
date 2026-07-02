@@ -9,7 +9,7 @@ app/
   Browser rendering and event handling.
 
 src/domain/
-  Baby log parsing, field inference, sleep-session linking, summaries, deterministic care forecasts, camping availability helpers, and LLM provider boundaries.
+  Baby log parsing, field inference, sleep-session linking, summaries, deterministic care forecasts, camping availability helpers, travel search helpers, and LLM provider boundaries.
 
 src/server/db/
   SQLite-backed local persistence for profiles, raw records, structured events, and module action logs.
@@ -47,6 +47,8 @@ Node local server.
 
 Hosted Cloudflare Pages deployments must use Turso for persistence. SQLite is retained for local Node
 development and automated tests, but it is not a Cloudflare runtime backend.
+
+Travel search follows the same server-side provider boundary as LLM calls: the browser sends route/date filters to `/api/travel/*`, while Amadeus, Aviationstack, and future travel provider keys stay in server environment variables. The MVP does not book, pay for, or mutate reservations; saved deal watches are browser-local.
 
 Milk reminder notifications split request-time work from delivery work. Browser/API routes store user-scoped notification settings, Web Push subscriptions, and pending reminder jobs in Turso whenever baby records or notification settings change. The separate `workers/notification-worker.js` cron runs every five minutes, reads due pending jobs from Turso, generates encrypted Web Push request details with the `web-push` library, and sends them with the Worker `fetch()` API. The Pages app exposes only the VAPID public key to the browser; VAPID private key and Turso auth token stay in Worker environment secrets.
 

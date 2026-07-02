@@ -1,6 +1,6 @@
 # Family Tracker
 
-![Build 152](https://img.shields.io/badge/build-152-0066cc)
+![Build 154](https://img.shields.io/badge/build-154-0066cc)
 
 Family Tracker is a local-first web/PWA for busy families.
 It supports three everyday workflows with low-friction logging and review:
@@ -9,7 +9,8 @@ It supports three everyday workflows with low-friction logging and review:
 - **Task tracking** (household/family task capture and management)
 - **Meal tracking/planning** (meal ideas, meal state, and daily planning)
 - **Fund dashboard** (embedded live account dashboard from Trader Agent)
-- **National camping search** (Recreation.gov campground lookup, date-range availability, and assisted reservation launch)
+- **Travel search** (free-tier flight lookup aggregation and browser-local deal watches)
+- **National camping search** (Recreation.gov campground/park lookup, range monitoring, weekend filters, and assisted reservation launch)
 - **Home dashboard** (landing summary for today across Baby, Task, and Meal)
 - **Shared daily context** (Home, Baby, Task, and Meal views stay on the same selected day)
 

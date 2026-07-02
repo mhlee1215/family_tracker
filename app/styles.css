@@ -1659,7 +1659,7 @@ input {
 }
 
 .camping-panel,
-.camping-result {
+.camping-query-card {
   border: 1px solid var(--hairline);
   border-radius: 8px;
   background: var(--canvas);
@@ -1692,23 +1692,146 @@ input {
   gap: 10px;
 }
 
-.camping-result {
+.camping-monitor {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.camping-query-card {
+  display: grid;
+  gap: 12px;
+}
+
+.camping-query-card.has-availability {
+  border-color: var(--primary);
+}
+
+.camping-query-head,
+.camping-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.camping-result small {
+.camping-actions {
+  justify-content: flex-start;
+  margin: 0;
+  padding: 0;
+}
+
+.camping-query-head small {
   display: block;
   margin-top: 4px;
   color: var(--muted);
 }
 
+.camping-status-pill {
+  flex: 0 0 auto;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.has-availability .camping-status-pill {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.camping-query-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.camping-query-meta div {
+  min-width: 0;
+}
+
+.camping-query-meta dt,
+.camping-query-meta dd {
+  margin: 0;
+}
+
+.camping-query-meta dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.camping-query-meta dd {
+  color: var(--body);
+  font-size: 13px;
+}
+
+.camping-match-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.camping-match-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 8px;
+}
+
+.travel-view .fund-open-link {
+  border: 0;
+  cursor: pointer;
+}
+
+.travel-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.travel-source-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.travel-source-pill.ready {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--hairline));
+  color: var(--primary);
+}
+
+.travel-source-pill.error {
+  border-color: #b42318;
+  color: #b42318;
+}
+
+.travel-result-card .camping-status-pill {
+  white-space: nowrap;
+}
+
 @media (max-width: 760px) {
   .camping-shell,
-  .camping-date-grid {
+  .camping-date-grid,
+  .camping-query-meta {
     grid-template-columns: 1fr;
+  }
+
+  .camping-query-head,
+  .camping-match-list li {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

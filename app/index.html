@@ -24,6 +24,7 @@
           <button id="task-tab" type="button" class="module-tab" data-tab="task">Task</button>
           <button id="meal-tab" type="button" class="module-tab" data-tab="meal">Meal</button>
           <button id="fund-tab" type="button" class="module-tab" data-tab="fund">Fund</button>
+          <button id="travel-tab" type="button" class="module-tab" data-tab="travel">Travel</button>
           <button id="camping-tab" type="button" class="module-tab" data-tab="camping">Camping</button>
         </nav>
         <div class="top-actions">
@@ -618,6 +619,47 @@
         </section>
       </section>
 
+      <section id="travel-view" class="module-view camping-view travel-view" aria-label="Travel search">
+        <header class="fund-header">
+          <div>
+            <p class="eyebrow">Travel</p>
+            <h1>Flight Finder</h1>
+          </div>
+          <button id="travel-enable-notifications" type="button" class="fund-open-link">Enable alerts</button>
+        </header>
+        <section class="camping-shell">
+          <form id="travel-form" class="camping-panel" autocomplete="off">
+            <div class="camping-date-grid">
+              <label class="floating-field"><span>From</span><input id="travel-origin" type="text" maxlength="3" placeholder="SFO" required></label>
+              <label class="floating-field"><span>To</span><input id="travel-destination" type="text" maxlength="3" placeholder="ICN" required></label>
+              <label class="floating-field"><span>Depart</span><input id="travel-departure-date" type="date" required></label>
+              <label class="floating-field"><span>Return</span><input id="travel-return-date" type="date"></label>
+              <label class="floating-field"><span>Adults</span><input id="travel-adults" type="number" min="1" max="9" step="1" value="1"></label>
+              <label class="floating-field"><span>Good deal under, USD</span><input id="travel-max-price" type="number" min="1" step="1" placeholder="800"></label>
+              <label class="floating-field"><span>Check every, min</span><input id="travel-check-minutes" type="number" min="5" max="1440" step="1" value="60"></label>
+            </div>
+            <menu class="camping-actions">
+              <button id="travel-search" type="submit">Search</button>
+              <button id="travel-save-watch" type="button" class="ghost-button">Watch deals</button>
+            </menu>
+            <p id="travel-status" class="settings-note" role="status" aria-live="polite"></p>
+            <div id="travel-sources" class="travel-sources" aria-live="polite"></div>
+          </form>
+          <section class="camping-monitor">
+            <div class="section-header">
+              <h2>Results</h2>
+              <span id="travel-result-count" class="muted-count">0 results</span>
+            </div>
+            <div id="travel-results" class="camping-results travel-results" aria-live="polite"></div>
+            <div class="section-header">
+              <h2>Deal watches</h2>
+              <button id="travel-run-watches" type="button" class="compact-button">Run all</button>
+            </div>
+            <div id="travel-watch-list" class="camping-results travel-results" aria-live="polite"></div>
+          </section>
+        </section>
+      </section>
+
       <section id="camping-view" class="module-view camping-view" aria-label="Camping reservations">
         <header class="fund-header">
           <div>
@@ -629,22 +671,41 @@
         <section class="camping-shell">
           <form id="camping-form" class="camping-panel" autocomplete="off">
             <label class="floating-field">
-              <span>Campground</span>
-              <input id="camping-query" type="search" list="camping-candidates" placeholder="Upper Pines" required>
+              <span>Query name</span>
+              <input id="camping-query-name" type="text" placeholder="Yosemite fall weekends">
+            </label>
+            <label class="floating-field">
+              <span>Campground, park, or place</span>
+              <input id="camping-query" type="search" list="camping-candidates" placeholder="Upper Pines or Yosemite" required>
               <datalist id="camping-candidates"></datalist>
             </label>
             <div class="camping-date-grid">
-              <label class="floating-field"><span>Check in</span><input id="camping-start-date" type="date" required></label>
-              <label class="floating-field"><span>Check out</span><input id="camping-end-date" type="date" required></label>
+              <label class="floating-field"><span>Range start</span><input id="camping-start-date" type="date" required></label>
+              <label class="floating-field"><span>Range end</span><input id="camping-end-date" type="date" required></label>
+              <label class="floating-field"><span>Stay nights</span><input id="camping-stay-nights" type="number" min="1" max="14" step="1" value="2" required></label>
+              <label class="floating-field"><span>Check every, min</span><input id="camping-check-minutes" type="number" min="1" max="1440" step="1" value="30" required></label>
             </div>
             <label class="camping-check">
-              <input id="camping-auto-confirm" type="checkbox">
-              <span>Auto-confirm first site</span>
+              <input id="camping-weekend-only" type="checkbox">
+              <span>Weekend only</span>
             </label>
-            <button type="submit">Check sites</button>
+            <label class="camping-check">
+              <input id="camping-auto-confirm" type="checkbox">
+              <span>Auto reservation launch</span>
+            </label>
+            <menu class="camping-actions">
+              <button id="camping-save-query" type="submit">Save query</button>
+              <button id="camping-reset-query" type="button" class="ghost-button">Clear</button>
+            </menu>
             <p id="camping-status" class="settings-note" role="status" aria-live="polite"></p>
           </form>
-          <section id="camping-results" class="camping-results" aria-live="polite"></section>
+          <section class="camping-monitor">
+            <div class="section-header">
+              <h2>Saved searches</h2>
+              <button id="camping-run-all" type="button" class="compact-button">Run all</button>
+            </div>
+            <div id="camping-query-list" class="camping-results" aria-live="polite"></div>
+          </section>
         </section>
       </section>
     </main>
@@ -683,6 +744,6 @@
     <script src="/app/vendor/Chart.umd.js"></script>
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
-    <script type="module" src="/app/main.js?build=152"></script>
+    <script type="module" src="/app/main.js?build=154"></script>
   </body>
 </html>

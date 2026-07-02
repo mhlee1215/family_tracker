@@ -21,6 +21,7 @@ import { createBabyStore, getStorageConfig } from '../db/store-factory.js';
 import { getMediaStorageConfig, publicMediaStorageConfig } from '../media-config.js';
 import { buildMilkReminderJob, normalizeNotificationSettings } from '../../domain/milk-reminder.js';
 import { findNationalAvailability, searchNationalCampgrounds } from '../../domain/national-camping.js';
+import { searchTravel, searchTravelDeals, sourceStatuses } from '../../domain/travel-search.js';
 import { createId } from '../../utils/ids.js';
 import { localDateKeyFromIso, normalizeTimeZone } from '../../utils/time.js';
 import { colorForBabyEventType } from '../../utils/tracker-colors.js';
@@ -316,6 +317,23 @@ async function handleApi(request, response) {
       const body = await readJson(request);
       const matches = await findNationalAvailability(body);
       sendJson(response, 200, { matches });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/travel/sources') {
+      sendJson(response, 200, { sources: sourceStatuses(process.env) });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/travel/search') {
+      const body = await readJson(request);
+      sendJson(response, 200, await searchTravel(body, { env: process.env }));
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/travel/deals') {
+      const body = await readJson(request);
+      sendJson(response, 200, await searchTravelDeals(body, { env: process.env }));
       return;
     }
 

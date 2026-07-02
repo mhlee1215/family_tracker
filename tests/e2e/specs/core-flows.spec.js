@@ -104,8 +104,9 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
-  test('camping tab searches national campgrounds and opens available sites', async ({ page }, testInfo) => {
+  test('camping tab manages recurring national campground searches', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
+    let availabilityRequest = null;
     await page.route('**/api/camping/national/search**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -114,26 +115,92 @@ test.describe('Family Tracker core flows', () => {
       });
     });
     await page.route('**/api/camping/national/availability', async (route) => {
+      availabilityRequest = route.request().postDataJSON();
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ matches: [{ campgroundId: '232447', campsiteId: '100', site: '044', loop: 'Upper Pines', nights: ['2026-08-10'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/232447?checkin=2026-08-10&checkout=2026-08-11&campsite=100' }] }),
+        body: JSON.stringify({ matches: [{ campgroundId: '232447', campsiteId: '100', site: '044', loop: 'Upper Pines', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/232447?checkin=2026-09-04&checkout=2026-09-06&campsite=100' }] }),
       });
     });
 
     await app.loginAsDevAdmin('/camping');
     await expect(page.locator('#camping-view.active')).toBeVisible();
+    await page.evaluate(() => localStorage.removeItem('familyTracker.campingQueries'));
     await page.locator('#camping-query').fill('Upper');
     await expect(page.locator('#camping-candidates option')).toHaveCount(1);
+    await page.locator('#camping-query-name').fill('Yosemite weekends');
     await page.locator('#camping-query').fill('Upper Pines Campground');
-    await page.locator('#camping-start-date').fill('2026-08-10');
-    await page.locator('#camping-end-date').fill('2026-08-11');
-    await page.locator('#camping-form button[type="submit"]').click();
+    await page.locator('#camping-start-date').fill('2026-09-01');
+    await page.locator('#camping-end-date').fill('2026-11-15');
+    await page.locator('#camping-stay-nights').fill('2');
+    await page.locator('#camping-check-minutes').fill('15');
+    await page.locator('#camping-weekend-only').check();
+    await page.locator('#camping-auto-confirm').check();
+    await page.locator('#camping-save-query').click();
 
-    await expect(page.locator('#camping-status')).toHaveText('1 sites available.');
-    await expect(page.locator('#camping-results')).toContainText('Site 044');
-    await expect(page.locator('#camping-open-selected')).toHaveAttribute('href', /recreation\.gov\/camping\/campgrounds\/232447/);
-    await app.captureStep('Checked national campsite availability', 'Camping tab selected a Recreation.gov campground and surfaced an available site.');
+    await expect(page.locator('#camping-query-list')).toContainText('Yosemite weekends');
+    await page.locator('[data-camping-action="run"]').click();
+
+    await expect.poll(() => availabilityRequest).toMatchObject({
+      campgroundId: '232447',
+      rangeStart: '2026-09-01',
+      rangeEnd: '2026-11-15',
+      stayNights: 2,
+      weekendOnly: true,
+    });
+    await expect(page.locator('#camping-query-list')).toContainText('Available');
+    await expect(page.locator('#camping-query-list')).toContainText('Site 044');
+    await expect(page.locator('#camping-query-list a[href*="recreation.gov"]')).toHaveCount(1);
+
+    await page.locator('[data-camping-action="edit"]').click();
+    await expect(page.locator('#camping-save-query')).toHaveText('Update query');
+    await page.locator('[data-camping-action="delete"]').click();
+    await expect(page.locator('#camping-query-list')).toContainText('No saved searches yet.');
+    await app.captureStep('Managed national campsite search', 'Camping tab saved a recurring weekend search, checked availability, and allowed edit/delete.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
+  test('travel tab aggregates flight lookup and saves a deal watch', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let searchRequest = null;
+    await page.route('**/api/travel/search', async (route) => {
+      searchRequest = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sources: [
+            { id: 'amadeus', name: 'Amadeus', status: 'ready', coverage: 'Flight fares and cached deal dates' },
+            { id: 'aviationstack', name: 'Aviationstack', status: 'missing_key', coverage: 'Flight status and schedule lookup' },
+          ],
+          results: [
+            { id: 'fare-1', source: 'Amadeus', kind: 'fare', title: 'SFO to ICN', price: 721, currency: 'USD', airline: 'United Airlines', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: '1 segment' },
+            { id: 'status-1', source: 'Aviationstack', kind: 'status', title: 'UA893', price: null, currency: '', airline: 'United Airlines', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: 'scheduled' },
+          ],
+        }),
+      });
+    });
+
+    await app.loginAsDevAdmin('/travel');
+    await expect(page.locator('#travel-view.active')).toBeVisible();
+    await page.evaluate(() => localStorage.removeItem('familyTracker.travelWatches'));
+    await page.locator('#travel-origin').fill('SFO');
+    await page.locator('#travel-destination').fill('ICN');
+    await page.locator('#travel-departure-date').fill('2026-10-10');
+    await page.locator('#travel-max-price').fill('800');
+    await page.locator('#travel-search').click();
+
+    await expect(page.locator('#travel-status')).toHaveText('2 results.');
+    await expect(page.locator('#travel-results')).toContainText('SFO to ICN');
+    await expect(page.locator('#travel-results')).toContainText('UA893');
+    await expect(page.locator('#travel-sources')).toContainText('Amadeus: ready');
+    await page.locator('#travel-save-watch').click();
+    await expect(page.locator('#travel-watch-list')).toContainText('SFO to ICN');
+    expect(searchRequest).toMatchObject({ origin: 'SFO', destination: 'ICN', departureDate: '2026-10-10', maxPrice: '800' });
+    await app.captureStep('Searched travel and saved deal watch', 'Travel tab merged fare/status results and saved a browser-local fare watch.');
 
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();

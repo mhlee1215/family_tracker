@@ -624,6 +624,43 @@ describe('app/main', () => {
   });
 
 
+  it('searches travel results and saves a deal watch', async () => {
+    global.fetch = vi.fn(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/app/build.json')) return new Response(JSON.stringify({ build: 1 }), { status: 200 });
+      if (url.endsWith('/api/auth/me')) return new Response(JSON.stringify({ user: { id: 'u1', name: 'Parent' } }), { status: 200 });
+      if (url.endsWith('/api/config')) return new Response(JSON.stringify({ provider: 'mock', model: 'mock-local', providers: [] }), { status: 200 });
+      if (url.endsWith('/api/profile')) return new Response(JSON.stringify({ profile: {}, growthRecords: [] }), { status: 200 });
+      if (url.startsWith('/api/logs/today')) return new Response(JSON.stringify({ events: [], summary: {}, context: {} }), { status: 200 });
+      if (url.endsWith('/api/travel/search') && init.method === 'POST') {
+        return new Response(JSON.stringify({
+          sources: [{ id: 'amadeus', name: 'Amadeus', status: 'ready', coverage: 'Flight fares' }],
+          results: [{ id: 'r1', source: 'Amadeus', kind: 'fare', title: 'SFO to ICN', price: 721, currency: 'USD', airline: 'United', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: '1 segment' }],
+        }), { status: 200 });
+      }
+      if (url.startsWith('/api/sync/state')) return new Response(JSON.stringify({ modules: {} }), { status: 200 });
+      return new Response(JSON.stringify({ tasks: [], assignees: [], summary: null }), { status: 200 });
+    });
+
+    await import('../../app/main.js?case=travel-tab');
+
+    fireEvent.click(document.querySelector('#travel-tab'));
+    document.querySelector('#travel-origin').value = 'SFO';
+    document.querySelector('#travel-destination').value = 'ICN';
+    document.querySelector('#travel-departure-date').value = '2026-10-10';
+    document.querySelector('#travel-max-price').value = '800';
+    fireEvent.submit(document.querySelector('#travel-form'));
+
+    await vi.waitFor(() => expect(document.querySelector('#travel-results').textContent).toContain('SFO to ICN'));
+    expect(document.querySelector('#travel-result-count').textContent).toBe('1 results');
+
+    fireEvent.click(document.querySelector('#travel-save-watch'));
+
+    expect(document.querySelector('#travel-watch-list').textContent).toContain('SFO to ICN');
+    expect(localStorage.getItem('familyTracker.travelWatches')).toContain('"origin":"SFO"');
+  });
+
+
   it('renders task swipe actions for open and completed tasks', async () => {
     const swipedInit = vi.fn(() => ({ open: vi.fn(), close: vi.fn() }));
     window.Swiped = { init: swipedInit };
