@@ -126,10 +126,9 @@ test.describe('Family Tracker core flows', () => {
     await app.loginAsDevAdmin('/camping');
     await expect(page.locator('#camping-view.active')).toBeVisible();
     await page.evaluate(() => localStorage.removeItem('familyTracker.campingQueries'));
-    await page.locator('#camping-query').fill('Upper');
+    await page.locator('#camping-query-name').fill('Upper');
     await expect(page.locator('#camping-candidates option')).toHaveCount(1);
-    await page.locator('#camping-query-name').fill('Yosemite weekends');
-    await page.locator('#camping-query').fill('Upper Pines Campground');
+    await page.locator('#camping-query-name').fill('Upper Pines Campground');
     await page.locator('#camping-start-date').fill('2026-09-01');
     await page.locator('#camping-end-date').fill('2026-11-15');
     await page.locator('#camping-stay-nights').fill('2');
@@ -138,7 +137,7 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#camping-auto-confirm').check();
     await page.locator('#camping-save-query').click();
 
-    await expect(page.locator('#camping-query-list')).toContainText('Yosemite weekends');
+    await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     await page.locator('[data-camping-action="run"]').click();
 
     await expect.poll(() => availabilityRequest).toMatchObject({

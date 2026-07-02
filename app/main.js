@@ -361,7 +361,6 @@ const elements = {
   travelWatchList: $('#travel-watch-list'),
   campingForm: $('#camping-form'),
   campingQueryName: $('#camping-query-name'),
-  campingQuery: $('#camping-query'),
   campingCandidates: $('#camping-candidates'),
   campingStartDate: $('#camping-start-date'),
   campingEndDate: $('#camping-end-date'),
@@ -601,7 +600,7 @@ elements.previousMealDay?.addEventListener('click', () => shiftSelectedDay(-1));
 elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
 elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
-elements.campingQuery?.addEventListener('input', searchCampingCandidates);
+elements.campingQueryName?.addEventListener('input', searchCampingCandidates);
 elements.campingForm?.addEventListener('submit', saveCampingQuery);
 elements.campingResetQuery?.addEventListener('click', resetCampingForm);
 elements.campingRunAll?.addEventListener('click', () => runAllCampingQueries());
@@ -1751,7 +1750,7 @@ function loadFundDashboardFrame() {
 }
 
 async function searchCampingCandidates() {
-  const query = elements.campingQuery?.value.trim() || '';
+  const query = elements.campingQueryName?.value.trim() || '';
   if (query.length < 2) {
     renderCampingCandidates([]);
     return;
@@ -1851,7 +1850,7 @@ function renderCampingCandidates(candidates) {
 }
 
 function resolveSelectedCampground() {
-  const query = elements.campingQuery?.value.trim() || '';
+  const query = elements.campingQueryName?.value.trim() || '';
   const exact = state.camping.candidates.find((campground) => campground.name === query);
   const campground = exact || state.camping.candidates[0];
   if (!campground) return null;
@@ -1918,8 +1917,7 @@ function handleCampingQueryAction(event) {
 
 function editCampingQuery(query) {
   state.camping.editingId = query.id;
-  elements.campingQueryName.value = query.name || '';
-  elements.campingQuery.value = query.campgroundName || '';
+  elements.campingQueryName.value = query.name || query.campgroundName || '';
   renderCampingCandidates([{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }]);
   elements.campingStartDate.value = query.rangeStart || '';
   elements.campingEndDate.value = query.rangeEnd || '';
