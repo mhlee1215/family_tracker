@@ -160,6 +160,16 @@ test.describe('Family Tracker core flows', () => {
 
     await page.locator('[data-camping-action="edit"]').click();
     await expect(page.locator('#camping-save-query')).toHaveText('Update query');
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground"?');
+      await dialog.dismiss();
+    });
+    await page.locator('[data-camping-action="delete"]').click();
+    await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground"?');
+      await dialog.accept();
+    });
     await page.locator('[data-camping-action="delete"]').click();
     await expect(page.locator('#camping-query-list')).toContainText('No saved searches yet.');
     await app.captureStep('Managed national campsite search', 'Camping tab saved a recurring weekend search, checked availability, and allowed edit/delete.');
