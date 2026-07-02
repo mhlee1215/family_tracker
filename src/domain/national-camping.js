@@ -34,16 +34,37 @@ export async function searchNationalCampgrounds(query, { fetchImpl = fetch } = {
   })).filter((item) => item.id && item.name);
 }
 
-export async function findNationalAvailability({ campgroundId, startDate, endDate }, { fetchImpl = fetch } = {}) {
-  const campground = String(campgroundId || '').trim();
-  const start = normalizeCampingDate(startDate);
-  const end = normalizeCampingDate(endDate);
-  if (!campground) throw new Error('Campground is required.');
+export function searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights = 2, weekendOnly = false }) {
+  const start = normalizeCampingDate(rangeStart || startDate);
+  const end = normalizeCampingDate(rangeEnd || endDate);
+  const nights = Number.isInteger(Number(stayNights)) ? Math.max(1, Math.min(14, Number(stayNights))) : 2;
   if (!start || !end || start >= end) throw new Error('A valid date range is required.');
+  const windows = [];
+  const lastStart = new Date(`${end}T00:00:00.000Z`);
+  lastStart.setUTCDate(lastStart.getUTCDate() - nights);
+  for (const cursor = new Date(`${start}T00:00:00.000Z`); cursor <= lastStart; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const day = cursor.getUTCDay();
+    if (weekendOnly && ![5, 6].includes(day)) continue;
+    const checkout = new Date(cursor);
+    checkout.setUTCDate(checkout.getUTCDate() + nights);
+    windows.push({
+      startDate: dateKey(cursor),
+      endDate: dateKey(checkout),
+      nights: nightsBetween(dateKey(cursor), dateKey(checkout)),
+    });
+  }
+  return windows;
+}
+
+export async function findNationalAvailability({ campgroundId, startDate, endDate, rangeStart, rangeEnd, stayNights, weekendOnly = false }, { fetchImpl = fetch } = {}) {
+  const campground = String(campgroundId || '').trim();
+  if (!campground) throw new Error('Campground is required.');
+  const windows = searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights, weekendOnly });
+  const start = windows[0].startDate;
+  const end = windows[windows.length - 1].endDate;
 
   const monthKeys = monthsBetween(start, end);
   const monthly = await Promise.all(monthKeys.map((month) => fetchAvailabilityMonth(campground, month, fetchImpl)));
-  const nights = nightsBetween(start, end);
   const campsites = new Map();
   for (const month of monthly) {
     for (const campsite of Object.values(month.campsites || {})) {
@@ -51,16 +72,24 @@ export async function findNationalAvailability({ campgroundId, startDate, endDat
     }
   }
 
-  const matches = [...campsites.values()].filter((campsite) => nights.every((night) => campsite.availabilities?.[`${night}T00:00:00Z`] === 'Available'));
-  return matches.map((campsite) => ({
-    campgroundId: campground,
-    campsiteId: String(campsite.campsite_id),
-    site: String(campsite.site || campsite.campsite_id),
-    loop: String(campsite.loop || ''),
-    type: String(campsite.campsite_reserve_type || ''),
-    nights,
-    checkoutUrl: reservationUrl({ campgroundId: campground, campsiteId: campsite.campsite_id, startDate: start, endDate: end }),
-  }));
+  const matches = [];
+  for (const campsite of campsites.values()) {
+    for (const window of windows) {
+      if (!window.nights.every((night) => campsite.availabilities?.[`${night}T00:00:00Z`] === 'Available')) continue;
+      matches.push({
+        campgroundId: campground,
+        campsiteId: String(campsite.campsite_id),
+        site: String(campsite.site || campsite.campsite_id),
+        loop: String(campsite.loop || ''),
+        type: String(campsite.campsite_reserve_type || ''),
+        startDate: window.startDate,
+        endDate: window.endDate,
+        nights: window.nights,
+        checkoutUrl: reservationUrl({ campgroundId: campground, campsiteId: campsite.campsite_id, startDate: window.startDate, endDate: window.endDate }),
+      });
+    }
+  }
+  return matches;
 }
 
 async function fetchAvailabilityMonth(campgroundId, monthKey, fetchImpl) {
@@ -84,9 +113,13 @@ function monthsBetween(startDate, endDate) {
 function nightsBetween(startDate, endDate) {
   const nights = [];
   for (const cursor = new Date(`${startDate}T00:00:00.000Z`), end = new Date(`${endDate}T00:00:00.000Z`); cursor < end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
-    nights.push(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-${String(cursor.getUTCDate()).padStart(2, '0')}`);
+    nights.push(dateKey(cursor));
   }
   return nights;
+}
+
+function dateKey(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
 function recreationHeaders() {

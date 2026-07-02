@@ -64,6 +64,8 @@ const storageKeys = {
   babyStatusRange: 'familyTracker.babyStatusRange',
   activeBabyTrackers: 'familyTracker.activeBabyTrackers',
   quickMilkAmountMl: 'familyTracker.quickMilkAmountMl',
+  campingQueries: 'familyTracker.campingQueries',
+  travelWatches: 'familyTracker.travelWatches',
 };
 
 const copy = {
@@ -159,7 +161,8 @@ const state = {
   careForecastError: '',
   careForecastRequestId: 0,
   careForecastPeriodDays: normalizeForecastPeriodDays(localStorage.getItem(storageKeys.careForecastPeriodDays)),
-  camping: { candidates: [], matches: [], selectedCampgroundId: '', selectedCampgroundName: '', loading: false, status: '' },
+  camping: { candidates: [], queries: loadCampingQueries(), editingId: '', runningIds: new Set(), timers: new Map(), status: '' },
+  travel: { results: [], sources: [], watches: loadTravelWatches(), runningIds: new Set(), timers: new Map(), status: '' },
   deepLinkFocus: getDeepLinkFocusFromLocation(),
   syncVersions: null,
   syncCheckInFlight: false,
@@ -340,14 +343,37 @@ const elements = {
   taskCount: $('#task-count'),
   taskOverviewList: $('#task-overview-list'),
   fundDashboardFrame: $('#fund-dashboard-frame'),
+  travelForm: $('#travel-form'),
+  travelOrigin: $('#travel-origin'),
+  travelDestination: $('#travel-destination'),
+  travelDepartureDate: $('#travel-departure-date'),
+  travelReturnDate: $('#travel-return-date'),
+  travelAdults: $('#travel-adults'),
+  travelMaxPrice: $('#travel-max-price'),
+  travelCheckMinutes: $('#travel-check-minutes'),
+  travelSaveWatch: $('#travel-save-watch'),
+  travelEnableNotifications: $('#travel-enable-notifications'),
+  travelRunWatches: $('#travel-run-watches'),
+  travelStatus: $('#travel-status'),
+  travelSources: $('#travel-sources'),
+  travelResults: $('#travel-results'),
+  travelResultCount: $('#travel-result-count'),
+  travelWatchList: $('#travel-watch-list'),
   campingForm: $('#camping-form'),
+  campingQueryName: $('#camping-query-name'),
   campingQuery: $('#camping-query'),
   campingCandidates: $('#camping-candidates'),
   campingStartDate: $('#camping-start-date'),
   campingEndDate: $('#camping-end-date'),
+  campingStayNights: $('#camping-stay-nights'),
+  campingCheckMinutes: $('#camping-check-minutes'),
+  campingWeekendOnly: $('#camping-weekend-only'),
   campingAutoConfirm: $('#camping-auto-confirm'),
+  campingSaveQuery: $('#camping-save-query'),
+  campingResetQuery: $('#camping-reset-query'),
+  campingRunAll: $('#camping-run-all'),
   campingStatus: $('#camping-status'),
-  campingResults: $('#camping-results'),
+  campingQueryList: $('#camping-query-list'),
   campingOpenSelected: $('#camping-open-selected'),
   wishList: $('#wish-list'),
   mealDayLabel: $('#meal-day-label'),
@@ -576,7 +602,15 @@ elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
 elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 elements.campingQuery?.addEventListener('input', searchCampingCandidates);
-elements.campingForm?.addEventListener('submit', submitCampingSearch);
+elements.campingForm?.addEventListener('submit', saveCampingQuery);
+elements.campingResetQuery?.addEventListener('click', resetCampingForm);
+elements.campingRunAll?.addEventListener('click', () => runAllCampingQueries());
+elements.campingQueryList?.addEventListener('click', handleCampingQueryAction);
+elements.travelForm?.addEventListener('submit', searchTravel);
+elements.travelSaveWatch?.addEventListener('click', saveTravelWatch);
+elements.travelRunWatches?.addEventListener('click', () => runAllTravelWatches());
+elements.travelWatchList?.addEventListener('click', handleTravelWatchAction);
+elements.travelEnableNotifications?.addEventListener('click', enableTravelNotifications);
 
 elements.dayPicker.addEventListener('change', () => setSelectedDay(elements.dayPicker.value, { pushHistory: true }));
 elements.babyStatusRange?.addEventListener('click', (event) => {
@@ -1617,6 +1651,8 @@ async function initializeApp() {
   try {
     applyPreferences();
     renderTabs();
+    scheduleCampingQueries();
+    scheduleTravelWatches();
     renderTimelineControls();
     renderQuickActions();
     if (elements.summaryPeriod) elements.summaryPeriod.value = getSummaryPeriodFromLocation();
@@ -1703,6 +1739,7 @@ function renderTabs() {
   elements.views.forEach((view) => view.classList.toggle('active', view.id === `${state.activeTab}-view`));
   elements.settings.forEach((panel) => panel.classList.toggle('hidden', panel.dataset.settings !== state.activeTab));
   if (state.activeTab === 'fund') loadFundDashboardFrame();
+  if (state.activeTab === 'travel') renderTravel();
   renderHomeDashboard();
 }
 
@@ -1715,8 +1752,6 @@ function loadFundDashboardFrame() {
 
 async function searchCampingCandidates() {
   const query = elements.campingQuery?.value.trim() || '';
-  state.camping.selectedCampgroundId = '';
-  state.camping.selectedCampgroundName = '';
   if (query.length < 2) {
     renderCampingCandidates([]);
     return;
@@ -1731,37 +1766,75 @@ async function searchCampingCandidates() {
   }
 }
 
-async function submitCampingSearch(event) {
+function saveCampingQuery(event) {
   event.preventDefault();
   const campground = resolveSelectedCampground();
   if (!campground) {
     renderCampingStatus('Choose a campground from search results.');
     return;
   }
-  state.camping.loading = true;
-  state.camping.matches = [];
-  renderCampingStatus('Checking sites...');
-  renderCampingResults();
+  const query = {
+    id: state.camping.editingId || `camp-${Date.now()}`,
+    name: (elements.campingQueryName?.value.trim() || campground.name).slice(0, 80),
+    campgroundId: campground.id,
+    campgroundName: campground.name,
+    location: campground.location || '',
+    rangeStart: elements.campingStartDate?.value || '',
+    rangeEnd: elements.campingEndDate?.value || '',
+    stayNights: normalizeCampingNumber(elements.campingStayNights?.value, 2, 1, 14),
+    checkMinutes: normalizeCampingNumber(elements.campingCheckMinutes?.value, 30, 1, 1440),
+    weekendOnly: Boolean(elements.campingWeekendOnly?.checked),
+    autoConfirm: Boolean(elements.campingAutoConfirm?.checked),
+    matches: [],
+    lastCheckedAt: '',
+    lastStatus: 'Saved.',
+    autoOpenedUrl: '',
+  };
+  const existingIndex = state.camping.queries.findIndex((item) => item.id === query.id);
+  if (existingIndex >= 0) state.camping.queries[existingIndex] = { ...state.camping.queries[existingIndex], ...query };
+  else state.camping.queries.unshift(query);
+  state.camping.editingId = '';
+  saveCampingQueries();
+  resetCampingForm();
+  renderCampingQueries();
+  scheduleCampingQuery(query);
+  renderCampingStatus(`Saved ${query.name}.`);
+}
+
+async function runCampingQuery(queryId) {
+  const query = state.camping.queries.find((item) => item.id === queryId);
+  if (!query || state.camping.runningIds.has(queryId)) return;
+  state.camping.runningIds.add(queryId);
+  query.lastStatus = 'Checking...';
+  query.matches = [];
+  renderCampingQueries();
   try {
     const response = await fetch('/api/camping/national/availability', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        campgroundId: campground.id,
-        startDate: elements.campingStartDate?.value || '',
-        endDate: elements.campingEndDate?.value || '',
+        campgroundId: query.campgroundId,
+        rangeStart: query.rangeStart,
+        rangeEnd: query.rangeEnd,
+        stayNights: query.stayNights,
+        weekendOnly: query.weekendOnly,
       }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Availability failed.');
-    state.camping.matches = data.matches || [];
-    renderCampingStatus(state.camping.matches.length ? `${state.camping.matches.length} sites available.` : 'No sites available.');
-    renderCampingResults();
-    if (elements.campingAutoConfirm?.checked && state.camping.matches[0]) openCampingReservation(state.camping.matches[0]);
+    query.matches = data.matches || [];
+    query.lastCheckedAt = new Date().toISOString();
+    query.lastStatus = query.matches.length ? `${query.matches.length} available.` : 'No sites available.';
+    if (query.autoConfirm && query.matches[0] && query.autoOpenedUrl !== query.matches[0].checkoutUrl) {
+      query.autoOpenedUrl = query.matches[0].checkoutUrl;
+      openCampingReservation(query.matches[0]);
+    }
   } catch (error) {
-    renderCampingStatus(error.message || 'Could not check availability.');
+    query.lastStatus = error.message || 'Could not check availability.';
   } finally {
-    state.camping.loading = false;
+    state.camping.runningIds.delete(queryId);
+    saveCampingQueries();
+    renderCampingQueries();
   }
 }
 
@@ -1782,8 +1855,6 @@ function resolveSelectedCampground() {
   const exact = state.camping.candidates.find((campground) => campground.name === query);
   const campground = exact || state.camping.candidates[0];
   if (!campground) return null;
-  state.camping.selectedCampgroundId = campground.id;
-  state.camping.selectedCampgroundName = campground.name;
   return campground;
 }
 
@@ -1792,33 +1863,377 @@ function renderCampingStatus(message) {
   if (elements.campingStatus) elements.campingStatus.textContent = message;
 }
 
-function renderCampingResults() {
-  if (!elements.campingResults) return;
-  if (!state.camping.matches.length) {
-    elements.campingResults.innerHTML = '<p class="empty">No matching sites yet.</p>';
-    elements.campingOpenSelected?.classList.add('hidden');
+function renderCampingQueries() {
+  if (!elements.campingQueryList) return;
+  if (!state.camping.queries.length) {
+    elements.campingQueryList.innerHTML = '<p class="empty">No saved searches yet.</p>';
     return;
   }
-  elements.campingOpenSelected?.classList.remove('hidden');
-  elements.campingOpenSelected.href = state.camping.matches[0].checkoutUrl;
-  elements.campingResults.replaceChildren(...state.camping.matches.slice(0, 20).map(renderCampingResult));
+  elements.campingQueryList.replaceChildren(...state.camping.queries.map(renderCampingQuery));
 }
 
-function renderCampingResult(match) {
+function renderCampingQuery(query) {
   const article = document.createElement('article');
-  article.className = 'camping-result';
-  article.innerHTML = `<div><strong>Site ${escapeHtml(match.site)}</strong><small>${escapeHtml(match.loop || 'Campground')} · ${match.nights.length} nights</small></div>`;
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'compact-button';
-  button.textContent = 'Reserve';
-  button.addEventListener('click', () => openCampingReservation(match));
-  article.append(button);
+  article.className = `camping-query-card ${query.matches?.length ? 'has-availability' : ''}`;
+  const matches = (query.matches || []).slice(0, 5).map((match) => `
+    <li>
+      <span>Site ${escapeHtml(match.site)} · ${escapeHtml(match.startDate)} to ${escapeHtml(match.endDate)}</span>
+      <a href="${escapeHtml(match.checkoutUrl)}" target="_blank" rel="noopener noreferrer">Reserve</a>
+    </li>
+  `).join('');
+  article.innerHTML = `
+    <div class="camping-query-head">
+      <div>
+        <strong>${escapeHtml(query.name)}</strong>
+        <small>${escapeHtml(query.campgroundName)}${query.location ? ` · ${escapeHtml(query.location)}` : ''}</small>
+      </div>
+      <span class="camping-status-pill">${query.matches?.length ? 'Available' : 'Watching'}</span>
+    </div>
+    <dl class="camping-query-meta">
+      <div><dt>Range</dt><dd>${escapeHtml(query.rangeStart)} to ${escapeHtml(query.rangeEnd)}</dd></div>
+      <div><dt>Nights</dt><dd>${query.stayNights}${query.weekendOnly ? ' · weekends' : ''}</dd></div>
+      <div><dt>Every</dt><dd>${query.checkMinutes} min</dd></div>
+      <div><dt>Auto</dt><dd>${query.autoConfirm ? 'on' : 'off'}</dd></div>
+    </dl>
+    <p class="settings-note">${escapeHtml(query.lastStatus || 'Not checked yet.')}${query.lastCheckedAt ? ` Last: ${escapeHtml(relativeDateTime(query.lastCheckedAt))}` : ''}</p>
+    ${matches ? `<ul class="camping-match-list">${matches}</ul>` : ''}
+    <menu class="camping-actions">
+      <button type="button" class="compact-button" data-camping-action="run" data-camping-id="${escapeHtml(query.id)}">Run</button>
+      <button type="button" class="ghost-button" data-camping-action="edit" data-camping-id="${escapeHtml(query.id)}">Edit</button>
+      <button type="button" class="ghost-button" data-camping-action="delete" data-camping-id="${escapeHtml(query.id)}">Delete</button>
+    </menu>
+  `;
   return article;
+}
+
+function handleCampingQueryAction(event) {
+  const button = event.target.closest('[data-camping-action]');
+  if (!button) return;
+  const query = state.camping.queries.find((item) => item.id === button.dataset.campingId);
+  if (!query) return;
+  if (button.dataset.campingAction === 'run') runCampingQuery(query.id);
+  if (button.dataset.campingAction === 'edit') editCampingQuery(query);
+  if (button.dataset.campingAction === 'delete') deleteCampingQuery(query.id);
+}
+
+function editCampingQuery(query) {
+  state.camping.editingId = query.id;
+  elements.campingQueryName.value = query.name || '';
+  elements.campingQuery.value = query.campgroundName || '';
+  renderCampingCandidates([{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }]);
+  elements.campingStartDate.value = query.rangeStart || '';
+  elements.campingEndDate.value = query.rangeEnd || '';
+  elements.campingStayNights.value = String(query.stayNights || 2);
+  elements.campingCheckMinutes.value = String(query.checkMinutes || 30);
+  elements.campingWeekendOnly.checked = Boolean(query.weekendOnly);
+  elements.campingAutoConfirm.checked = Boolean(query.autoConfirm);
+  elements.campingSaveQuery.textContent = 'Update query';
+  elements.campingQueryName?.focus();
+}
+
+function deleteCampingQuery(queryId) {
+  state.camping.queries = state.camping.queries.filter((item) => item.id !== queryId);
+  clearCampingTimer(queryId);
+  saveCampingQueries();
+  renderCampingQueries();
+}
+
+function resetCampingForm() {
+  state.camping.editingId = '';
+  elements.campingForm?.reset();
+  if (elements.campingStayNights) elements.campingStayNights.value = '2';
+  if (elements.campingCheckMinutes) elements.campingCheckMinutes.value = '30';
+  if (elements.campingSaveQuery) elements.campingSaveQuery.textContent = 'Save query';
+  renderCampingCandidates([]);
+}
+
+function runAllCampingQueries() {
+  state.camping.queries.forEach((query) => runCampingQuery(query.id));
+}
+
+function scheduleCampingQueries() {
+  state.camping.queries.forEach(scheduleCampingQuery);
+  renderCampingQueries();
+}
+
+function scheduleCampingQuery(query) {
+  clearCampingTimer(query.id);
+  const delay = normalizeCampingNumber(query.checkMinutes, 30, 1, 1440) * 60_000;
+  state.camping.timers.set(query.id, window.setInterval(() => runCampingQuery(query.id), delay));
+}
+
+function clearCampingTimer(queryId) {
+  const timer = state.camping.timers.get(queryId);
+  if (timer) window.clearInterval(timer);
+  state.camping.timers.delete(queryId);
+}
+
+function loadCampingQueries() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(storageKeys.campingQueries) || '[]');
+    return Array.isArray(raw) ? raw.filter((item) => item?.id && item?.campgroundId) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCampingQueries() {
+  localStorage.setItem(storageKeys.campingQueries, JSON.stringify(state.camping.queries));
+}
+
+function normalizeCampingNumber(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(number)));
 }
 
 function openCampingReservation(match) {
   window.open(match.checkoutUrl, '_blank', 'noopener');
+}
+
+async function searchTravel(event) {
+  event?.preventDefault();
+  const query = currentTravelQuery();
+  renderTravelStatus('Searching...');
+  try {
+    const response = await fetch('/api/travel/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(query),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Travel search failed.');
+    state.travel.results = payload.results || [];
+    state.travel.sources = payload.sources || [];
+    renderTravel();
+    renderTravelStatus(`${state.travel.results.length} results.`);
+  } catch (error) {
+    renderTravelStatus(error.message || 'Could not search flights.');
+  }
+}
+
+function currentTravelQuery() {
+  return {
+    origin: elements.travelOrigin?.value || '',
+    destination: elements.travelDestination?.value || '',
+    departureDate: elements.travelDepartureDate?.value || '',
+    returnDate: elements.travelReturnDate?.value || '',
+    adults: elements.travelAdults?.value || '1',
+    maxPrice: elements.travelMaxPrice?.value || '',
+    checkMinutes: normalizeCampingNumber(elements.travelCheckMinutes?.value, 60, 5, 1440),
+  };
+}
+
+function saveTravelWatch() {
+  const query = currentTravelQuery();
+  const watch = {
+    id: `travel-${Date.now()}`,
+    name: `${query.origin.toUpperCase()} to ${query.destination.toUpperCase()}`,
+    ...query,
+    checkMinutes: normalizeCampingNumber(query.checkMinutes, 60, 5, 1440),
+    lastCheckedAt: '',
+    lastStatus: 'Saved.',
+    lastNotifiedKey: '',
+    deals: [],
+  };
+  if (!watch.origin || !watch.destination || !watch.maxPrice) {
+    renderTravelStatus('Add origin, destination, and a deal price.');
+    return;
+  }
+  state.travel.watches.unshift(watch);
+  saveTravelWatches();
+  scheduleTravelWatch(watch);
+  renderTravel();
+  renderTravelStatus(`Watching ${watch.name}.`);
+}
+
+async function runTravelWatch(watchId) {
+  const watch = state.travel.watches.find((item) => item.id === watchId);
+  if (!watch || state.travel.runningIds.has(watchId)) return;
+  state.travel.runningIds.add(watchId);
+  watch.lastStatus = 'Checking...';
+  renderTravelWatches();
+  try {
+    const response = await fetch('/api/travel/deals', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(watch),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Deal search failed.');
+    watch.deals = (payload.deals || []).filter((deal) => !watch.maxPrice || Number(deal.price) <= Number(watch.maxPrice));
+    watch.lastCheckedAt = new Date().toISOString();
+    watch.lastStatus = watch.deals.length ? `${watch.deals.length} good deals.` : 'No matching deals.';
+    notifyTravelDeal(watch);
+  } catch (error) {
+    watch.lastStatus = error.message || 'Could not check deals.';
+  } finally {
+    state.travel.runningIds.delete(watchId);
+    saveTravelWatches();
+    renderTravelWatches();
+  }
+}
+
+function renderTravel() {
+  renderTravelSources();
+  renderTravelResults();
+  renderTravelWatches();
+}
+
+function renderTravelSources() {
+  if (!elements.travelSources) return;
+  if (!state.travel.sources.length) {
+    elements.travelSources.innerHTML = '<p class="settings-note">Search to check configured free sources.</p>';
+    return;
+  }
+  elements.travelSources.replaceChildren(...state.travel.sources.map((source) => {
+    const item = document.createElement('span');
+    item.className = `travel-source-pill ${source.status}`;
+    item.textContent = `${source.name}: ${source.status.replace('_', ' ')}`;
+    item.title = source.coverage || '';
+    return item;
+  }));
+}
+
+function renderTravelResults() {
+  if (!elements.travelResults) return;
+  if (elements.travelResultCount) elements.travelResultCount.textContent = `${state.travel.results.length} results`;
+  if (!state.travel.results.length) {
+    elements.travelResults.innerHTML = '<p class="empty">No flight results yet.</p>';
+    return;
+  }
+  elements.travelResults.replaceChildren(...state.travel.results.map(renderTravelResultCard));
+}
+
+function renderTravelResultCard(result) {
+  const article = document.createElement('article');
+  article.className = 'camping-query-card travel-result-card';
+  article.innerHTML = `
+    <div class="camping-query-head">
+      <div>
+        <strong>${escapeHtml(result.title || `${result.origin} to ${result.destination}`)}</strong>
+        <small>${escapeHtml(result.airline || result.source)} · ${escapeHtml(result.kind)}</small>
+      </div>
+      <span class="camping-status-pill">${result.price ? `${escapeHtml(result.currency || 'USD')} ${escapeHtml(String(Math.round(result.price)))}` : escapeHtml(result.source)}</span>
+    </div>
+    <dl class="camping-query-meta">
+      <div><dt>Depart</dt><dd>${escapeHtml(travelTimeLabel(result.departureAt))}</dd></div>
+      <div><dt>Arrive</dt><dd>${escapeHtml(travelTimeLabel(result.arrivalAt))}</dd></div>
+      <div><dt>Source</dt><dd>${escapeHtml(result.source)}</dd></div>
+      <div><dt>Detail</dt><dd>${escapeHtml(result.detail || '')}</dd></div>
+    </dl>
+  `;
+  return article;
+}
+
+function renderTravelWatches() {
+  if (!elements.travelWatchList) return;
+  if (!state.travel.watches.length) {
+    elements.travelWatchList.innerHTML = '<p class="empty">No deal watches yet.</p>';
+    return;
+  }
+  elements.travelWatchList.replaceChildren(...state.travel.watches.map((watch) => {
+    const deals = (watch.deals || []).slice(0, 3).map((deal) => `<li><span>${escapeHtml(deal.departureAt)} · ${escapeHtml(deal.currency || 'USD')} ${escapeHtml(String(Math.round(deal.price)))}</span></li>`).join('');
+    const article = document.createElement('article');
+    article.className = `camping-query-card ${watch.deals?.length ? 'has-availability' : ''}`;
+    article.innerHTML = `
+      <div class="camping-query-head">
+        <div>
+          <strong>${escapeHtml(watch.name)}</strong>
+          <small>${escapeHtml(watch.departureDate || 'Any cached date')} · under USD ${escapeHtml(String(watch.maxPrice || ''))}</small>
+        </div>
+        <span class="camping-status-pill">${watch.deals?.length ? 'Deal' : 'Watching'}</span>
+      </div>
+      <p class="settings-note">${escapeHtml(watch.lastStatus || 'Not checked yet.')}${watch.lastCheckedAt ? ` Last: ${escapeHtml(relativeDateTime(watch.lastCheckedAt))}` : ''}</p>
+      ${deals ? `<ul class="camping-match-list">${deals}</ul>` : ''}
+      <menu class="camping-actions">
+        <button type="button" class="compact-button" data-travel-action="run" data-travel-id="${escapeHtml(watch.id)}">Run</button>
+        <button type="button" class="ghost-button" data-travel-action="delete" data-travel-id="${escapeHtml(watch.id)}">Delete</button>
+      </menu>
+    `;
+    return article;
+  }));
+}
+
+function handleTravelWatchAction(event) {
+  const button = event.target.closest('[data-travel-action]');
+  if (!button) return;
+  if (button.dataset.travelAction === 'run') runTravelWatch(button.dataset.travelId);
+  if (button.dataset.travelAction === 'delete') deleteTravelWatch(button.dataset.travelId);
+}
+
+function runAllTravelWatches() {
+  state.travel.watches.forEach((watch) => runTravelWatch(watch.id));
+}
+
+function scheduleTravelWatches() {
+  state.travel.watches.forEach(scheduleTravelWatch);
+  renderTravel();
+}
+
+function scheduleTravelWatch(watch) {
+  clearTravelTimer(watch.id);
+  const delay = normalizeCampingNumber(watch.checkMinutes, 60, 5, 1440) * 60_000;
+  state.travel.timers.set(watch.id, window.setInterval(() => runTravelWatch(watch.id), delay));
+}
+
+function clearTravelTimer(watchId) {
+  const timer = state.travel.timers.get(watchId);
+  if (timer) window.clearInterval(timer);
+  state.travel.timers.delete(watchId);
+}
+
+function deleteTravelWatch(watchId) {
+  state.travel.watches = state.travel.watches.filter((item) => item.id !== watchId);
+  clearTravelTimer(watchId);
+  saveTravelWatches();
+  renderTravel();
+}
+
+function notifyTravelDeal(watch) {
+  const deal = watch.deals?.[0];
+  if (!deal) return;
+  const key = `${deal.id}-${deal.price}`;
+  if (watch.lastNotifiedKey === key) return;
+  watch.lastNotifiedKey = key;
+  const message = `${watch.name}: ${deal.currency || 'USD'} ${Math.round(deal.price)} on ${deal.departureAt}`;
+  renderTravelStatus(message);
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  new Notification('Flight deal found', { body: message });
+}
+
+async function enableTravelNotifications() {
+  if (!('Notification' in window)) {
+    renderTravelStatus('Notifications are not available in this browser.');
+    return;
+  }
+  const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  renderTravelStatus(permission === 'granted' ? 'Travel alerts are on.' : 'Travel alerts are blocked.');
+}
+
+function loadTravelWatches() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(storageKeys.travelWatches) || '[]');
+    return Array.isArray(raw) ? raw.filter((item) => item?.id && item?.origin && item?.destination) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTravelWatches() {
+  localStorage.setItem(storageKeys.travelWatches, JSON.stringify(state.travel.watches));
+}
+
+function renderTravelStatus(message) {
+  state.travel.status = message;
+  if (elements.travelStatus) elements.travelStatus.textContent = message;
+}
+
+function travelTimeLabel(value) {
+  if (!value) return 'Not provided';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
 }
 
 
@@ -5784,7 +6199,7 @@ function normalizePatternStatUnit(value) {
 }
 
 function normalizeTab(value) {
-  return ['home', 'baby', 'task', 'meal', 'fund', 'camping'].includes(value) ? value : 'home';
+  return ['home', 'baby', 'task', 'meal', 'fund', 'travel', 'camping'].includes(value) ? value : 'home';
 }
 
 function normalizeBabyPanel(value) {
@@ -5797,13 +6212,14 @@ function normalizeDeepLinkFocus(value) {
 
 function tabFromLocation() {
   const tabParam = new URLSearchParams(window.location.search).get('tab');
-  if (['home', 'baby', 'task', 'meal', 'fund', 'camping'].includes(tabParam)) return tabParam;
+  if (['home', 'baby', 'task', 'meal', 'fund', 'travel', 'camping'].includes(tabParam)) return tabParam;
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (path === '/') return 'home';
   if (path === '/baby') return 'baby';
   if (path === '/tasks') return 'task';
   if (path === '/meals') return 'meal';
   if (path === '/fund') return 'fund';
+  if (path === '/travel') return 'travel';
   if (path === '/camping') return 'camping';
   return null;
 }
@@ -5844,7 +6260,7 @@ function applyDeepLinkFocus() {
 }
 
 function syncUrlForTab(tab, { pushHistory = false } = {}) {
-  const targetPath = tab === 'baby' ? '/baby' : tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : tab === 'fund' ? '/fund' : tab === 'camping' ? '/camping' : '/';
+  const targetPath = tab === 'baby' ? '/baby' : tab === 'task' ? '/tasks' : tab === 'meal' ? '/meals' : tab === 'fund' ? '/fund' : tab === 'travel' ? '/travel' : tab === 'camping' ? '/camping' : '/';
   const params = new URLSearchParams(window.location.search);
   params.set('day', state.selectedDay);
   params.delete('taskDay');
