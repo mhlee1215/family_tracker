@@ -635,7 +635,7 @@ describe('app/main', () => {
       if (url.endsWith('/api/travel/search') && init.method === 'POST') {
         return new Response(JSON.stringify({
           sources: [{ id: 'amadeus', name: 'Amadeus', status: 'ready', coverage: 'Flight fares' }],
-          results: [{ id: 'r1', source: 'Amadeus', kind: 'fare', title: 'SFO to ICN', price: 721, currency: 'USD', airline: 'United', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: '1 segment' }],
+          results: [{ id: 'r1', source: 'Amadeus', kind: 'fare', title: 'SFO to ICN', price: 721, currency: 'USD', airline: 'United', departureAt: '2026-10-10T11:00:00', arrivalAt: '2026-10-11T16:00:00', detail: '1 segment', bookingUrl: 'https://www.google.com/travel/flights/search?q=SFO%20ICN' }],
         }), { status: 200 });
       }
       if (url.startsWith('/api/sync/state')) return new Response(JSON.stringify({ modules: {} }), { status: 200 });
@@ -645,19 +645,26 @@ describe('app/main', () => {
     await import('../../app/main.js?case=travel-tab');
 
     fireEvent.click(document.querySelector('#travel-tab'));
-    document.querySelector('#travel-origin').value = 'SFO';
-    document.querySelector('#travel-destination').value = 'ICN';
+    fireEvent.input(document.querySelector('#travel-origin'), { target: { value: 'S' } });
+    expect(document.querySelector('#travel-recommendations').textContent).toContain('SFO to ICN');
+    fireEvent.click([...document.querySelectorAll('#travel-recommendations button')].find((button) => button.textContent === 'SFO to ICN'));
     document.querySelector('#travel-departure-date').value = '2026-10-10';
     document.querySelector('#travel-max-price').value = '800';
     fireEvent.submit(document.querySelector('#travel-form'));
 
     await vi.waitFor(() => expect(document.querySelector('#travel-results').textContent).toContain('SFO to ICN'));
     expect(document.querySelector('#travel-result-count').textContent).toBe('1 results');
+    expect(document.querySelector('#travel-results a').href).toContain('google.com/travel/flights/search');
+    expect(document.querySelector('#travel-history').textContent).toContain('SFO to ICN');
 
     fireEvent.click(document.querySelector('#travel-save-watch'));
 
     expect(document.querySelector('#travel-watch-list').textContent).toContain('SFO to ICN');
     expect(localStorage.getItem('familyTracker.travelWatches')).toContain('"origin":"SFO"');
+    document.querySelector('#travel-origin').value = '';
+    document.querySelector('#travel-destination').value = '';
+    fireEvent.click(document.querySelector('#travel-history button'));
+    expect(document.querySelector('#travel-origin').value).toBe('SFO');
   });
 
 

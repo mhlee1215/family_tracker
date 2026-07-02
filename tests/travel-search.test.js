@@ -28,6 +28,7 @@ describe('travel search', () => {
     assert.equal(result.results.length, 2);
     assert.equal(result.results[0].source, 'Amadeus');
     assert.equal(result.results[0].price, 721.4);
+    assert.match(result.results[0].bookingUrl, /google\.com\/travel\/flights\/search/);
     assert.equal(result.results[1].source, 'Aviationstack');
   });
 
@@ -46,6 +47,7 @@ describe('travel search', () => {
     assert.equal(result.deals.length, 1);
     assert.equal(result.deals[0].kind, 'deal');
     assert.equal(result.deals[0].price, 640);
+    assert.match(result.deals[0].bookingUrl, /google\.com\/travel\/flights\/search/);
   });
 });
 

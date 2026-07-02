@@ -106,6 +106,7 @@ async function searchAmadeusDeals(query, { env, fetchImpl }) {
     currency: 'USD',
     airline: '',
     detail: deal.returnDate ? `Return ${deal.returnDate}` : 'One way',
+    bookingUrl: flightSearchUrl(deal.origin, deal.destination, deal.departureDate, deal.returnDate || ''),
   })).filter((item) => item.price > 0);
 }
 
@@ -131,6 +132,7 @@ async function searchAviationstackFlights(query, { env, fetchImpl }) {
     currency: '',
     airline: flight.airline?.name || '',
     detail: flight.flight_status || 'Scheduled flight',
+    bookingUrl: flightSearchUrl(query.origin, query.destination, query.departureDate, query.returnDate),
   }));
 }
 
@@ -174,7 +176,17 @@ function mapAmadeusOffer(offer, carriers) {
     currency: offer.price?.currency || 'USD',
     airline: carriers[carrier] || carrier,
     detail: `${offer.itineraries?.[0]?.segments?.length || 1} segment${offer.itineraries?.[0]?.segments?.length === 1 ? '' : 's'}`,
+    bookingUrl: flightSearchUrl(first.departure?.iataCode || '', last.arrival?.iataCode || '', first.departure?.at?.slice(0, 10) || '', ''),
   };
+}
+
+function flightSearchUrl(origin, destination, departureDate, returnDate = '') {
+  const query = [`Flights from ${origin} to ${destination}`];
+  if (departureDate) query.push(`departing ${departureDate}`);
+  if (returnDate) query.push(`returning ${returnDate}`);
+  const url = new URL('https://www.google.com/travel/flights/search');
+  url.searchParams.set('q', query.join(' '));
+  return url.toString();
 }
 
 function sortTravelResults(results) {

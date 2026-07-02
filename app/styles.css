@@ -1841,6 +1841,29 @@ input {
   gap: 8px;
 }
 
+.travel-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.travel-history button {
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  padding: 7px 10px;
+  background: var(--surface-pearl);
+  color: var(--body);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.travel-book-link {
+  justify-self: start;
+  text-decoration: none;
+}
+
 .travel-source-pill {
   display: inline-flex;
   align-items: center;

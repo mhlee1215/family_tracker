@@ -630,14 +630,17 @@
         <section class="camping-shell">
           <form id="travel-form" class="camping-panel" autocomplete="off">
             <div class="camping-date-grid">
-              <label class="floating-field"><span>From</span><input id="travel-origin" type="text" maxlength="3" placeholder="SFO" required></label>
-              <label class="floating-field"><span>To</span><input id="travel-destination" type="text" maxlength="3" placeholder="ICN" required></label>
+              <label class="floating-field"><span>From</span><input id="travel-origin" type="text" maxlength="3" list="travel-airports" placeholder="SFO" required></label>
+              <label class="floating-field"><span>To</span><input id="travel-destination" type="text" maxlength="3" list="travel-airports" placeholder="ICN" required></label>
               <label class="floating-field"><span>Depart</span><input id="travel-departure-date" type="date" required></label>
               <label class="floating-field"><span>Return</span><input id="travel-return-date" type="date"></label>
               <label class="floating-field"><span>Adults</span><input id="travel-adults" type="number" min="1" max="9" step="1" value="1"></label>
               <label class="floating-field"><span>Good deal under, USD</span><input id="travel-max-price" type="number" min="1" step="1" placeholder="800"></label>
               <label class="floating-field"><span>Check every, min</span><input id="travel-check-minutes" type="number" min="5" max="1440" step="1" value="60"></label>
             </div>
+            <datalist id="travel-airports"></datalist>
+            <div id="travel-recommendations" class="camping-recommendations travel-recommendations" aria-label="Recommended flight routes"></div>
+            <div id="travel-history" class="travel-history" aria-label="Recent flight searches"></div>
             <menu class="camping-actions">
               <button id="travel-search" type="submit">Search</button>
               <button id="travel-save-watch" type="button" class="ghost-button">Watch deals</button>
