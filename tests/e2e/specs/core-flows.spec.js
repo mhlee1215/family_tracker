@@ -104,6 +104,42 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
+  test('camping tab searches national campgrounds and opens available sites', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await page.route('**/api/camping/national/search**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ campgrounds: [{ id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA' }] }),
+      });
+    });
+    await page.route('**/api/camping/national/availability', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ matches: [{ campgroundId: '232447', campsiteId: '100', site: '044', loop: 'Upper Pines', nights: ['2026-08-10'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/232447?checkin=2026-08-10&checkout=2026-08-11&campsite=100' }] }),
+      });
+    });
+
+    await app.loginAsDevAdmin('/camping');
+    await expect(page.locator('#camping-view.active')).toBeVisible();
+    await page.locator('#camping-query').fill('Upper');
+    await expect(page.locator('#camping-candidates option')).toHaveCount(1);
+    await page.locator('#camping-query').fill('Upper Pines Campground');
+    await page.locator('#camping-start-date').fill('2026-08-10');
+    await page.locator('#camping-end-date').fill('2026-08-11');
+    await page.locator('#camping-form button[type="submit"]').click();
+
+    await expect(page.locator('#camping-status')).toHaveText('1 sites available.');
+    await expect(page.locator('#camping-results')).toContainText('Site 044');
+    await expect(page.locator('#camping-open-selected')).toHaveAttribute('href', /recreation\.gov\/camping\/campgrounds\/232447/);
+    await app.captureStep('Checked national campsite availability', 'Camping tab selected a Recreation.gov campground and surfaced an available site.');
+
+    app.assertNoRuntimeErrors();
+    await app.attachScenarioNarrative();
+    await app.attachDiagnostics();
+  });
+
   test('baby settings save milk reminder notification preferences', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let savedNotificationSettings = null;

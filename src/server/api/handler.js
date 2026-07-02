@@ -20,6 +20,7 @@ import {
 import { createBabyStore, getStorageConfig } from '../db/store-factory.js';
 import { getMediaStorageConfig, publicMediaStorageConfig } from '../media-config.js';
 import { buildMilkReminderJob, normalizeNotificationSettings } from '../../domain/milk-reminder.js';
+import { findNationalAvailability, searchNationalCampgrounds } from '../../domain/national-camping.js';
 import { createId } from '../../utils/ids.js';
 import { localDateKeyFromIso, normalizeTimeZone } from '../../utils/time.js';
 import { colorForBabyEventType } from '../../utils/tracker-colors.js';
@@ -302,6 +303,19 @@ async function handleApi(request, response) {
       runtimeLLMConfig.provider = provider;
       runtimeLLMConfig.model = providerConfig.models.includes(model) ? model : providerConfig.defaultModel;
       sendJson(response, 200, buildLLMConfigPayload());
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/camping/national/search') {
+      const query = requestUrl.searchParams.get('q') || '';
+      sendJson(response, 200, { campgrounds: await searchNationalCampgrounds(query) });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/camping/national/availability') {
+      const body = await readJson(request);
+      const matches = await findNationalAvailability(body);
+      sendJson(response, 200, { matches });
       return;
     }
 

@@ -24,6 +24,7 @@
           <button id="task-tab" type="button" class="module-tab" data-tab="task">Task</button>
           <button id="meal-tab" type="button" class="module-tab" data-tab="meal">Meal</button>
           <button id="fund-tab" type="button" class="module-tab" data-tab="fund">Fund</button>
+          <button id="camping-tab" type="button" class="module-tab" data-tab="camping">Camping</button>
         </nav>
         <div class="top-actions">
           <section id="auth-panel" class="auth-panel hidden" aria-live="polite">
@@ -616,6 +617,36 @@
           ></iframe>
         </section>
       </section>
+
+      <section id="camping-view" class="module-view camping-view" aria-label="Camping reservations">
+        <header class="fund-header">
+          <div>
+            <p class="eyebrow">National camping</p>
+            <h1>Camp Finder</h1>
+          </div>
+          <a id="camping-open-selected" class="fund-open-link hidden" href="#" target="_blank" rel="noopener noreferrer">Open reservation</a>
+        </header>
+        <section class="camping-shell">
+          <form id="camping-form" class="camping-panel" autocomplete="off">
+            <label class="floating-field">
+              <span>Campground</span>
+              <input id="camping-query" type="search" list="camping-candidates" placeholder="Upper Pines" required>
+              <datalist id="camping-candidates"></datalist>
+            </label>
+            <div class="camping-date-grid">
+              <label class="floating-field"><span>Check in</span><input id="camping-start-date" type="date" required></label>
+              <label class="floating-field"><span>Check out</span><input id="camping-end-date" type="date" required></label>
+            </div>
+            <label class="camping-check">
+              <input id="camping-auto-confirm" type="checkbox">
+              <span>Auto-confirm first site</span>
+            </label>
+            <button type="submit">Check sites</button>
+            <p id="camping-status" class="settings-note" role="status" aria-live="polite"></p>
+          </form>
+          <section id="camping-results" class="camping-results" aria-live="polite"></section>
+        </section>
+      </section>
     </main>
     <dialog id="action-dialog" class="floating-window action-dialog" aria-labelledby="action-dialog-title" aria-describedby="action-dialog-description">
       <form id="action-dialog-form" class="floating-window-form" method="dialog" autocomplete="off">
@@ -652,6 +683,6 @@
     <script src="/app/vendor/Chart.umd.js"></script>
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
-    <script type="module" src="/app/main.js?build=151"></script>
+    <script type="module" src="/app/main.js?build=152"></script>
   </body>
 </html>

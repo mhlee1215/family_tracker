@@ -36,6 +36,7 @@ Any non-trivial product/code change.
 - SQLite/Turso/storage/sync -> `skills/features/database-sync/SKILL.md`
 - Demo/mock task data seeding -> `skills/features/mock-task-seeding/SKILL.md`
 - Meal planning/navigation/local meal state -> `skills/features/meal-planner/SKILL.md`
+- Camping search/availability/reservation launch -> `skills/features/camping/SKILL.md`
 
 ## Workflow routing
 - New feature -> `skills/workflows/implement-feature/SKILL.md`
