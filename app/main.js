@@ -383,6 +383,7 @@ const elements = {
   travelWatchList: $('#travel-watch-list'),
   campingForm: $('#camping-form'),
   campingQueryName: $('#camping-query-name'),
+  campingProvider: $('#camping-provider'),
   campingCandidates: $('#camping-candidates'),
   campingRecommendations: $('#camping-recommendations'),
   campingFilterTent: $('#camping-filter-tent'),
@@ -633,6 +634,7 @@ elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
 elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 elements.campingQueryName?.addEventListener('input', searchCampingCandidates);
+elements.campingProvider?.addEventListener('change', searchCampingCandidates);
 elements.campingStartDate?.addEventListener('input', syncCampingEndDateMin);
 elements.campingStartDate?.addEventListener('change', syncCampingEndDateMin);
 elements.campingCheckUnit?.addEventListener('change', syncCampingIntervalBounds);
@@ -1799,7 +1801,8 @@ async function searchCampingCandidates() {
     return;
   }
   try {
-    const response = await fetch(`/api/camping/national/search?q=${encodeURIComponent(query)}`);
+    const provider = elements.campingProvider?.value || 'all';
+    const response = await fetch(`/api/camping/search?q=${encodeURIComponent(query)}&provider=${encodeURIComponent(provider)}`);
     if (!response.ok) throw new Error('Search failed.');
     const data = await response.json();
     renderCampingCandidates(data.campgrounds || []);
@@ -1824,10 +1827,14 @@ async function saveCampingQuery(event) {
   const multipleCampgrounds = campgrounds.length > 1;
   const query = {
     id: state.camping.editingId || `camp-${Date.now()}`,
+    provider: primaryCampground.provider || 'national',
+    providerLabel: campingProviderLabel(primaryCampground.provider),
     name: (campgrounds.map((campground) => campground.name).join(', ') || elements.campingQueryName?.value.trim()).slice(0, 80),
     campgroundId: primaryCampground.id,
     campgroundName: primaryCampground.name,
     location: primaryCampground.location || '',
+    placeId: primaryCampground.placeId || '',
+    bookingUrl: primaryCampground.bookingUrl || '',
     campgrounds,
     rangeStart: elements.campingStartDate?.value || '',
     rangeEnd: elements.campingEndDate?.value || '',
@@ -1891,12 +1898,12 @@ function renderCampingCandidates(candidates) {
   state.camping.candidates = candidates;
   const visibleCandidates = [
     ...state.camping.selectedCampgrounds,
-    ...candidates.filter((campground) => !state.camping.selectedCampgrounds.some((item) => item.id === campground.id)),
+    ...candidates.filter((campground) => !state.camping.selectedCampgrounds.some((item) => campingCampgroundKey(item) === campingCampgroundKey(campground))),
   ];
   elements.campingCandidates?.replaceChildren(...candidates.map((campground) => {
     const option = document.createElement('option');
     option.value = campground.name;
-    option.label = campground.location ? `${campground.name} - ${campground.location}` : campground.name;
+    option.label = [campground.name, campground.location, campingProviderLabel(campground.provider)].filter(Boolean).join(' - ');
     option.dataset.campgroundId = campground.id;
     return option;
   }));
@@ -1904,14 +1911,21 @@ function renderCampingCandidates(candidates) {
   elements.campingRecommendations.classList.toggle('hidden', !visibleCandidates.length);
   elements.campingRecommendations.replaceChildren(...visibleCandidates.map((campground) => {
     const button = document.createElement('button');
-    const selected = state.camping.selectedCampgrounds.some((item) => item.id === campground.id);
+    const selected = state.camping.selectedCampgrounds.some((item) => campingCampgroundKey(item) === campingCampgroundKey(campground));
     button.type = 'button';
     button.dataset.campgroundId = campground.id;
+    button.dataset.campingProvider = campground.provider || 'national';
     button.setAttribute('aria-pressed', String(selected));
     button.classList.toggle('selected', selected);
+    const header = document.createElement('span');
+    header.className = 'camping-candidate-title';
     const title = document.createElement('span');
     title.textContent = campground.location ? `${campground.name} - ${campground.location}` : campground.name;
-    button.append(title);
+    const badge = document.createElement('small');
+    badge.className = 'camping-provider-badge';
+    badge.textContent = campingProviderLabel(campground.provider);
+    header.append(title, badge);
+    button.append(header);
     const meta = formatCampingCandidateMeta(campground);
     if (meta) {
       const metaLine = document.createElement('small');
@@ -1937,6 +1951,11 @@ function formatCampingCandidateMeta(campground = {}) {
   return parts.join(' · ');
 }
 
+function campingProviderLabel(provider) {
+  const value = String(provider || '').replace(/-/g, '_');
+  return value === 'california_state' ? 'CA State' : 'National';
+}
+
 function resolveSelectedCampgrounds() {
   const query = elements.campingQueryName?.value.trim() || '';
   if (state.camping.selectedCampgrounds.length) return state.camping.selectedCampgrounds;
@@ -1948,9 +1967,10 @@ function resolveSelectedCampgrounds() {
 function chooseCampingRecommendation(event) {
   const button = event.target.closest('[data-campground-id]');
   if (!button || !elements.campingQueryName) return;
-  const campground = [...state.camping.selectedCampgrounds, ...state.camping.candidates].find((item) => item.id === button.dataset.campgroundId);
+  const provider = button.dataset.campingProvider || 'national';
+  const campground = [...state.camping.selectedCampgrounds, ...state.camping.candidates].find((item) => item.id === button.dataset.campgroundId && (item.provider || 'national') === provider);
   if (!campground) return;
-  const selectedIndex = state.camping.selectedCampgrounds.findIndex((item) => item.id === campground.id);
+  const selectedIndex = state.camping.selectedCampgrounds.findIndex((item) => campingCampgroundKey(item) === campingCampgroundKey(campground));
   if (selectedIndex >= 0) state.camping.selectedCampgrounds.splice(selectedIndex, 1);
   else state.camping.selectedCampgrounds.push(campground);
   renderCampingCandidates(state.camping.candidates);
@@ -2098,6 +2118,10 @@ function editCampingQuery(query) {
   elements.campingQueryName.value = query.name || query.campgroundName || '';
   const campgrounds = campingQueryCampgrounds(query);
   state.camping.selectedCampgrounds = campgrounds;
+  if (elements.campingProvider) {
+    const providers = new Set(campgrounds.map((campground) => campground.provider || query.provider || 'national'));
+    elements.campingProvider.value = providers.size === 1 ? [...providers][0] : 'all';
+  }
   renderCampingCandidates(campgrounds);
   elements.campingStartDate.value = query.rangeStart || '';
   elements.campingEndDate.value = query.rangeEnd || '';
@@ -2142,6 +2166,7 @@ function resetCampingForm() {
   if (elements.campingStayNights) elements.campingStayNights.value = '2';
   setCampingIntervalControls(30);
   setCampingFilters();
+  if (elements.campingProvider) elements.campingProvider.value = 'all';
   if (elements.campingSaveQuery) elements.campingSaveQuery.textContent = 'Save query';
   state.camping.selectedCampgrounds = [];
   renderCampingCandidates([]);
@@ -2220,13 +2245,25 @@ function campingDateKey(date) {
 
 function campingQueryCampgrounds(query) {
   if (Array.isArray(query.campgrounds) && query.campgrounds.length) return query.campgrounds;
-  return [{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }];
+  return [{
+    id: query.campgroundId,
+    provider: query.provider || 'national',
+    providerLabel: campingProviderLabel(query.provider),
+    name: query.campgroundName,
+    location: query.location || '',
+    placeId: query.placeId || '',
+    bookingUrl: query.bookingUrl || '',
+  }].filter((campground) => campground.id);
 }
 
 function campingQueryCampgroundLabel(query) {
   const campgrounds = campingQueryCampgrounds(query);
   if (campgrounds.length === 1) return `${campgrounds[0].name}${campgrounds[0].location ? ` · ${campgrounds[0].location}` : ''}`;
   return campgrounds.map((campground) => campground.name).join(', ');
+}
+
+function campingCampgroundKey(campground = {}) {
+  return `${campground.provider || 'national'}:${campground.id || ''}`;
 }
 
 function syncCampingAutoConfirmAvailability() {
