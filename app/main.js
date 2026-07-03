@@ -389,6 +389,7 @@ const elements = {
   campingEndDate: $('#camping-end-date'),
   campingStayNights: $('#camping-stay-nights'),
   campingCheckMinutes: $('#camping-check-minutes'),
+  campingCheckUnit: $('#camping-check-unit'),
   campingWeekendOnly: $('#camping-weekend-only'),
   campingAutoConfirm: $('#camping-auto-confirm'),
   campingSaveQuery: $('#camping-save-query'),
@@ -626,6 +627,7 @@ elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 elements.campingQueryName?.addEventListener('input', searchCampingCandidates);
 elements.campingStartDate?.addEventListener('input', syncCampingEndDateMin);
 elements.campingStartDate?.addEventListener('change', syncCampingEndDateMin);
+elements.campingCheckUnit?.addEventListener('change', syncCampingIntervalBounds);
 elements.campingForm?.addEventListener('submit', saveCampingQuery);
 elements.campingRecommendations?.addEventListener('click', chooseCampingRecommendation);
 elements.campingResetQuery?.addEventListener('click', resetCampingForm);
@@ -1822,7 +1824,7 @@ async function saveCampingQuery(event) {
     rangeStart: elements.campingStartDate?.value || '',
     rangeEnd: elements.campingEndDate?.value || '',
     stayNights: normalizeCampingNumber(elements.campingStayNights?.value, 2, 1, 14),
-    checkMinutes: normalizeCampingNumber(elements.campingCheckMinutes?.value, 30, 1, 1440),
+    checkMinutes: readCampingIntervalMinutes(),
     weekendOnly: Boolean(elements.campingWeekendOnly?.checked),
     autoConfirm: !multipleCampgrounds && Boolean(elements.campingAutoConfirm?.checked),
     matches: [],
@@ -1936,7 +1938,9 @@ function formatCampingCandidateMeta(campground = {}) {
   const rating = Number(campground.rating);
   const ratingCount = Number(campground.ratingCount);
   const campsiteCount = Number(campground.campsiteCount);
+  const distance = Number(campground.distance);
   const parts = [];
+  if (Number.isFinite(distance) && distance > 0) parts.push(`${distance.toFixed(1)} mi`);
   if (Number.isFinite(rating) && rating > 0) parts.push(`★ ${rating.toFixed(1)}`);
   if (Number.isFinite(ratingCount) && ratingCount > 0) parts.push(`${ratingCount.toLocaleString()} ratings`);
   if (Number.isFinite(campsiteCount) && campsiteCount > 0) parts.push(`${campsiteCount.toLocaleString()} sites`);
@@ -1999,7 +2003,7 @@ function renderCampingQuery(query) {
       <div><dt>Range</dt><dd>${escapeHtml(query.rangeStart)} to ${escapeHtml(query.rangeEnd)}</dd></div>
       <div><dt>Sites</dt><dd>${campgrounds.length}</dd></div>
       <div><dt>Nights</dt><dd>${query.stayNights}${query.weekendOnly ? ' · weekends' : ''}</dd></div>
-      <div><dt>Every</dt><dd>${query.checkMinutes} min</dd></div>
+      <div><dt>Every</dt><dd>${escapeHtml(formatCampingInterval(query.checkMinutes))}</dd></div>
       <div><dt>Auto</dt><dd>${query.autoConfirm ? 'on' : 'off'}</dd></div>
     </dl>
     <p class="settings-note">${escapeHtml(query.lastStatus || 'Not checked yet.')}${query.lastCheckedAt ? ` Last: ${escapeHtml(relativeDateTime(query.lastCheckedAt))}` : ''}</p>
@@ -2036,7 +2040,7 @@ function editCampingQuery(query) {
   state.camping.datePickers.end?.setDate(query.rangeEnd || '', false);
   syncCampingEndDateMin();
   elements.campingStayNights.value = String(query.stayNights || 2);
-  elements.campingCheckMinutes.value = String(query.checkMinutes || 30);
+  setCampingIntervalControls(query.checkMinutes || 30);
   elements.campingWeekendOnly.checked = Boolean(query.weekendOnly);
   elements.campingAutoConfirm.checked = Boolean(query.autoConfirm);
   syncCampingAutoConfirmAvailability();
@@ -2062,7 +2066,7 @@ function resetCampingForm() {
   if (elements.campingEndDate) elements.campingEndDate.removeAttribute('min');
   syncCampingEndDateMin();
   if (elements.campingStayNights) elements.campingStayNights.value = '2';
-  if (elements.campingCheckMinutes) elements.campingCheckMinutes.value = '30';
+  setCampingIntervalControls(30);
   if (elements.campingSaveQuery) elements.campingSaveQuery.textContent = 'Save query';
   state.camping.selectedCampgrounds = [];
   renderCampingCandidates([]);
@@ -2079,7 +2083,7 @@ function scheduleCampingQueries() {
 
 function scheduleCampingQuery(query) {
   clearCampingTimer(query.id);
-  const delay = normalizeCampingNumber(query.checkMinutes, 30, 1, 1440) * 60_000;
+  const delay = normalizeCampingNumber(query.checkMinutes, 30, 1, 43_200) * 60_000;
   state.camping.timers.set(query.id, window.setInterval(() => runCampingQuery(query.id), delay));
 }
 
@@ -2214,6 +2218,44 @@ function normalizeCampingNumber(value, fallback, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.max(min, Math.min(max, Math.trunc(number)));
+}
+
+function readCampingIntervalMinutes() {
+  const unit = elements.campingCheckUnit?.value || 'min';
+  const multiplier = unit === 'day' ? 1440 : unit === 'hour' ? 60 : 1;
+  return normalizeCampingNumber(Number(elements.campingCheckMinutes?.value || 30) * multiplier, 30, 1, 43_200);
+}
+
+function setCampingIntervalControls(minutes) {
+  const value = normalizeCampingNumber(minutes, 30, 1, 43_200);
+  let unit = 'min';
+  let amount = value;
+  if (value >= 1440 && value % 1440 === 0) {
+    unit = 'day';
+    amount = value / 1440;
+  } else if (value >= 60 && value % 60 === 0) {
+    unit = 'hour';
+    amount = value / 60;
+  }
+  if (elements.campingCheckUnit) elements.campingCheckUnit.value = unit;
+  if (elements.campingCheckMinutes) elements.campingCheckMinutes.value = String(amount);
+  syncCampingIntervalBounds();
+}
+
+function syncCampingIntervalBounds() {
+  if (!elements.campingCheckMinutes) return;
+  const unit = elements.campingCheckUnit?.value || 'min';
+  elements.campingCheckMinutes.max = unit === 'day' ? '30' : unit === 'hour' ? '720' : '1440';
+  if (Number(elements.campingCheckMinutes.value) > Number(elements.campingCheckMinutes.max)) {
+    elements.campingCheckMinutes.value = elements.campingCheckMinutes.max;
+  }
+}
+
+function formatCampingInterval(minutes) {
+  const value = normalizeCampingNumber(minutes, 30, 1, 43_200);
+  if (value >= 1440 && value % 1440 === 0) return `${value / 1440} day${value === 1440 ? '' : 's'}`;
+  if (value >= 60 && value % 60 === 0) return `${value / 60} hr`;
+  return `${value} min`;
 }
 
 function openCampingReservation(match) {

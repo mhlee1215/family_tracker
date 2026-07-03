@@ -1715,6 +1715,9 @@ input {
 .camping-recommendations {
   display: grid;
   gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .camping-recommendations button {
@@ -1748,6 +1751,17 @@ input {
 .camping-recommendations button.selected {
   border-color: var(--primary);
   background: #eaf3ff;
+}
+
+.camping-interval-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 8px;
+}
+
+.floating-field .camping-interval-control input,
+.floating-field .camping-interval-control select {
+  min-width: 0;
 }
 
 .camping-results {

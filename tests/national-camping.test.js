@@ -20,6 +20,7 @@ describe('national camping', () => {
         rating: 4.3869452,
         ratingCount: 3830,
         campsiteCount: 238,
+        distance: 0,
         reservable: true,
       },
       {
@@ -29,8 +30,34 @@ describe('national camping', () => {
         rating: 4.1,
         ratingCount: 1200,
         campsiteCount: 60,
+        distance: 0,
         reservable: true,
       },
+    ]);
+  });
+
+  it('uses ZIP code coordinates for nearby campground search', async () => {
+    const requestedUrls = [];
+    const results = await searchNationalCampgrounds('94117', {
+      fetchImpl: async (url) => {
+        requestedUrls.push(String(url));
+        if (String(url).startsWith('https://api.zippopotam.us')) {
+          return okJson({ places: [{ latitude: '37.7712', longitude: '-122.4413' }] });
+        }
+        return okJson({
+          results: [
+            { entity_id: 'rob-hill', name: 'Rob Hill Group Campground', location: 'San Francisco, CA', average_rating: 4.2, number_of_ratings: 32, campsites_count: 4, distance: '4.20' },
+            { entity_id: 'kirby', name: 'Kirby Cove Campground', location: 'Sausalito, CA', average_rating: 4.8, number_of_ratings: 191, campsites_count: 5, distance: '8.75' },
+          ],
+        });
+      },
+    });
+
+    assert.equal(new URL(requestedUrls[1]).searchParams.get('lat'), '37.7712');
+    assert.equal(new URL(requestedUrls[1]).searchParams.get('lng'), '-122.4413');
+    assert.deepEqual(results.map((item) => [item.name, item.distance]), [
+      ['Rob Hill Group Campground', 4.2],
+      ['Kirby Cove Campground', 8.75],
     ]);
   });
 
