@@ -1901,8 +1901,13 @@ async function runCampingQuery(queryId) {
   } finally {
     if (waitingTimer) window.clearTimeout(waitingTimer);
     state.camping.runningIds.delete(queryId);
-    await saveCampingQueries();
     renderCampingQueries();
+    try {
+      await saveCampingQueries();
+    } catch (error) {
+      query.lastStatus = `${query.lastStatus || 'Checked.'} Could not save latest result: ${error.message || 'Save failed.'}`;
+      renderCampingQueries();
+    }
   }
 }
 
@@ -2137,10 +2142,20 @@ async function deleteCampingQuery(queryId) {
   const query = state.camping.queries.find((item) => item.id === queryId);
   if (!query) return;
   if (!window.confirm(`Delete saved search "${query.name || query.campgroundName}"?`)) return;
+  const previousQueries = [...state.camping.queries];
   state.camping.queries = state.camping.queries.filter((item) => item.id !== queryId);
   clearCampingTimer(queryId);
-  await saveCampingQueries();
   renderCampingQueries();
+  renderCampingStatus(`Deleting ${query.name || query.campgroundName}.`);
+  try {
+    await saveCampingQueries();
+    renderCampingStatus(`Deleted ${query.name || query.campgroundName}.`);
+  } catch (error) {
+    state.camping.queries = previousQueries;
+    scheduleCampingQuery(query);
+    renderCampingQueries();
+    renderCampingStatus(`Could not delete ${query.name || query.campgroundName}: ${error.message || 'Save failed.'}`);
+  }
 }
 
 function resetCampingForm() {
@@ -2281,11 +2296,19 @@ function loadCampingQueries(user = state.user) {
 async function saveCampingQueries() {
   localStorage.setItem(campingStorageKey(), JSON.stringify(state.camping.queries));
   if (!state.user) return;
-  await fetch('/api/camping/queries', {
+  const response = await fetch('/api/camping/queries', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ queries: state.camping.queries }),
   });
+  const payload = await response.json().catch(() => ({}));
+  if (handleAuthFailure(response)) throw new Error('Sign in again to save camping searches.');
+  if (!response.ok) throw new Error(payload.error || 'Saved search sync failed.');
+  if (Array.isArray(payload.queries)) {
+    state.camping.queries = payload.queries;
+    localStorage.setItem(campingStorageKey(), JSON.stringify(state.camping.queries));
+  }
+  return state.camping.queries;
 }
 
 async function loadCampingQueriesFromServer() {
