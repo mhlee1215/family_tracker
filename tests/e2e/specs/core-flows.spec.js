@@ -310,6 +310,47 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('[data-camping-action="run"]')).toBeEnabled();
   });
 
+  test('camping delete action restores the search when server sync fails', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await page.route('**/api/camping/queries', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queries: [{
+              id: 'delete-sync-fails',
+              name: 'Delete sync fails',
+              campgrounds: [{ id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA' }],
+              rangeStart: '2026-09-01',
+              rangeEnd: '2026-09-03',
+              stayNights: 2,
+              checkMinutes: 30,
+              filters: {},
+              weekendOnly: false,
+              autoConfirm: false,
+              matches: [],
+            }],
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Sync failed' }),
+      });
+    });
+    await app.loginAsDevAdmin('/camping');
+    await expect(page.locator('#camping-query-list')).toContainText('Delete sync fails');
+    page.once('dialog', async (dialog) => {
+      await dialog.accept();
+    });
+    await page.locator('[data-camping-action="delete"]').click();
+    await expect(page.locator('#camping-query-list')).toContainText('Delete sync fails');
+    await expect(page.locator('#camping-status')).toContainText('Could not delete Delete sync fails: Sync failed');
+  });
+
   test('travel tab aggregates flight lookup and saves a deal watch', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let searchRequest = null;
