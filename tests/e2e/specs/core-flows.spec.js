@@ -211,6 +211,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-filter-sail')).toBeChecked();
     await expect(page.locator('#camping-filter-group')).toBeChecked();
     await expect(page.locator('#camping-filter-rv')).toBeChecked();
+    await expect(page.locator('#camping-monitor-query')).not.toBeChecked();
     await expect(page.locator('#camping-recommendations button').first()).toContainText('3,830 ratings');
     await expect(page.locator('#camping-recommendations button').first()).toContainText('235 sites');
     await expect(page.locator('#camping-recommendations button').first()).toContainText('National Park');
@@ -230,6 +231,7 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#camping-check-minutes').fill('2');
     await page.locator('#camping-check-unit').selectOption('hour');
     await page.locator('#camping-weekend-only').check();
+    await page.locator('#camping-monitor-query').check();
     const [saveQueriesResponse] = await Promise.all([
       page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().includes('/api/camping/queries')),
       page.locator('#camping-save-query').click(),
@@ -240,6 +242,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('2 hr');
+    await expect(page.locator('#camping-query-list')).toContainText('Monitoron');
     await expect(page.locator('#camping-query-list')).toContainText('Autooff');
     await page.locator('#camping-monitor-enabled').check();
     await page.locator('#camping-monitor-concurrency').fill('3');
@@ -296,6 +299,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-auto-confirm')).toBeDisabled();
     await expect(page.locator('#camping-check-minutes')).toHaveValue('2');
     await expect(page.locator('#camping-check-unit')).toHaveValue('hour');
+    await expect(page.locator('#camping-monitor-query')).toBeChecked();
     page.once('dialog', async (dialog) => {
       expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground, Lower Pines Campground"?');
       await dialog.dismiss();
@@ -556,6 +560,7 @@ test.describe('Family Tracker core flows', () => {
     });
     await app.loginAsDevAdmin('/camping');
     await expect(page.locator('#camping-query-list')).toContainText('Manual only camping');
+    await expect(page.locator('#camping-query-list')).toContainText('Monitoroff');
     const campingIntervals = await page.evaluate(() => window.__familyTrackerIntervals.filter((item) => item.source.includes('runCampingQuery')));
     expect(campingIntervals).toEqual([]);
   });
