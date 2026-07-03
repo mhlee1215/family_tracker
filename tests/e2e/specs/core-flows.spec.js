@@ -117,8 +117,8 @@ test.describe('Family Tracker core flows', () => {
           id: `near-${index}`,
           provider: 'national',
           providerLabel: 'National Park',
-          name: `Nearby Campground ${index + 1}`,
-          location: 'San Francisco, CA',
+          name: index === 0 ? 'Nearby Campground With An Extremely Long Official Recreation Name That Must Wrap Inside The Recommendation List' : `Nearby Campground ${index + 1}`,
+          location: index === 0 ? 'San Francisco National Recreation Area With A Very Long Administrative Location Name, CA' : 'San Francisco, CA',
           rating: 4.1,
           ratingCount: 100 - index,
           campsiteCount: 10,
@@ -200,6 +200,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-recommendations button')).toHaveCount(12);
     await expect(page.locator('#camping-recommendations button').first()).toContainText('4.2 mi');
     await expect.poll(() => page.locator('#camping-recommendations').evaluate((element) => element.scrollHeight > element.clientHeight)).toBeTruthy();
+    await expect.poll(() => page.locator('#camping-recommendations').evaluate((element) => {
+      const containerRight = element.getBoundingClientRect().right;
+      return Array.from(element.querySelectorAll('button')).every((button) => button.getBoundingClientRect().right <= containerRight + 1);
+    })).toBeTruthy();
     await page.locator('#camping-query-name').fill('Upper');
     await expect(page.locator('#camping-candidates option')).toHaveCount(2);
     await expect(page.locator('#camping-recommendations button')).toHaveCount(2);
