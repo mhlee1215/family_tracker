@@ -385,6 +385,10 @@ const elements = {
   campingQueryName: $('#camping-query-name'),
   campingCandidates: $('#camping-candidates'),
   campingRecommendations: $('#camping-recommendations'),
+  campingFilterTent: $('#camping-filter-tent'),
+  campingFilterSail: $('#camping-filter-sail'),
+  campingFilterGroup: $('#camping-filter-group'),
+  campingFilterRv: $('#camping-filter-rv'),
   campingStartDate: $('#camping-start-date'),
   campingEndDate: $('#camping-end-date'),
   campingStayNights: $('#camping-stay-nights'),
@@ -1825,6 +1829,7 @@ async function saveCampingQuery(event) {
     rangeEnd: elements.campingEndDate?.value || '',
     stayNights: normalizeCampingNumber(elements.campingStayNights?.value, 2, 1, 14),
     checkMinutes: readCampingIntervalMinutes(),
+    filters: readCampingFilters(),
     weekendOnly: Boolean(elements.campingWeekendOnly?.checked),
     autoConfirm: !multipleCampgrounds && Boolean(elements.campingAutoConfirm?.checked),
     matches: [],
@@ -1878,9 +1883,10 @@ async function runCampingQuery(queryId) {
       if (!response.ok) throw new Error(data.error || 'Availability failed.');
       return (data.matches || []).map((match) => ({ ...match, campgroundName: campground.name }));
     }));
-    query.matches = results.flat();
+    const rawMatches = results.flat();
+    query.matches = rawMatches.filter((match) => campingMatchPassesFilters(match, query.filters));
     query.lastCheckedAt = new Date().toISOString();
-    query.lastStatus = query.matches.length ? `${query.matches.length} available.` : 'No sites available.';
+    query.lastStatus = formatCampingAvailabilityStatus(query.matches.length, rawMatches.length);
     query.progress = '';
     if (query.autoConfirm && campgrounds.length === 1 && query.matches[0] && query.autoOpenedUrl !== query.matches[0].checkoutUrl) {
       query.autoOpenedUrl = query.matches[0].checkoutUrl;
@@ -2002,6 +2008,7 @@ function renderCampingQuery(query) {
       <div><dt>Auto</dt><dd>${query.autoConfirm ? 'on' : 'off'}</dd></div>
     </dl>
     <p class="settings-note">${escapeHtml(query.lastStatus || 'Not checked yet.')}${query.lastCheckedAt ? ` Last: ${escapeHtml(relativeDateTime(query.lastCheckedAt))}` : ''}</p>
+    ${renderCampingFilterPills(query.filters)}
     ${query.progress ? `<p class="camping-progress" role="status">${escapeHtml(query.progress)}</p>` : ''}
     ${matches}
     <menu class="camping-actions">
@@ -2021,12 +2028,17 @@ function renderCampingMatchGroups(matches) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(match);
   }
-  return `<div class="camping-match-groups">${[...groups.values()].map((group, index) => {
+  const groupedMatches = [...groups.values()];
+  return `<div class="camping-match-summary"><strong>${matches.length} dates</strong><span>${groupedMatches.length} campsites</span></div><div class="camping-match-groups">${groupedMatches.map((group, index) => {
     const first = group[0];
     const label = `${first.campgroundName ? `${escapeHtml(first.campgroundName)} · ` : ''}Site ${escapeHtml(first.site)}`;
+    const detail = [first.campsiteType, first.typeOfUse, first.capacityRating].filter(Boolean).join(' · ');
     return `
       <details class="camping-match-group" ${index === 0 ? 'open' : ''}>
-        <summary><span>${label}</span><small>${group.length} date${group.length === 1 ? '' : 's'}</small></summary>
+        <summary>
+          <span><strong>${label}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</span>
+          <em>${group.length} date${group.length === 1 ? '' : 's'}</em>
+        </summary>
         <div class="camping-match-dates">
           ${group.map((match) => `
             <details class="camping-match-date">
@@ -2038,6 +2050,52 @@ function renderCampingMatchGroups(matches) {
       </details>
     `;
   }).join('')}</div>`;
+}
+
+function readCampingFilters() {
+  return {
+    tentAvailable: elements.campingFilterTent?.checked !== false,
+    excludeSail: elements.campingFilterSail?.checked !== false,
+    excludeGroup: elements.campingFilterGroup?.checked !== false,
+    excludeRvOnly: elements.campingFilterRv?.checked !== false,
+  };
+}
+
+function setCampingFilters(filters = {}) {
+  if (elements.campingFilterTent) elements.campingFilterTent.checked = filters.tentAvailable !== false;
+  if (elements.campingFilterSail) elements.campingFilterSail.checked = filters.excludeSail !== false;
+  if (elements.campingFilterGroup) elements.campingFilterGroup.checked = filters.excludeGroup !== false;
+  if (elements.campingFilterRv) elements.campingFilterRv.checked = filters.excludeRvOnly !== false;
+}
+
+function campingMatchPassesFilters(match, filters = {}) {
+  const active = {
+    tentAvailable: filters.tentAvailable !== false,
+    excludeSail: filters.excludeSail !== false,
+    excludeGroup: filters.excludeGroup !== false,
+    excludeRvOnly: filters.excludeRvOnly !== false,
+  };
+  const text = [match.campgroundName, match.site, match.loop, match.type, match.campsiteType, match.typeOfUse, match.capacityRating].join(' ').toLowerCase();
+  if (active.excludeSail && /\b(sail|boat|vessel|anchoring|mooring)\b/.test(text)) return false;
+  if (active.excludeGroup && /\bgroup\b/.test(text)) return false;
+  if (active.excludeRvOnly && (/\brv\b/.test(text) || /recreational vehicle/.test(text)) && !/\b(tent|standard|walk|primitive)\b/.test(text)) return false;
+  if (active.tentAvailable && /\b(cabin|yurt|shelter|lookout|parking|equestrian|horse)\b/.test(text)) return false;
+  return true;
+}
+
+function formatCampingAvailabilityStatus(visibleCount, rawCount) {
+  if (!rawCount) return 'No sites available.';
+  if (visibleCount === rawCount) return `${visibleCount} available.`;
+  return `${visibleCount} available after filters (${rawCount} total).`;
+}
+
+function renderCampingFilterPills(filters = {}) {
+  const active = [];
+  if (filters.tentAvailable !== false) active.push('tent available');
+  if (filters.excludeSail !== false) active.push('no sail');
+  if (filters.excludeGroup !== false) active.push('no group');
+  if (filters.excludeRvOnly !== false) active.push('no RV only');
+  return active.length ? `<p class="camping-filter-pills">${active.map((label) => `<span>${escapeHtml(label)}</span>`).join('')}</p>` : '';
 }
 
 function handleCampingQueryAction(event) {
@@ -2063,6 +2121,7 @@ function editCampingQuery(query) {
   syncCampingEndDateMin();
   elements.campingStayNights.value = String(query.stayNights || 2);
   setCampingIntervalControls(query.checkMinutes || 30);
+  setCampingFilters(query.filters);
   elements.campingWeekendOnly.checked = Boolean(query.weekendOnly);
   elements.campingAutoConfirm.checked = Boolean(query.autoConfirm);
   syncCampingAutoConfirmAvailability();
@@ -2089,6 +2148,7 @@ function resetCampingForm() {
   syncCampingEndDateMin();
   if (elements.campingStayNights) elements.campingStayNights.value = '2';
   setCampingIntervalControls(30);
+  setCampingFilters();
   if (elements.campingSaveQuery) elements.campingSaveQuery.textContent = 'Save query';
   state.camping.selectedCampgrounds = [];
   renderCampingCandidates([]);
