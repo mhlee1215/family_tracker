@@ -6,15 +6,32 @@ describe('national camping', () => {
   it('maps campground search results', async () => {
     const results = await searchNationalCampgrounds('upper', {
       fetchImpl: async () => okJson({
-        results: [{ entity_id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA', campsites_count: 238 }],
+        results: [
+          { entity_id: '232450', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA', average_rating: 4.1, number_of_ratings: 1200, campsites_count: 60 },
+          { entity_id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA', average_rating: 4.3869452, number_of_ratings: 3830, campsites_count: 238 },
+        ],
       }),
     });
-    assert.deepEqual(results, [{
-      id: '232447',
-      name: 'Upper Pines Campground',
-      location: 'Yosemite National Park, CA',
-      reservable: true,
-    }]);
+    assert.deepEqual(results, [
+      {
+        id: '232447',
+        name: 'Upper Pines Campground',
+        location: 'Yosemite National Park, CA',
+        rating: 4.3869452,
+        ratingCount: 3830,
+        campsiteCount: 238,
+        reservable: true,
+      },
+      {
+        id: '232450',
+        name: 'Lower Pines Campground',
+        location: 'Yosemite National Park, CA',
+        rating: 4.1,
+        ratingCount: 1200,
+        campsiteCount: 60,
+        reservable: true,
+      },
+    ]);
   });
 
   it('finds sites available for every requested night', async () => {

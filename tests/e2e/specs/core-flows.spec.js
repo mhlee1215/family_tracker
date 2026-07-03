@@ -112,8 +112,8 @@ test.describe('Family Tracker core flows', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ campgrounds: [
-          { id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA' },
-          { id: '232450', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA' },
+          { id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA', rating: 4.4, ratingCount: 3830, campsiteCount: 235 },
+          { id: '232450', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA', rating: 4.1, ratingCount: 1200, campsiteCount: 60 },
         ] }),
       });
     });
@@ -135,6 +135,8 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#camping-query-name').fill('Upper');
     await expect(page.locator('#camping-candidates option')).toHaveCount(2);
     await expect(page.locator('#camping-recommendations button')).toHaveCount(2);
+    await expect(page.locator('#camping-recommendations button').first()).toContainText('3,830 ratings');
+    await expect(page.locator('#camping-recommendations button').first()).toContainText('235 sites');
     await page.locator('#camping-recommendations button', { hasText: 'Upper Pines Campground' }).click();
     await page.locator('#camping-recommendations button', { hasText: 'Lower Pines Campground' }).click();
     await expect(page.locator('#camping-recommendations button.selected')).toHaveCount(2);
