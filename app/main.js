@@ -1852,19 +1852,22 @@ async function runCampingQuery(queryId) {
   const query = state.camping.queries.find((item) => item.id === queryId);
   if (!query || state.camping.runningIds.has(queryId)) return;
   state.camping.runningIds.add(queryId);
-  const campgrounds = campingQueryCampgrounds(query);
-  const windowCount = countCampingWindows(query);
-  const windowLabel = `${windowCount || 'date'} candidate window${windowCount === 1 ? '' : 's'}`;
-  query.lastStatus = `Checking ${campingQueryCampgroundLabel(query)}.`;
-  query.progress = `Step 1/2: preparing ${windowLabel} across ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
-  query.matches = [];
+  let waitingTimer = 0;
   renderCampingQueries();
-  const waitingTimer = window.setTimeout(() => {
-    if (!state.camping.runningIds.has(queryId)) return;
-    query.progress = `Step 2/2: waiting for Recreation.gov availability across ${windowLabel} and ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
-    renderCampingQueries();
-  }, 800);
   try {
+    const campgrounds = campingQueryCampgrounds(query);
+    if (!campgrounds.length || !campgrounds[0]?.id) throw new Error('Choose at least one campground before running.');
+    const windowCount = countCampingWindows(query);
+    const windowLabel = `${windowCount || 'date'} candidate window${windowCount === 1 ? '' : 's'}`;
+    query.lastStatus = `Checking ${campingQueryCampgroundLabel(query)}.`;
+    query.progress = `Step 1/2: preparing ${windowLabel} across ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
+    query.matches = [];
+    renderCampingQueries();
+    waitingTimer = window.setTimeout(() => {
+      if (!state.camping.runningIds.has(queryId)) return;
+      query.progress = `Step 2/2: waiting for Recreation.gov availability across ${windowLabel} and ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
+      renderCampingQueries();
+    }, 800);
     query.progress = `Step 2/2: requesting Recreation.gov availability across ${windowLabel} and ${campgrounds.length} campground${campgrounds.length === 1 ? '' : 's'}.`;
     renderCampingQueries();
     const results = await Promise.all(campgrounds.map(async (campground) => {
@@ -1896,7 +1899,7 @@ async function runCampingQuery(queryId) {
     query.lastStatus = error.message || 'Could not check availability.';
     query.progress = '';
   } finally {
-    window.clearTimeout(waitingTimer);
+    if (waitingTimer) window.clearTimeout(waitingTimer);
     state.camping.runningIds.delete(queryId);
     await saveCampingQueries();
     renderCampingQueries();
@@ -1989,7 +1992,8 @@ function renderCampingQueries() {
 function renderCampingQuery(query) {
   const article = document.createElement('article');
   article.className = `camping-query-card ${query.matches?.length ? 'has-availability' : ''}`;
-  const statusLabel = query.progress ? 'Checking' : query.matches?.length ? 'Available' : 'Watching';
+  const isRunning = state.camping.runningIds.has(query.id);
+  const statusLabel = isRunning ? 'Checking' : query.matches?.length ? 'Available' : 'Watching';
   const matches = renderCampingMatchGroups(query.matches || []);
   const campgrounds = campingQueryCampgrounds(query);
   article.innerHTML = `
@@ -2012,9 +2016,9 @@ function renderCampingQuery(query) {
     ${query.progress ? `<p class="camping-progress" role="status">${escapeHtml(query.progress)}</p>` : ''}
     ${matches}
     <menu class="camping-actions">
-      <button type="button" class="compact-button" data-camping-action="run" data-camping-id="${escapeHtml(query.id)}">Run</button>
-      <button type="button" class="ghost-button" data-camping-action="edit" data-camping-id="${escapeHtml(query.id)}">Edit</button>
-      <button type="button" class="ghost-button" data-camping-action="delete" data-camping-id="${escapeHtml(query.id)}">Delete</button>
+      <button type="button" class="camping-action-button" data-camping-action="run" data-camping-id="${escapeHtml(query.id)}" ${isRunning ? 'disabled' : ''}>${isRunning ? 'Checking' : 'Run'}</button>
+      <button type="button" class="camping-action-button" data-camping-action="edit" data-camping-id="${escapeHtml(query.id)}" ${isRunning ? 'disabled' : ''}>Edit</button>
+      <button type="button" class="camping-action-button" data-camping-action="delete" data-camping-id="${escapeHtml(query.id)}" ${isRunning ? 'disabled' : ''}>Delete</button>
     </menu>
   `;
   return article;

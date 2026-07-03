@@ -202,6 +202,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
     await page.locator('[data-camping-action="run"]').click();
+    await expect(page.locator('[data-camping-action="run"]')).toHaveText('Checking');
     await expect(page.locator('#camping-query-list')).toContainText('Checking Upper Pines Campground, Lower Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('candidate windows');
 
@@ -233,6 +234,12 @@ test.describe('Family Tracker core flows', () => {
     await expect.poll(() => page.locator('.camping-match-groups').evaluate((element) => element.scrollHeight > element.clientHeight)).toBeTruthy();
     await expect(page.locator('#camping-query-list a[href*="recreation.gov"]')).toHaveCount(19);
     await expect(page.locator('#camping-query-list a[href*="recreation.gov"]').first()).toHaveAttribute('href', 'https://www.recreation.gov/camping/campsites/100?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026');
+    const actionButtonSizes = await page.locator('.camping-query-card').first().locator('.camping-actions button').evaluateAll((buttons) => buttons.map((button) => ({
+      width: Math.round(button.getBoundingClientRect().width),
+      height: Math.round(button.getBoundingClientRect().height),
+    })));
+    expect(new Set(actionButtonSizes.map((size) => size.height)).size).toBe(1);
+    expect(Math.max(...actionButtonSizes.map((size) => size.width)) - Math.min(...actionButtonSizes.map((size) => size.width))).toBeLessThanOrEqual(12);
 
     await page.locator('[data-camping-action="edit"]').click();
     await expect(page.locator('#camping-save-query')).toHaveText('Update query');
@@ -261,6 +268,46 @@ test.describe('Family Tracker core flows', () => {
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
     await app.attachDiagnostics();
+  });
+
+  test('camping run action reports invalid saved search instead of getting stuck', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await page.route('**/api/camping/queries', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queries: [{
+              id: 'broken-range',
+              name: 'Broken camping range',
+              campgrounds: [{ id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA' }],
+              rangeStart: '2026-09-10',
+              rangeEnd: '2026-09-10',
+              stayNights: 2,
+              checkMinutes: 30,
+              filters: {},
+              weekendOnly: false,
+              autoConfirm: false,
+              matches: [],
+            }],
+          }),
+        });
+        return;
+      }
+      const body = JSON.parse(route.request().postData() || '{"queries":[]}');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ queries: body.queries || [] }),
+      });
+    });
+    await app.loginAsDevAdmin('/camping');
+    await expect(page.locator('#camping-view.active')).toBeVisible();
+    await expect(page.locator('#camping-query-list')).toContainText('Broken camping range');
+    await page.locator('[data-camping-action="run"]').click();
+    await expect(page.locator('#camping-query-list')).toContainText('A valid date range is required.');
+    await expect(page.locator('[data-camping-action="run"]')).toBeEnabled();
   });
 
   test('travel tab aggregates flight lookup and saves a deal watch', async ({ page }, testInfo) => {

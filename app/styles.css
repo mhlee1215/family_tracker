@@ -1855,6 +1855,32 @@ input {
   padding: 0;
 }
 
+.camping-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  min-height: 38px;
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+  font-size: 14px;
+  line-height: 1.29;
+  padding: 8px 15px;
+}
+
+.camping-action-button:first-child {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: none;
+}
+
+.camping-action-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
 .camping-query-head small {
   display: block;
   margin-top: 4px;
