@@ -1478,7 +1478,7 @@ function normalizeCampingProvider(provider, { allowAll = false } = {}) {
 }
 
 function campingProviderLabel(provider) {
-  return normalizeCampingProvider(provider) === 'california_state' ? 'CA State' : 'National';
+  return normalizeCampingProvider(provider) === 'california_state' ? 'State Park' : 'National Park';
 }
 
 function normalizeStoredNumber(value) {

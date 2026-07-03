@@ -29,7 +29,7 @@ export async function searchCaliforniaStateCampgrounds(query, { fetchImpl = fetc
       return {
         id: String(facility.FacilityId || ''),
         provider: 'california_state',
-        providerLabel: 'CA State',
+        providerLabel: 'State Park',
         name: String(facility.Name || facility.ShortName || '').trim(),
         location: [place.Name, place.City, place.State || 'CA'].filter(Boolean).join(' · '),
         rating: 0,
