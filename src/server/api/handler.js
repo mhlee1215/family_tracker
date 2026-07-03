@@ -16,6 +16,7 @@ import {
   getSessionIdFromRequest,
   isDevAdminUser,
   parseCookies,
+  publicBaseUrl,
 } from '../auth.js';
 import { createBabyStore, getStorageConfig } from '../db/store-factory.js';
 import { getMediaStorageConfig, publicMediaStorageConfig } from '../media-config.js';
@@ -30,6 +31,7 @@ import { colorForBabyEventType } from '../../utils/tracker-colors.js';
 const port = Number(process.env.PORT || 4174);
 const CAMPING_QUERIES_PER_INVOCATION = 1;
 const CAMPING_AVAILABILITY_SUBREQUEST_BUDGET = 20;
+const CAMPING_CONTINUATION_DELAY_MS = 10_000;
 let storageConfig;
 let mediaStorageConfig;
 let store;
@@ -41,14 +43,14 @@ const campingMonitorRunningScopes = new Set();
 
 export async function handleNodeApi(request, response) {
   await ensureApiState();
-  await handleApi(request, response);
+  await handleApi(request, response, {});
 }
 
-export async function handleWebApiRequest(request, { env = {} } = {}) {
+export async function handleWebApiRequest(request, { env = {}, waitUntil, selfFetch } = {}) {
   syncRuntimeEnv(env);
   await ensureApiState();
   const response = createWebResponseAdapter();
-  await handleApi(toNodeLikeRequest(request), response);
+  await handleApi(toNodeLikeRequest(request), response, { waitUntil, selfFetch });
   return response.toResponse();
 }
 
@@ -117,7 +119,7 @@ function createWebResponseAdapter() {
   };
 }
 
-async function handleApi(request, response) {
+async function handleApi(request, response, runtime = {}) {
   try {
     const requestUrl = new URL(request.url || '/', `http://localhost:${port}`);
 
@@ -345,8 +347,9 @@ async function handleApi(request, response) {
       const body = await readJson(request);
       const result = await runCampingMonitorForScope(
         { ...scope, userId: session.user.id },
-        { queryId: body.queryId, force: true },
+        { queryId: body.queryId, queryIds: body.queryIds, force: true },
       );
+      scheduleCampingMonitorContinuation(request, result.continuation, runtime);
       sendJson(response, 200, result);
       return;
     }
@@ -1253,15 +1256,19 @@ async function runCampingMonitorForScope(scope, options = {}) {
   try {
     const settings = normalizeCampingMonitorSettings(options.settings || await getCampingMonitorSettings(scope, scope.userId));
     const queries = normalizeStoredCampingQueries(options.queries || await store.getCampingQueries(scope));
+    const requestedIds = normalizeCampingRunQueryIds(options);
     const selectedQueries = queries.filter((query) => {
       if (options.queryId) return query.id === String(options.queryId);
+      if (requestedIds.length) return requestedIds.includes(query.id);
       if (options.force) return true;
       if (options.dueOnly) return isCampingQueryDue(query);
       return true;
-    });
+    }).sort((left, right) => requestedIds.length ? requestedIds.indexOf(left.id) - requestedIds.indexOf(right.id) : 0);
     const maxConcurrent = Math.min(settings.maxConcurrent, 1);
     const runnableQueries = selectedQueries.slice(0, CAMPING_QUERIES_PER_INVOCATION);
     const deferredCount = Math.max(0, selectedQueries.length - runnableQueries.length);
+    const completedIds = [];
+    const continuingIds = [];
     let completed = 0;
     let failed = 0;
     for (let index = 0; index < runnableQueries.length; index += maxConcurrent) {
@@ -1281,6 +1288,8 @@ async function runCampingMonitorForScope(scope, options = {}) {
       }));
       for (const updated of results) {
         completed += 1;
+        completedIds.push(updated.id);
+        if (isCampingScanIncomplete(updated)) continuingIds.push(updated.id);
         const queryIndex = queries.findIndex((query) => query.id === updated.id);
         if (queryIndex >= 0) queries[queryIndex] = updated;
       }
@@ -1295,7 +1304,17 @@ async function runCampingMonitorForScope(scope, options = {}) {
       lastRunAt: now,
       lastStatus: status,
     });
-    return { queries: savedQueries, settings: savedSettings };
+    const selectedIds = requestedIds.length ? requestedIds : selectedQueries.map((query) => query.id);
+    const remainingIds = selectedIds.filter((id) => !completedIds.includes(id));
+    const nextQueryIds = [...new Set([...continuingIds, ...remainingIds])];
+    return {
+      queries: savedQueries,
+      settings: savedSettings,
+      continuation: options.force && nextQueryIds.length ? {
+        queryIds: nextQueryIds,
+        delayMs: campingContinuationDelayMs(),
+      } : null,
+    };
   } finally {
     campingMonitorRunningScopes.delete(scopeKey);
   }
@@ -1343,20 +1362,83 @@ async function runStoredCampingQuery(query) {
   const rawMatches = results.flat();
   const matches = rawMatches.filter((match) => campingMatchPassesFilters(match, query.filters));
   const partialScan = caCampgroundCount > 0 && maxWindowsPerCaliforniaCampground < windowCount;
-  const nextScanCursor = partialScan ? (windowOffset + maxWindowsPerCaliforniaCampground) % windowCount : 0;
+  const checkedEnd = Math.min(windowOffset + maxWindowsPerCaliforniaCampground, windowCount);
+  const nextScanCursor = partialScan && checkedEnd < windowCount ? checkedEnd : 0;
+  const mergedMatches = partialScan
+    ? mergeCampingMatches(windowOffset > 0 ? query.matches : [], matches)
+    : matches;
   return {
     ...query,
     scanCursor: nextScanCursor,
-    matches,
+    matches: mergedMatches,
     progress: '',
     lastCheckedAt: new Date().toISOString(),
-    lastStatus: formatCampingAvailabilityStatus(matches.length, rawMatches.length, partialScan ? {
+    lastStatus: formatCampingAvailabilityStatus(mergedMatches.length, rawMatches.length, partialScan ? {
       checkedStart: windowOffset + 1,
-      checkedEnd: Math.min(windowOffset + maxWindowsPerCaliforniaCampground, windowCount),
+      checkedEnd,
       total: windowCount,
+      continues: nextScanCursor > 0,
     } : null),
     pendingReservationUrl: query.autoConfirm && campgrounds.length === 1 && matches[0] ? matches[0].checkoutUrl : '',
   };
+}
+
+function normalizeCampingRunQueryIds(options = {}) {
+  if (options.queryId) return [String(options.queryId)];
+  if (!Array.isArray(options.queryIds)) return [];
+  return options.queryIds.map((id) => String(id || '').trim()).filter(Boolean).slice(0, 50);
+}
+
+function isCampingScanIncomplete(query) {
+  return Math.max(0, Number.parseInt(query.scanCursor, 10) || 0) > 0;
+}
+
+function mergeCampingMatches(existingMatches = [], nextMatches = []) {
+  const merged = [];
+  const seen = new Set();
+  for (const match of [...existingMatches, ...nextMatches]) {
+    const key = [
+      match.provider,
+      match.campgroundId,
+      match.campsiteId,
+      match.site,
+      match.startDate,
+      match.endDate,
+      match.checkoutUrl,
+    ].map((value) => String(value || '')).join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(match);
+  }
+  return merged.slice(0, 500);
+}
+
+function campingContinuationDelayMs() {
+  const configured = Number.parseInt(process.env.CAMPING_MONITOR_CONTINUE_DELAY_MS, 10);
+  if (Number.isFinite(configured)) return Math.max(0, Math.min(60_000, configured));
+  return CAMPING_CONTINUATION_DELAY_MS;
+}
+
+function scheduleCampingMonitorContinuation(request, continuation, runtime = {}) {
+  if (!continuation?.queryIds?.length) return;
+  const cookie = request.headers.cookie || '';
+  if (!cookie) return;
+  const task = async () => {
+    const delayMs = Math.max(0, Number.parseInt(continuation.delayMs, 10) || 0);
+    if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const fetchImpl = runtime.selfFetch || fetch;
+    const url = new URL('/api/camping/monitor/run', publicBaseUrl(request));
+    await fetchImpl(url.href, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie,
+      },
+      body: JSON.stringify({ queryIds: continuation.queryIds }),
+    });
+  };
+  const promise = task().catch((error) => console.error('Camping monitor continuation failed', error));
+  if (typeof runtime.waitUntil === 'function') runtime.waitUntil(promise);
 }
 
 function isCampingQueryDue(query) {
@@ -1441,7 +1523,11 @@ function campingMatchPassesFilters(match, filters = {}) {
 }
 
 function formatCampingAvailabilityStatus(visibleCount, rawCount, scan = null) {
-  const suffix = scan ? ` Checked dates ${scan.checkedStart}-${scan.checkedEnd} of ${scan.total}; next run continues.` : '';
+  if (scan) {
+    const suffix = ` Checked dates ${scan.checkedStart}-${scan.checkedEnd} of ${scan.total}; ${scan.continues ? 'next run continues' : 'search complete'}.`;
+    return visibleCount ? `${visibleCount} available so far.${suffix}` : `No sites available yet.${suffix}`;
+  }
+  const suffix = '';
   if (!rawCount) return `No sites available.${suffix}`;
   if (visibleCount === rawCount) return `${visibleCount} available.${suffix}`;
   return `${visibleCount} available after filters (${rawCount} total).${suffix}`;
