@@ -724,6 +724,18 @@
               <h2>Saved searches</h2>
               <button id="camping-run-all" type="button" class="compact-button">Run all</button>
             </div>
+            <section class="camping-loop-panel" aria-label="Camping monitor controls">
+              <label class="camping-check camping-loop-toggle">
+                <input id="camping-monitor-enabled" type="checkbox">
+                <span>Server monitor</span>
+              </label>
+              <label class="floating-field camping-loop-concurrency">
+                <span>Max concurrent</span>
+                <input id="camping-monitor-concurrency" type="number" min="1" max="8" step="1" value="2">
+              </label>
+              <button id="camping-monitor-save" type="button" class="ghost-button">Save monitor</button>
+              <p id="camping-monitor-status" class="settings-note" role="status" aria-live="polite"></p>
+            </section>
             <div id="camping-query-list" class="camping-results" aria-live="polite"></div>
           </section>
         </section>
@@ -765,6 +777,6 @@
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
     <script src="/app/vendor/flatpickr.min.js"></script>
-    <script type="module" src="/app/main.js?build=171"></script>
+    <script type="module" src="/app/main.js?build=172"></script>
   </body>
 </html>

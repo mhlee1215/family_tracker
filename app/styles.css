@@ -1810,6 +1810,35 @@ input {
   gap: 12px;
 }
 
+.camping-loop-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr) auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+  padding: 12px;
+}
+
+.camping-loop-toggle {
+  min-height: 48px;
+}
+
+.camping-loop-concurrency input {
+  min-height: 48px;
+}
+
+.camping-loop-panel .ghost-button {
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+.camping-loop-panel .settings-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .camping-query-card {
   display: grid;
   gap: 12px;
@@ -2103,6 +2132,7 @@ input {
   .camping-shell,
   .camping-date-grid,
   .camping-filter-grid,
+  .camping-loop-panel,
   .camping-query-meta {
     grid-template-columns: 1fr;
   }

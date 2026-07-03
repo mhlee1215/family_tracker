@@ -97,6 +97,27 @@ test('SQLiteBabyStore saves camping queries per account', () => {
   assert.deepEqual(otherUser, []);
 });
 
+test('SQLiteBabyStore saves camping monitor settings per account', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const scope = { familyId: 'family-camp-monitor', userId: 'user-camp-a' };
+
+  const settings = store.saveCampingMonitorSettings({
+    enabled: true,
+    maxConcurrent: 3,
+    lastStatus: 'Monitor checked 2 searches.',
+  }, scope);
+  const saved = store.getCampingMonitorSettings(scope);
+  const scopes = store.listCampingMonitorScopes();
+  const otherUser = store.getCampingMonitorSettings({ familyId: 'family-camp-monitor', userId: 'user-camp-b' });
+  store.close();
+
+  assert.equal(settings.enabled, true);
+  assert.equal(saved.maxConcurrent, 3);
+  assert.equal(scopes.some((item) => item.familyId === scope.familyId && item.userId === scope.userId), true);
+  assert.deepEqual(otherUser, {});
+});
+
 test('SQLiteBabyStore saves editable baby profile defaults', () => {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
   const store = new SQLiteBabyStore(dbPath);
