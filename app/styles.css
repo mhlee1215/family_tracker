@@ -1750,6 +1750,8 @@ input {
   display: grid;
   gap: 3px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--hairline);
   border-radius: 8px;
   padding: 9px 10px;
@@ -1763,7 +1765,9 @@ input {
 }
 
 .camping-recommendations button span {
+  max-width: 100%;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .camping-candidate-title {
@@ -1771,11 +1775,16 @@ input {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  max-width: 100%;
   min-width: 0;
 }
 
 .camping-candidate-title > span {
+  flex: 1 1 auto;
+  max-width: 100%;
   min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .camping-provider-badge {
@@ -1794,6 +1803,9 @@ input {
   color: var(--ink-muted-48);
   font-size: 12px;
   line-height: 1.25;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .camping-recommendations button:hover,

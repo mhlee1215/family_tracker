@@ -83,7 +83,16 @@ export async function findNationalAvailability({ campgroundId, startDate, endDat
   const campsites = new Map();
   for (const month of monthly) {
     for (const campsite of Object.values(month.campsites || {})) {
-      campsites.set(String(campsite.campsite_id), campsite);
+      const key = String(campsite.campsite_id);
+      const existing = campsites.get(key);
+      campsites.set(key, existing ? {
+        ...existing,
+        ...campsite,
+        availabilities: {
+          ...(existing.availabilities || {}),
+          ...(campsite.availabilities || {}),
+        },
+      } : campsite);
     }
   }
 
