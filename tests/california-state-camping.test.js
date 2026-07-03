@@ -27,7 +27,7 @@ describe('california state camping', () => {
     assert.deepEqual(results, [{
       id: '327',
       provider: 'california_state',
-      providerLabel: 'CA State',
+      providerLabel: 'State Park',
       name: 'PINNACLES CAMPGROUND',
       location: 'Pinnacles · Paicines · CA',
       rating: 0,

@@ -383,7 +383,6 @@ const elements = {
   travelWatchList: $('#travel-watch-list'),
   campingForm: $('#camping-form'),
   campingQueryName: $('#camping-query-name'),
-  campingProvider: $('#camping-provider'),
   campingCandidates: $('#camping-candidates'),
   campingRecommendations: $('#camping-recommendations'),
   campingFilterTent: $('#camping-filter-tent'),
@@ -634,7 +633,6 @@ elements.nextMealDay?.addEventListener('click', () => shiftSelectedDay(1));
 elements.mealToday?.addEventListener('click', () => jumpToToday());
 elements.openMealSummary?.addEventListener('click', toggleMealSummaryPanel);
 elements.campingQueryName?.addEventListener('input', searchCampingCandidates);
-elements.campingProvider?.addEventListener('change', searchCampingCandidates);
 elements.campingStartDate?.addEventListener('input', syncCampingEndDateMin);
 elements.campingStartDate?.addEventListener('change', syncCampingEndDateMin);
 elements.campingCheckUnit?.addEventListener('change', syncCampingIntervalBounds);
@@ -1801,8 +1799,7 @@ async function searchCampingCandidates() {
     return;
   }
   try {
-    const provider = elements.campingProvider?.value || 'all';
-    const response = await fetch(`/api/camping/search?q=${encodeURIComponent(query)}&provider=${encodeURIComponent(provider)}`);
+    const response = await fetch(`/api/camping/search?q=${encodeURIComponent(query)}&provider=all`);
     if (!response.ok) throw new Error('Search failed.');
     const data = await response.json();
     renderCampingCandidates(data.campgrounds || []);
@@ -1953,7 +1950,7 @@ function formatCampingCandidateMeta(campground = {}) {
 
 function campingProviderLabel(provider) {
   const value = String(provider || '').replace(/-/g, '_');
-  return value === 'california_state' ? 'CA State' : 'National';
+  return value === 'california_state' ? 'State Park' : 'National Park';
 }
 
 function resolveSelectedCampgrounds() {
@@ -2118,10 +2115,6 @@ function editCampingQuery(query) {
   elements.campingQueryName.value = query.name || query.campgroundName || '';
   const campgrounds = campingQueryCampgrounds(query);
   state.camping.selectedCampgrounds = campgrounds;
-  if (elements.campingProvider) {
-    const providers = new Set(campgrounds.map((campground) => campground.provider || query.provider || 'national'));
-    elements.campingProvider.value = providers.size === 1 ? [...providers][0] : 'all';
-  }
   renderCampingCandidates(campgrounds);
   elements.campingStartDate.value = query.rangeStart || '';
   elements.campingEndDate.value = query.rangeEnd || '';
@@ -2166,7 +2159,6 @@ function resetCampingForm() {
   if (elements.campingStayNights) elements.campingStayNights.value = '2';
   setCampingIntervalControls(30);
   setCampingFilters();
-  if (elements.campingProvider) elements.campingProvider.value = 'all';
   if (elements.campingSaveQuery) elements.campingSaveQuery.textContent = 'Save query';
   state.camping.selectedCampgrounds = [];
   renderCampingCandidates([]);

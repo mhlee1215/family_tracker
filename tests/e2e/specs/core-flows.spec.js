@@ -116,7 +116,7 @@ test.describe('Family Tracker core flows', () => {
         ? Array.from({ length: 12 }, (_, index) => ({
           id: `near-${index}`,
           provider: 'national',
-          providerLabel: 'National',
+          providerLabel: 'National Park',
           name: `Nearby Campground ${index + 1}`,
           location: 'San Francisco, CA',
           rating: 4.1,
@@ -125,8 +125,8 @@ test.describe('Family Tracker core flows', () => {
           distance: 4.2 + index,
         }))
         : [
-          { id: '232447', provider: 'national', providerLabel: 'National', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA', rating: 4.4, ratingCount: 3830, campsiteCount: 235 },
-          { id: '232450', provider: 'national', providerLabel: 'National', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA', rating: 4.1, ratingCount: 1200, campsiteCount: 60 },
+          { id: '232447', provider: 'national', providerLabel: 'National Park', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA', rating: 4.4, ratingCount: 3830, campsiteCount: 235 },
+          { id: '232450', provider: 'national', providerLabel: 'National Park', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA', rating: 4.1, ratingCount: 1200, campsiteCount: 60 },
         ];
       await route.fulfill({
         status: 200,
@@ -209,7 +209,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-filter-rv')).toBeChecked();
     await expect(page.locator('#camping-recommendations button').first()).toContainText('3,830 ratings');
     await expect(page.locator('#camping-recommendations button').first()).toContainText('235 sites');
-    await expect(page.locator('#camping-recommendations button').first()).toContainText('National');
+    await expect(page.locator('#camping-recommendations button').first()).toContainText('National Park');
     await page.locator('#camping-recommendations button', { hasText: 'Upper Pines Campground' }).click();
     await page.locator('#camping-recommendations button', { hasText: 'Lower Pines Campground' }).click();
     await expect(page.locator('#camping-recommendations button.selected')).toHaveCount(2);
@@ -316,28 +316,40 @@ test.describe('Family Tracker core flows', () => {
     await app.attachDiagnostics();
   });
 
-  test('camping search supports california state provider', async ({ page }, testInfo) => {
+  test('camping unified search labels national and state park results', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let campingQueries = [];
     await page.route('**/api/camping/search**', async (route) => {
       const url = new URL(route.request().url());
-      expect(url.searchParams.get('provider')).toBe('california_state');
+      expect(url.searchParams.get('provider')).toBe('all');
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          campgrounds: [{
-            id: '327',
-            provider: 'california_state',
-            providerLabel: 'CA State',
-            name: 'PINNACLES CAMPGROUND',
-            location: 'Pinnacles · Paicines · CA',
-            rating: 0,
-            ratingCount: 0,
-            campsiteCount: 134,
-            placeId: '42',
-            bookingUrl: 'https://www.reservecalifornia.com/park/42/327',
-          }],
+          campgrounds: [
+            {
+              id: '232447',
+              provider: 'national',
+              providerLabel: 'National Park',
+              name: 'Upper Pines Campground',
+              location: 'Yosemite National Park, CA',
+              rating: 4.4,
+              ratingCount: 3830,
+              campsiteCount: 235,
+            },
+            {
+              id: '327',
+              provider: 'california_state',
+              providerLabel: 'State Park',
+              name: 'Morro Bay State Park Campground',
+              location: 'Morro Bay SP · MORRO BAY · CA',
+              rating: 0,
+              ratingCount: 0,
+              campsiteCount: 134,
+              placeId: '42',
+              bookingUrl: 'https://www.reservecalifornia.com/park/42/327',
+            },
+          ],
           errors: [],
         }),
       });
@@ -359,9 +371,9 @@ test.describe('Family Tracker core flows', () => {
         ...query,
         matches: [{
           provider: 'california_state',
-          providerLabel: 'CA State',
+          providerLabel: 'State Park',
           campgroundId: '327',
-          campgroundName: 'PINNACLES CAMPGROUND',
+          campgroundName: 'Morro Bay State Park Campground',
           campsiteId: '126',
           site: 'Site 126',
           campsiteType: 'STANDARD',
@@ -382,15 +394,16 @@ test.describe('Family Tracker core flows', () => {
 
     await app.loginAsDevAdmin('/camping');
     await expect(page.locator('#camping-view.active')).toBeVisible();
-    await page.locator('#camping-provider').selectOption('california_state');
-    await page.locator('#camping-query-name').fill('Pinnacles');
-    await expect(page.locator('#camping-recommendations button')).toContainText('CA State');
-    await page.locator('#camping-recommendations button', { hasText: 'PINNACLES CAMPGROUND' }).click();
+    await expect(page.locator('#camping-provider')).toHaveCount(0);
+    await page.locator('#camping-query-name').fill('Morro');
+    await expect(page.locator('#camping-recommendations button', { hasText: 'Upper Pines Campground' })).toContainText('National Park');
+    await expect(page.locator('#camping-recommendations button', { hasText: 'Morro Bay State Park Campground' })).toContainText('State Park');
+    await page.locator('#camping-recommendations button', { hasText: 'Morro Bay State Park Campground' }).click();
     await page.locator('#camping-start-date').fill('2026-09-01');
     await page.locator('#camping-end-date').fill('2026-09-08');
     await page.locator('#camping-stay-nights').fill('2');
     await page.locator('#camping-save-query').click();
-    await expect(page.locator('#camping-query-list')).toContainText('PINNACLES CAMPGROUND');
+    await expect(page.locator('#camping-query-list')).toContainText('Morro Bay State Park Campground');
     expect(campingQueries[0].campgrounds[0]).toMatchObject({
       provider: 'california_state',
       placeId: '42',
