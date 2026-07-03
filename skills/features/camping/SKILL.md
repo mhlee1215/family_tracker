@@ -17,7 +17,7 @@ National or state campsite search, availability monitoring, alerts, or assisted 
 - Do not store campground login, password, or payment card data in browser storage.
 - Auto-confirm may launch the official reservation page, but must not bypass CAPTCHA or submit final payment.
 - Prefer official Recreation.gov URLs and thin parsing over reservation-site scraping.
-- Saved search queries live in browser localStorage until a server-side account model is needed.
+- Saved search queries live in server storage under the authenticated family/user scope; browser localStorage is only a fallback cache.
 
 ## Checklist
 - Validate date ranges before availability checks.

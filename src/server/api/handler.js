@@ -307,6 +307,18 @@ async function handleApi(request, response) {
       return;
     }
 
+    if (request.method === 'GET' && requestUrl.pathname === '/api/camping/queries') {
+      sendJson(response, 200, { queries: await store.getCampingQueries({ ...scope, userId: session.user.id }) });
+      return;
+    }
+
+    if (request.method === 'PUT' && requestUrl.pathname === '/api/camping/queries') {
+      const body = await readJson(request);
+      const queries = normalizeStoredCampingQueries(body.queries);
+      sendJson(response, 200, { queries: await store.saveCampingQueries(queries, { ...scope, userId: session.user.id }) });
+      return;
+    }
+
     if (request.method === 'GET' && requestUrl.pathname === '/api/camping/national/search') {
       const query = requestUrl.searchParams.get('q') || '';
       sendJson(response, 200, { campgrounds: await searchNationalCampgrounds(query) });
@@ -1160,6 +1172,32 @@ function normalizePushSubscription(subscription = {}) {
       auth,
     },
   };
+}
+
+function normalizeStoredCampingQueries(queries) {
+  if (!Array.isArray(queries)) return [];
+  return queries.slice(0, 50).filter((query) => query?.id).map((query) => ({
+    id: String(query.id).slice(0, 120),
+    name: String(query.name || '').slice(0, 120),
+    campgroundId: String(query.campgroundId || '').slice(0, 80),
+    campgroundName: String(query.campgroundName || '').slice(0, 160),
+    location: String(query.location || '').slice(0, 160),
+    campgrounds: Array.isArray(query.campgrounds) ? query.campgrounds.slice(0, 20).map((campground) => ({
+      id: String(campground.id || '').slice(0, 80),
+      name: String(campground.name || '').slice(0, 160),
+      location: String(campground.location || '').slice(0, 160),
+    })).filter((campground) => campground.id && campground.name) : [],
+    rangeStart: String(query.rangeStart || '').slice(0, 10),
+    rangeEnd: String(query.rangeEnd || '').slice(0, 10),
+    stayNights: Math.max(1, Math.min(14, Number.parseInt(query.stayNights, 10) || 2)),
+    checkMinutes: Math.max(1, Math.min(1440, Number.parseInt(query.checkMinutes, 10) || 30)),
+    weekendOnly: Boolean(query.weekendOnly),
+    autoConfirm: Boolean(query.autoConfirm),
+    matches: Array.isArray(query.matches) ? query.matches.slice(0, 20) : [],
+    lastCheckedAt: String(query.lastCheckedAt || '').slice(0, 40),
+    lastStatus: String(query.lastStatus || '').slice(0, 160),
+    autoOpenedUrl: String(query.autoOpenedUrl || '').slice(0, 400),
+  }));
 }
 
 async function rebuildMilkReminderJobForUser(scope, userId, options = {}) {

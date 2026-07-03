@@ -131,7 +131,7 @@ test.describe('Family Tracker core flows', () => {
 
     await app.loginAsDevAdmin('/camping');
     await expect(page.locator('#camping-view.active')).toBeVisible();
-    await page.evaluate(() => localStorage.removeItem('familyTracker.campingQueries'));
+    await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('familyTracker.campingQueries')).forEach((key) => localStorage.removeItem(key)));
     await page.locator('#camping-query-name').fill('Upper');
     await expect(page.locator('#camping-candidates option')).toHaveCount(2);
     await expect(page.locator('#camping-recommendations button')).toHaveCount(2);
@@ -148,11 +148,19 @@ test.describe('Family Tracker core flows', () => {
     await page.locator('#camping-stay-nights').fill('2');
     await page.locator('#camping-check-minutes').fill('15');
     await page.locator('#camping-weekend-only').check();
-    await page.locator('#camping-save-query').click();
+    const [saveQueriesResponse] = await Promise.all([
+      page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().includes('/api/camping/queries')),
+      page.locator('#camping-save-query').click(),
+    ]);
+    expect(saveQueriesResponse.ok()).toBeTruthy();
 
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('Autooff');
+    await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('familyTracker.campingQueries')).forEach((key) => localStorage.removeItem(key)));
+    await page.reload();
+    await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
+    await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
     await page.locator('[data-camping-action="run"]').click();
     await expect(page.locator('#camping-query-list')).toContainText('Checking Upper Pines Campground, Lower Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('candidate windows');

@@ -180,7 +180,7 @@ const state = {
   careForecastError: '',
   careForecastRequestId: 0,
   careForecastPeriodDays: normalizeForecastPeriodDays(localStorage.getItem(storageKeys.careForecastPeriodDays)),
-  camping: { candidates: [], queries: loadCampingQueries(), editingId: '', selectedCampgrounds: [], runningIds: new Set(), timers: new Map(), status: '', datePickers: { start: null, end: null } },
+  camping: { candidates: [], queries: [], editingId: '', selectedCampgrounds: [], runningIds: new Set(), timers: new Map(), status: '', datePickers: { start: null, end: null } },
   travel: { results: [], sources: [], watches: loadTravelWatches(), recentSearches: loadTravelRecentSearches(), runningIds: new Set(), timers: new Map(), status: '' },
   deepLinkFocus: getDeepLinkFocusFromLocation(),
   syncVersions: null,
@@ -1692,6 +1692,7 @@ async function initializeApp() {
     syncBuildMetadata().catch((error) => console.error(error));
     loadAppConfig().catch((error) => console.error(error));
     await loadCurrentUser();
+    if (state.user) await loadCampingQueriesFromServer();
     state.meals = loadMealsForUser(state.user);
     renderAuthState();
     if (state.user) {
@@ -1797,7 +1798,7 @@ async function searchCampingCandidates() {
   }
 }
 
-function saveCampingQuery(event) {
+async function saveCampingQuery(event) {
   event.preventDefault();
   const campgrounds = resolveSelectedCampgrounds();
   if (!campgrounds.length) {
@@ -1833,7 +1834,7 @@ function saveCampingQuery(event) {
   if (existingIndex >= 0) state.camping.queries[existingIndex] = { ...state.camping.queries[existingIndex], ...query };
   else state.camping.queries.unshift(query);
   state.camping.editingId = '';
-  saveCampingQueries();
+  await saveCampingQueries();
   resetCampingForm();
   renderCampingQueries();
   scheduleCampingQuery(query);
@@ -1889,7 +1890,7 @@ async function runCampingQuery(queryId) {
   } finally {
     window.clearTimeout(waitingTimer);
     state.camping.runningIds.delete(queryId);
-    saveCampingQueries();
+    await saveCampingQueries();
     renderCampingQueries();
   }
 }
@@ -2023,13 +2024,13 @@ function editCampingQuery(query) {
   elements.campingQueryName?.focus();
 }
 
-function deleteCampingQuery(queryId) {
+async function deleteCampingQuery(queryId) {
   const query = state.camping.queries.find((item) => item.id === queryId);
   if (!query) return;
   if (!window.confirm(`Delete saved search "${query.name || query.campgroundName}"?`)) return;
   state.camping.queries = state.camping.queries.filter((item) => item.id !== queryId);
   clearCampingTimer(queryId);
-  saveCampingQueries();
+  await saveCampingQueries();
   renderCampingQueries();
 }
 
@@ -2153,17 +2154,40 @@ function clearCampingTimer(queryId) {
   state.camping.timers.delete(queryId);
 }
 
-function loadCampingQueries() {
+function campingStorageKey(user = state.user) {
+  return user?.id ? `${storageKeys.campingQueries}.${user.id}` : storageKeys.campingQueries;
+}
+
+function loadCampingQueries(user = state.user) {
+  if (!user) return [];
   try {
-    const raw = JSON.parse(localStorage.getItem(storageKeys.campingQueries) || '[]');
+    const raw = JSON.parse(localStorage.getItem(campingStorageKey(user)) || '[]');
     return Array.isArray(raw) ? raw.filter((item) => item?.id && (item?.campgroundId || item?.campgrounds?.length)) : [];
   } catch {
     return [];
   }
 }
 
-function saveCampingQueries() {
-  localStorage.setItem(storageKeys.campingQueries, JSON.stringify(state.camping.queries));
+async function saveCampingQueries() {
+  localStorage.setItem(campingStorageKey(), JSON.stringify(state.camping.queries));
+  if (!state.user) return;
+  await fetch('/api/camping/queries', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ queries: state.camping.queries }),
+  });
+}
+
+async function loadCampingQueriesFromServer() {
+  const response = await fetch('/api/camping/queries');
+  const payload = await response.json().catch(() => ({}));
+  if (handleAuthFailure(response) || !response.ok) return;
+  const localQueries = loadCampingQueries(state.user);
+  const remoteQueries = Array.isArray(payload.queries) ? payload.queries : [];
+  state.camping.queries = remoteQueries.length ? remoteQueries : localQueries;
+  if (!remoteQueries.length && localQueries.length) await saveCampingQueries();
+  for (const queryId of [...state.camping.timers.keys()]) clearCampingTimer(queryId);
+  scheduleCampingQueries();
 }
 
 function normalizeCampingNumber(value, fallback, min, max) {

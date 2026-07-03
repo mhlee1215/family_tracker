@@ -74,6 +74,29 @@ test('SQLiteBabyStore saves notification settings, subscriptions, and pending jo
   assert.equal(dueJobs[0].metadata.offsetMinutes, 45);
 });
 
+test('SQLiteBabyStore saves camping queries per account', () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
+  const store = new SQLiteBabyStore(dbPath);
+  const scope = { familyId: 'family-camp', userId: 'user-camp-a' };
+  const query = {
+    id: 'camp-test-001',
+    name: 'Yosemite weekends',
+    campgroundId: '232447',
+    campgroundName: 'Upper Pines Campground',
+    rangeStart: '2026-09-01',
+    rangeEnd: '2026-11-15',
+  };
+
+  store.saveCampingQueries([query], scope);
+  const saved = store.getCampingQueries(scope);
+  const otherUser = store.getCampingQueries({ familyId: 'family-camp', userId: 'user-camp-b' });
+  store.close();
+
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].name, 'Yosemite weekends');
+  assert.deepEqual(otherUser, []);
+});
+
 test('SQLiteBabyStore saves editable baby profile defaults', () => {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'family-tracker-db-')), 'test.sqlite');
   const store = new SQLiteBabyStore(dbPath);
