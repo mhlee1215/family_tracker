@@ -1877,6 +1877,9 @@ async function runCampingQuery(queryId) {
     if (handleAuthFailure(response)) throw new Error('Sign in again to run camping searches.');
     if (!response.ok) throw new Error(payload.error || 'Availability failed.');
     applyCampingServerPayload(payload);
+    if (payload.continuation?.queryIds?.length) {
+      await pollCampingRunProgress(payload.continuation.queryIds, queryId);
+    }
     maybeOpenPendingCampingReservation(queryId);
   } catch (error) {
     selectedQueries.forEach((query) => {
@@ -1887,10 +1890,33 @@ async function runCampingQuery(queryId) {
   } finally {
     selectedIds.forEach((id) => state.camping.runningIds.delete(id));
     state.camping.queries.forEach((query) => {
-      if (selectedIds.includes(query.id)) query.progress = '';
+      if (selectedIds.includes(query.id) && !query.scanCursor) query.progress = '';
     });
     renderCampingQueries();
   }
+}
+
+async function pollCampingRunProgress(queryIds, launchedQueryId = '') {
+  const pendingIds = new Set((queryIds || []).map((id) => String(id || '')).filter(Boolean));
+  const startedAt = Date.now();
+  while (pendingIds.size && Date.now() - startedAt < 10 * 60_000) {
+    await wait(2_000);
+    const response = await fetch('/api/camping/queries');
+    const payload = await response.json().catch(() => ({}));
+    if (handleAuthFailure(response) || !response.ok || !Array.isArray(payload.queries)) return;
+    state.camping.queries = payload.queries;
+    localStorage.setItem(campingStorageKey(), JSON.stringify(state.camping.queries));
+    for (const query of state.camping.queries) {
+      if (!pendingIds.has(query.id)) continue;
+      if (!query.scanCursor && !query.progress) pendingIds.delete(query.id);
+    }
+    renderCampingQueries();
+    if (launchedQueryId) maybeOpenPendingCampingReservation(launchedQueryId);
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function renderCampingCandidates(candidates) {

@@ -166,6 +166,35 @@ describe('national camping', () => {
     assert.deepEqual(requestedMonths, ['2026-12', '2027-01']);
     assert.deepEqual(matches.map((match) => match.startDate), ['2026-12-01', '2027-01-01']);
   });
+
+  it('limits national availability windows for Worker subrequest budgets', async () => {
+    const requestedMonths = [];
+    const matches = await findNationalAvailability({
+      campgroundId: '233116',
+      rangeStart: '2026-12-01',
+      rangeEnd: '2027-01-10',
+      stayNights: 2,
+      windowOffset: 31,
+      maxWindows: 2,
+    }, {
+      fetchImpl: async (url) => {
+        const month = new URL(String(url)).searchParams.get('start_date').slice(0, 7);
+        requestedMonths.push(month);
+        return okJson({
+          campsites: {
+            300: campsite('300', '030', {
+              '2027-01-01T00:00:00Z': 'Available',
+              '2027-01-02T00:00:00Z': 'Available',
+              '2027-01-03T00:00:00Z': 'Available',
+            }),
+          },
+        });
+      },
+    });
+
+    assert.deepEqual(requestedMonths, ['2027-01']);
+    assert.deepEqual(matches.map((match) => match.startDate), ['2027-01-01', '2027-01-02']);
+  });
 });
 
 function campsite(campsiteId, site, availabilities) {

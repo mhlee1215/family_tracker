@@ -428,6 +428,72 @@ test.describe('Family Tracker core flows', () => {
     app.assertNoRuntimeErrors();
   });
 
+  test('camping run shows progress while chunked availability continues', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    const baseQuery = {
+      id: 'chunked-national',
+      name: 'Chunked national',
+      campgrounds: [{ id: '232447', provider: 'national', name: 'Upper Pines Campground' }],
+      rangeStart: '2026-09-01',
+      rangeEnd: '2026-10-31',
+      stayNights: 2,
+      checkMinutes: 30,
+      filters: {},
+      weekendOnly: false,
+      monitorEnabled: false,
+      autoConfirm: false,
+      matches: [],
+      lastStatus: 'Not checked yet.',
+      progress: '',
+      scanCursor: 0,
+    };
+    let queries = [baseQuery];
+    let getCount = 0;
+    await page.route('**/api/camping/queries', async (route) => {
+      getCount += route.request().method() === 'GET' ? 1 : 0;
+      if (route.request().method() === 'GET' && getCount > 1) {
+        queries = [{
+          ...baseQuery,
+          matches: getCount > 2 ? [{ campgroundName: 'Upper Pines Campground', site: '044', startDate: '2026-09-04', endDate: '2026-09-06', checkoutUrl: 'https://www.recreation.gov/camping/campsites/100?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026' }] : [],
+          lastStatus: getCount > 2 ? '1 available so far. Checked dates 49-60 of 60; search complete.' : 'No sites available yet. Checked dates 1-12 of 60; next run continues.',
+          progress: getCount > 2 ? '' : 'Checking availability 20% (12/60 date windows). 0 available so far.',
+          scanCursor: getCount > 2 ? 0 : 12,
+        }];
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ queries }) });
+    });
+    await page.route('**/api/camping/monitor', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: { enabled: false, maxConcurrent: 2 } }) });
+    });
+    await page.route('**/api/camping/monitor/run', async (route) => {
+      queries = [{
+        ...baseQuery,
+        lastStatus: 'No sites available yet. Checked dates 1-12 of 60; next run continues.',
+        progress: 'Checking availability 20% (12/60 date windows). 0 available so far.',
+        scanCursor: 12,
+      }];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          queries,
+          settings: { enabled: false, maxConcurrent: 2, lastStatus: 'Monitor checked 1 search.' },
+          continuation: { queryIds: ['chunked-national'], delayMs: 10 },
+        }),
+      });
+    });
+
+    await app.loginAsDevAdmin('/camping');
+    await expect(page.locator('#camping-query-list')).toContainText('Chunked national');
+    await page.locator('[data-camping-action="run"]').click();
+    await expect(page.locator('#camping-query-list')).toContainText('Checking availability 20%');
+    await expect(page.locator('#camping-query-list')).toContainText('1 available so far');
+    await expect(page.locator('#camping-query-list')).toContainText('Site 044');
+    await expect(page.locator('[data-camping-action="run"]')).toBeEnabled();
+
+    app.assertNoRuntimeErrors();
+  });
+
   test('camping run action reports invalid saved search instead of getting stuck', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     await page.route('**/api/camping/queries', async (route) => {
