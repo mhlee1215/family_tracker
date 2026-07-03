@@ -197,6 +197,14 @@ export class SQLiteBabyStore {
         UNIQUE(dedupe_key)
       );
 
+      CREATE TABLE IF NOT EXISTS camping_queries (
+        family_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        queries_json TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (family_id, user_id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_growth_records_family_baby ON growth_records(family_id, baby_id, occurred_date);
       CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at);
       CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at);
@@ -688,6 +696,27 @@ export class SQLiteBabyStore {
       now,
     );
     return this.getNotificationSettings({ familyId, babyId, userId });
+  }
+
+  getCampingQueries(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const userId = options.userId || '';
+    const row = this.db.prepare('SELECT queries_json FROM camping_queries WHERE family_id = ? AND user_id = ?').get(familyId, userId);
+    return parseJson(row?.queries_json, []);
+  }
+
+  saveCampingQueries(queries = [], options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const userId = options.userId || '';
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO camping_queries (family_id, user_id, queries_json, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(family_id, user_id) DO UPDATE SET
+        queries_json = excluded.queries_json,
+        updated_at = excluded.updated_at
+    `).run(familyId, userId, JSON.stringify(Array.isArray(queries) ? queries : []), now);
+    return this.getCampingQueries({ familyId, userId });
   }
 
   savePushSubscription(subscription, options = {}) {

@@ -50,6 +50,8 @@ development and automated tests, but it is not a Cloudflare runtime backend.
 
 Travel search follows the same server-side provider boundary as LLM calls: the browser sends route/date filters to `/api/travel/*`, while Amadeus, Aviationstack, and future travel provider keys stay in server environment variables. The MVP does not book, pay for, or mutate reservations; saved deal watches are browser-local.
 
+Camping saved searches are account-scoped server data stored under the authenticated user's family/user boundary. The browser keeps a local copy only as a fallback and syncs saved campground queries through `/api/camping/queries`, while availability checks still call server-side Recreation.gov helpers.
+
 Milk reminder notifications split request-time work from delivery work. Browser/API routes store user-scoped notification settings, Web Push subscriptions, and pending reminder jobs in Turso whenever baby records or notification settings change. The separate `workers/notification-worker.js` cron runs every five minutes, reads due pending jobs from Turso, generates encrypted Web Push request details with the `web-push` library, and sends them with the Worker `fetch()` API. The Pages app exposes only the VAPID public key to the browser; VAPID private key and Turso auth token stay in Worker environment secrets.
 
 Action logs store add/edit/delete/complete transactions separately from baby records and task records so user-facing records remain distinct from provenance/audit history. Undoable actions keep server-side before/after snapshots so an action can be reversed without exposing snapshot payloads to browser clients.
