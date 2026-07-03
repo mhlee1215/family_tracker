@@ -205,6 +205,14 @@ export class SQLiteBabyStore {
         PRIMARY KEY (family_id, user_id)
       );
 
+      CREATE TABLE IF NOT EXISTS camping_monitor_settings (
+        family_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        settings_json TEXT NOT NULL DEFAULT '{}',
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (family_id, user_id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_growth_records_family_baby ON growth_records(family_id, baby_id, occurred_date);
       CREATE INDEX IF NOT EXISTS idx_raw_logs_family_baby ON raw_logs(family_id, baby_id, input_at);
       CREATE INDEX IF NOT EXISTS idx_baby_events_family_baby ON baby_events(family_id, baby_id, occurred_at);
@@ -215,6 +223,7 @@ export class SQLiteBabyStore {
       CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(family_id, user_id, disabled_at);
       CREATE INDEX IF NOT EXISTS idx_notification_jobs_due ON notification_jobs(status, notify_at);
       CREATE INDEX IF NOT EXISTS idx_notification_jobs_scope ON notification_jobs(family_id, baby_id, user_id, type, status);
+      CREATE INDEX IF NOT EXISTS idx_camping_monitor_settings_scope ON camping_monitor_settings(family_id, user_id);
     `);
     try { this.db.exec(`ALTER TABLE task_items ADD COLUMN due_mode TEXT NOT NULL DEFAULT 'on_date';`); } catch {}
     try { this.db.exec(`ALTER TABLE action_logs ADD COLUMN baby_id TEXT NOT NULL DEFAULT '';`); } catch {}
@@ -717,6 +726,40 @@ export class SQLiteBabyStore {
         updated_at = excluded.updated_at
     `).run(familyId, userId, JSON.stringify(Array.isArray(queries) ? queries : []), now);
     return this.getCampingQueries({ familyId, userId });
+  }
+
+  getCampingMonitorSettings(options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const userId = options.userId || '';
+    const row = this.db.prepare('SELECT settings_json FROM camping_monitor_settings WHERE family_id = ? AND user_id = ?').get(familyId, userId);
+    return parseJson(row?.settings_json, {});
+  }
+
+  saveCampingMonitorSettings(settings = {}, options = {}) {
+    const familyId = options.familyId || defaultFamilyId;
+    const userId = options.userId || '';
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO camping_monitor_settings (family_id, user_id, settings_json, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(family_id, user_id) DO UPDATE SET
+        settings_json = excluded.settings_json,
+        updated_at = excluded.updated_at
+    `).run(familyId, userId, JSON.stringify(settings && typeof settings === 'object' ? settings : {}), now);
+    return this.getCampingMonitorSettings({ familyId, userId });
+  }
+
+  listCampingMonitorScopes() {
+    return this.db.prepare(`
+      SELECT s.family_id AS familyId, s.user_id AS userId, s.settings_json AS settingsJson, q.queries_json AS queriesJson
+      FROM camping_monitor_settings s
+      LEFT JOIN camping_queries q ON q.family_id = s.family_id AND q.user_id = s.user_id
+    `).all().map((row) => ({
+      familyId: row.familyId,
+      userId: row.userId,
+      settings: parseJson(row.settingsJson, {}),
+      queries: parseJson(row.queriesJson, []),
+    }));
   }
 
   savePushSubscription(subscription, options = {}) {

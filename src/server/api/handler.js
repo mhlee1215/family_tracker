@@ -33,6 +33,8 @@ let store;
 let runtimeLLMConfig;
 let processedAlexaRequestIds;
 let apiStatePromise;
+let campingMonitorTimer = null;
+const campingMonitorRunningScopes = new Set();
 
 export async function handleNodeApi(request, response) {
   await ensureApiState();
@@ -62,6 +64,7 @@ async function ensureApiState() {
         },
       };
       processedAlexaRequestIds = new Set();
+      startCampingMonitor();
     })();
   }
   return apiStatePromise;
@@ -316,6 +319,32 @@ async function handleApi(request, response) {
       const body = await readJson(request);
       const queries = normalizeStoredCampingQueries(body.queries);
       sendJson(response, 200, { queries: await store.saveCampingQueries(queries, { ...scope, userId: session.user.id }) });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/camping/monitor') {
+      sendJson(response, 200, { settings: normalizeCampingMonitorSettings(await getCampingMonitorSettings(scope, session.user.id)) });
+      return;
+    }
+
+    if (request.method === 'PUT' && requestUrl.pathname === '/api/camping/monitor') {
+      const body = await readJson(request);
+      const settings = normalizeCampingMonitorSettings({
+        ...(await getCampingMonitorSettings(scope, session.user.id)),
+        ...body.settings,
+      });
+      const saved = await saveCampingMonitorSettings(scope, session.user.id, settings);
+      sendJson(response, 200, { settings: saved });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/camping/monitor/run') {
+      const body = await readJson(request);
+      const result = await runCampingMonitorForScope(
+        { ...scope, userId: session.user.id },
+        { queryId: body.queryId, force: true },
+      );
+      sendJson(response, 200, result);
       return;
     }
 
@@ -1174,6 +1203,166 @@ function normalizePushSubscription(subscription = {}) {
   };
 }
 
+function startCampingMonitor() {
+  if (campingMonitorTimer || process.env.CAMPING_MONITOR_DISABLED === '1' || typeof setInterval !== 'function') return;
+  campingMonitorTimer = setInterval(() => {
+    runCampingMonitorTick().catch((error) => console.error('Camping monitor tick failed', error));
+  }, 30_000);
+  campingMonitorTimer.unref?.();
+}
+
+async function runCampingMonitorTick() {
+  if (!store || typeof store.listCampingMonitorScopes !== 'function') return;
+  const scopes = await store.listCampingMonitorScopes();
+  for (const row of scopes) {
+    const settings = normalizeCampingMonitorSettings(row.settings);
+    if (!settings.enabled || !Array.isArray(row.queries) || !row.queries.length) continue;
+    if (!row.queries.some((query) => isCampingQueryDue(query))) continue;
+    await runCampingMonitorForScope(
+      { familyId: row.familyId, userId: row.userId },
+      { dueOnly: true, queries: row.queries, settings },
+    );
+  }
+}
+
+async function runCampingMonitorForScope(scope, options = {}) {
+  const scopeKey = `${scope.familyId || ''}:${scope.userId || ''}`;
+  if (campingMonitorRunningScopes.has(scopeKey)) {
+    return {
+      queries: await store.getCampingQueries(scope),
+      settings: normalizeCampingMonitorSettings(await getCampingMonitorSettings(scope, scope.userId), { lastStatus: 'Monitor is already running.' }),
+    };
+  }
+  campingMonitorRunningScopes.add(scopeKey);
+  try {
+    const settings = normalizeCampingMonitorSettings(options.settings || await getCampingMonitorSettings(scope, scope.userId));
+    const queries = normalizeStoredCampingQueries(options.queries || await store.getCampingQueries(scope));
+    const selectedQueries = queries.filter((query) => {
+      if (options.queryId) return query.id === String(options.queryId);
+      if (options.force) return true;
+      if (options.dueOnly) return isCampingQueryDue(query);
+      return true;
+    });
+    const maxConcurrent = settings.maxConcurrent;
+    let completed = 0;
+    let failed = 0;
+    for (let index = 0; index < selectedQueries.length; index += maxConcurrent) {
+      const batch = selectedQueries.slice(index, index + maxConcurrent);
+      const results = await Promise.all(batch.map(async (query) => {
+        try {
+          return await runStoredCampingQuery(query);
+        } catch (error) {
+          failed += 1;
+          return {
+            ...query,
+            progress: '',
+            lastCheckedAt: new Date().toISOString(),
+            lastStatus: error.message || 'Could not check availability.',
+          };
+        }
+      }));
+      for (const updated of results) {
+        completed += 1;
+        const queryIndex = queries.findIndex((query) => query.id === updated.id);
+        if (queryIndex >= 0) queries[queryIndex] = updated;
+      }
+    }
+    const now = new Date().toISOString();
+    const status = selectedQueries.length
+      ? `Monitor checked ${completed} search${completed === 1 ? '' : 'es'}${failed ? ` with ${failed} failure${failed === 1 ? '' : 's'}` : ''}.`
+      : 'No saved searches were due.';
+    const savedQueries = await store.saveCampingQueries(queries, scope);
+    const savedSettings = await saveCampingMonitorSettings(scope, scope.userId, {
+      ...settings,
+      lastRunAt: now,
+      lastStatus: status,
+    });
+    return { queries: savedQueries, settings: savedSettings };
+  } finally {
+    campingMonitorRunningScopes.delete(scopeKey);
+  }
+}
+
+async function runStoredCampingQuery(query) {
+  const campgrounds = campingQueryCampgrounds(query);
+  if (!campgrounds.length || !campgrounds[0]?.id) throw new Error('Choose at least one campground before running.');
+  if (!isStoredCampingRangeValid(query.rangeStart, query.rangeEnd)) throw new Error('A valid date range is required.');
+  const results = await Promise.all(campgrounds.map(async (campground) => {
+    const matches = await findNationalAvailability({
+      campgroundId: campground.id,
+      rangeStart: query.rangeStart,
+      rangeEnd: query.rangeEnd,
+      stayNights: query.stayNights,
+      weekendOnly: query.weekendOnly,
+    });
+    return matches.map((match) => ({ ...match, campgroundName: campground.name }));
+  }));
+  const rawMatches = results.flat();
+  const matches = rawMatches.filter((match) => campingMatchPassesFilters(match, query.filters));
+  return {
+    ...query,
+    matches,
+    progress: '',
+    lastCheckedAt: new Date().toISOString(),
+    lastStatus: formatCampingAvailabilityStatus(matches.length, rawMatches.length),
+    pendingReservationUrl: query.autoConfirm && campgrounds.length === 1 && matches[0] ? matches[0].checkoutUrl : '',
+  };
+}
+
+function isCampingQueryDue(query) {
+  const intervalMs = Math.max(1, Math.min(43200, Number.parseInt(query.checkMinutes, 10) || 30)) * 60_000;
+  const lastCheckedAt = Date.parse(query.lastCheckedAt || '');
+  return !Number.isFinite(lastCheckedAt) || Date.now() - lastCheckedAt >= intervalMs;
+}
+
+function normalizeCampingMonitorSettings(settings = {}, overrides = {}) {
+  const merged = { ...settings, ...overrides };
+  return {
+    enabled: Boolean(merged.enabled),
+    maxConcurrent: Math.max(1, Math.min(8, Number.parseInt(merged.maxConcurrent, 10) || 2)),
+    lastRunAt: String(merged.lastRunAt || '').slice(0, 40),
+    lastStatus: String(merged.lastStatus || '').slice(0, 180),
+  };
+}
+
+async function getCampingMonitorSettings(scope, userId) {
+  if (typeof store.getCampingMonitorSettings !== 'function') return {};
+  return store.getCampingMonitorSettings({ ...scope, userId });
+}
+
+async function saveCampingMonitorSettings(scope, userId, settings) {
+  const normalized = normalizeCampingMonitorSettings(settings);
+  if (typeof store.saveCampingMonitorSettings !== 'function') return normalized;
+  return normalizeCampingMonitorSettings(await store.saveCampingMonitorSettings(normalized, { ...scope, userId }));
+}
+
+function campingQueryCampgrounds(query) {
+  if (Array.isArray(query.campgrounds) && query.campgrounds.length) return query.campgrounds;
+  return [{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }].filter((campground) => campground.id);
+}
+
+function isStoredCampingRangeValid(startValue, endValue) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(startValue || ''))
+    && /^\d{4}-\d{2}-\d{2}$/.test(String(endValue || ''))
+    && String(endValue) > String(startValue);
+}
+
+function campingMatchPassesFilters(match, filters = {}) {
+  const active = normalizeStoredCampingFilters(filters);
+  const text = [match.campgroundName, match.site, match.loop, match.type, match.campsiteType, match.typeOfUse, match.capacityRating].join(' ').toLowerCase();
+  if (active.excludeSail && /\b(sail|boat|vessel|anchoring|mooring)\b/.test(text)) return false;
+  if (active.excludeGroup && /\bgroup\b/.test(text)) return false;
+  if (active.excludeRvOnly && (/\brv\b/.test(text) || /recreational vehicle/.test(text)) && !/\b(tent|standard|walk|primitive)\b/.test(text)) return false;
+  if (active.tentAvailable && /\b(cabin|yurt|shelter|lookout|parking|equestrian|horse)\b/.test(text)) return false;
+  return true;
+}
+
+function formatCampingAvailabilityStatus(visibleCount, rawCount) {
+  if (!rawCount) return 'No sites available.';
+  if (visibleCount === rawCount) return `${visibleCount} available.`;
+  return `${visibleCount} available after filters (${rawCount} total).`;
+}
+
 function normalizeStoredCampingQueries(queries) {
   if (!Array.isArray(queries)) return [];
   return queries.slice(0, 50).filter((query) => query?.id).map((query) => ({
@@ -1202,6 +1391,7 @@ function normalizeStoredCampingQueries(queries) {
     lastCheckedAt: String(query.lastCheckedAt || '').slice(0, 40),
     lastStatus: String(query.lastStatus || '').slice(0, 160),
     autoOpenedUrl: String(query.autoOpenedUrl || '').slice(0, 400),
+    pendingReservationUrl: String(query.pendingReservationUrl || '').slice(0, 400),
   }));
 }
 

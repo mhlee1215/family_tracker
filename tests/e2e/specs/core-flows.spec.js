@@ -107,6 +107,8 @@ test.describe('Family Tracker core flows', () => {
   test('camping tab manages recurring national campground searches', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     const availabilityRequests = [];
+    let campingQueries = [];
+    let campingMonitorSettings = { enabled: false, maxConcurrent: 2, lastStatus: '', lastRunAt: '' };
     await page.route('**/api/camping/national/search**', async (route) => {
       const query = new URL(route.request().url()).searchParams.get('q');
       const campgrounds = query === '94117'
@@ -129,28 +131,62 @@ test.describe('Family Tracker core flows', () => {
         body: JSON.stringify({ campgrounds }),
       });
     });
-    await page.route('**/api/camping/national/availability', async (route) => {
-      const requestBody = route.request().postDataJSON();
-      availabilityRequests.push(requestBody);
+    await page.route('**/api/camping/queries', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ queries: campingQueries }) });
+        return;
+      }
+      const body = route.request().postDataJSON();
+      campingQueries = body.queries || [];
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ queries: campingQueries }) });
+    });
+    await page.route('**/api/camping/monitor', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: campingMonitorSettings }) });
+        return;
+      }
+      const body = route.request().postDataJSON();
+      campingMonitorSettings = { ...campingMonitorSettings, ...(body.settings || {}), lastStatus: 'Saved monitor settings.' };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: campingMonitorSettings }) });
+    });
+    await page.route('**/api/camping/monitor/run', async (route) => {
+      const body = route.request().postDataJSON();
+      const selectedIds = body.queryId ? [body.queryId] : campingQueries.map((query) => query.id);
       await new Promise((resolve) => setTimeout(resolve, 100));
-      const isUpperPines = requestBody.campgroundId === '232447';
-      const matches = isUpperPines
-        ? [
-          ...Array.from({ length: 18 }, (_, index) => {
-            const day = String(4 + index).padStart(2, '0');
-            const checkout = String(6 + index).padStart(2, '0');
-            return { campgroundId: requestBody.campgroundId, campsiteId: '100', site: '044', loop: 'Upper Pines', campsiteType: 'STANDARD NONELECTRIC', typeOfUse: 'Overnight', startDate: `2026-09-${day}`, endDate: `2026-09-${checkout}`, nights: [`2026-09-${day}`], checkoutUrl: `https://www.recreation.gov/camping/campsites/100?checkin=09%2F${day}%2F2026&checkout=09%2F${checkout}%2F2026` };
-          }),
-          { campgroundId: requestBody.campgroundId, campsiteId: 'sail', site: 'Sail 1', loop: 'Anchoring', campsiteType: 'SAILING VESSEL', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/sail' },
-          { campgroundId: requestBody.campgroundId, campsiteId: 'group', site: 'Group 1', loop: 'Group', campsiteType: 'GROUP STANDARD NONELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/group' },
-          { campgroundId: requestBody.campgroundId, campsiteId: 'rv', site: 'RV 1', loop: 'RV', campsiteType: 'RV ELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/rv' },
-          { campgroundId: requestBody.campgroundId, campsiteId: 'cabin', site: 'Cabin 1', loop: 'Cabin', campsiteType: 'CABIN ELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/cabin' },
-        ]
-        : [{ campgroundId: requestBody.campgroundId, campsiteId: '200', site: '012', loop: 'Lower Pines', campsiteType: 'STANDARD NONELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: 'https://www.recreation.gov/camping/campsites/200?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026' }];
+      campingQueries = campingQueries.map((query) => {
+        if (!selectedIds.includes(query.id)) return query;
+        const rawMatches = query.campgrounds.flatMap((campground) => {
+          const requestBody = {
+            campgroundId: campground.id,
+            rangeStart: query.rangeStart,
+            rangeEnd: query.rangeEnd,
+            stayNights: query.stayNights,
+            weekendOnly: query.weekendOnly,
+          };
+          availabilityRequests.push(requestBody);
+          const isUpperPines = campground.id === '232447';
+          return isUpperPines
+            ? [
+              ...Array.from({ length: 18 }, (_, index) => {
+                const day = String(4 + index).padStart(2, '0');
+                const checkout = String(6 + index).padStart(2, '0');
+                return { campgroundId: requestBody.campgroundId, campgroundName: campground.name, campsiteId: '100', site: '044', loop: 'Upper Pines', campsiteType: 'STANDARD NONELECTRIC', typeOfUse: 'Overnight', startDate: `2026-09-${day}`, endDate: `2026-09-${checkout}`, nights: [`2026-09-${day}`], checkoutUrl: `https://www.recreation.gov/camping/campsites/100?checkin=09%2F${day}%2F2026&checkout=09%2F${checkout}%2F2026` };
+              }),
+              { campgroundId: requestBody.campgroundId, campgroundName: campground.name, campsiteId: 'sail', site: 'Sail 1', loop: 'Anchoring', campsiteType: 'SAILING VESSEL', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/sail' },
+              { campgroundId: requestBody.campgroundId, campgroundName: campground.name, campsiteId: 'group', site: 'Group 1', loop: 'Group', campsiteType: 'GROUP STANDARD NONELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/group' },
+              { campgroundId: requestBody.campgroundId, campgroundName: campground.name, campsiteId: 'rv', site: 'RV 1', loop: 'RV', campsiteType: 'RV ELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/rv' },
+              { campgroundId: requestBody.campgroundId, campgroundName: campground.name, campsiteId: 'cabin', site: 'Cabin 1', loop: 'Cabin', campsiteType: 'CABIN ELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/cabin' },
+            ]
+            : [{ campgroundId: requestBody.campgroundId, campgroundName: campground.name, campsiteId: '200', site: '012', loop: 'Lower Pines', campsiteType: 'STANDARD NONELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: 'https://www.recreation.gov/camping/campsites/200?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026' }];
+        });
+        const matches = rawMatches.filter((match) => !['Sail 1', 'Group 1', 'RV 1', 'Cabin 1'].includes(match.site));
+        return { ...query, matches, lastCheckedAt: '2026-07-03T17:00:00.000Z', lastStatus: '19 available after filters (23 total).', progress: '' };
+      });
+      campingMonitorSettings = { ...campingMonitorSettings, lastRunAt: '2026-07-03T17:00:00.000Z', lastStatus: 'Monitor checked 1 search.' };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ matches }),
+        body: JSON.stringify({ queries: campingQueries, settings: campingMonitorSettings }),
       });
     });
 
@@ -197,14 +233,20 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('2 hr');
     await expect(page.locator('#camping-query-list')).toContainText('Autooff');
+    await page.locator('#camping-monitor-enabled').check();
+    await page.locator('#camping-monitor-concurrency').fill('3');
+    await page.locator('#camping-monitor-save').click();
+    await expect(page.locator('#camping-monitor-status')).toContainText('Server monitor on.');
+    await expect(page.locator('#camping-monitor-status')).toContainText('Max 3 at once.');
     await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('familyTracker.campingQueries')).forEach((key) => localStorage.removeItem(key)));
     await page.reload();
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
+    await expect(page.locator('#camping-monitor-status')).toContainText('Server monitor on.');
     await page.locator('[data-camping-action="run"]').click();
     await expect(page.locator('[data-camping-action="run"]')).toHaveText('Checking');
     await expect(page.locator('#camping-query-list')).toContainText('Checking Upper Pines Campground, Lower Pines Campground');
-    await expect(page.locator('#camping-query-list')).toContainText('candidate windows');
+    await expect(page.locator('#camping-query-list')).toContainText('Server monitor is checking availability');
 
     await expect.poll(() => availabilityRequests.length).toBe(2);
     expect(availabilityRequests[0]).toMatchObject({
@@ -300,6 +342,20 @@ test.describe('Family Tracker core flows', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ queries: body.queries || [] }),
+      });
+    });
+    await page.route('**/api/camping/monitor', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ settings: { enabled: false, maxConcurrent: 2 } }),
+      });
+    });
+    await page.route('**/api/camping/monitor/run', async (route) => {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'A valid date range is required.' }),
       });
     });
     await app.loginAsDevAdmin('/camping');
