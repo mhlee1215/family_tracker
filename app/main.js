@@ -1984,12 +1984,7 @@ function renderCampingQuery(query) {
   const article = document.createElement('article');
   article.className = `camping-query-card ${query.matches?.length ? 'has-availability' : ''}`;
   const statusLabel = query.progress ? 'Checking' : query.matches?.length ? 'Available' : 'Watching';
-  const matches = (query.matches || []).slice(0, 5).map((match) => `
-    <li>
-      <span>${match.campgroundName ? `${escapeHtml(match.campgroundName)} · ` : ''}Site ${escapeHtml(match.site)} · ${escapeHtml(match.startDate)} to ${escapeHtml(match.endDate)}</span>
-      <a href="${escapeHtml(match.checkoutUrl)}" target="_blank" rel="noopener noreferrer">Reserve</a>
-    </li>
-  `).join('');
+  const matches = renderCampingMatchGroups(query.matches || []);
   const campgrounds = campingQueryCampgrounds(query);
   article.innerHTML = `
     <div class="camping-query-head">
@@ -2008,7 +2003,7 @@ function renderCampingQuery(query) {
     </dl>
     <p class="settings-note">${escapeHtml(query.lastStatus || 'Not checked yet.')}${query.lastCheckedAt ? ` Last: ${escapeHtml(relativeDateTime(query.lastCheckedAt))}` : ''}</p>
     ${query.progress ? `<p class="camping-progress" role="status">${escapeHtml(query.progress)}</p>` : ''}
-    ${matches ? `<ul class="camping-match-list">${matches}</ul>` : ''}
+    ${matches}
     <menu class="camping-actions">
       <button type="button" class="compact-button" data-camping-action="run" data-camping-id="${escapeHtml(query.id)}">Run</button>
       <button type="button" class="ghost-button" data-camping-action="edit" data-camping-id="${escapeHtml(query.id)}">Edit</button>
@@ -2016,6 +2011,33 @@ function renderCampingQuery(query) {
     </menu>
   `;
   return article;
+}
+
+function renderCampingMatchGroups(matches) {
+  if (!matches.length) return '';
+  const groups = new Map();
+  for (const match of matches) {
+    const key = `${match.campgroundName || ''}|${match.site || ''}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(match);
+  }
+  return `<div class="camping-match-groups">${[...groups.values()].map((group, index) => {
+    const first = group[0];
+    const label = `${first.campgroundName ? `${escapeHtml(first.campgroundName)} · ` : ''}Site ${escapeHtml(first.site)}`;
+    return `
+      <details class="camping-match-group" ${index === 0 ? 'open' : ''}>
+        <summary><span>${label}</span><small>${group.length} date${group.length === 1 ? '' : 's'}</small></summary>
+        <div class="camping-match-dates">
+          ${group.map((match) => `
+            <details class="camping-match-date">
+              <summary>${escapeHtml(match.startDate)} to ${escapeHtml(match.endDate)}</summary>
+              <a href="${escapeHtml(match.checkoutUrl)}" target="_blank" rel="noopener noreferrer">Reserve</a>
+            </details>
+          `).join('')}
+        </div>
+      </details>
+    `;
+  }).join('')}</div>`;
 }
 
 function handleCampingQueryAction(event) {

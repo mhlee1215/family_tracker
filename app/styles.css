@@ -1674,6 +1674,7 @@ input {
   display: grid;
   align-content: start;
   gap: 12px;
+  overflow: visible;
 }
 
 .camping-date-grid {
@@ -1736,6 +1737,10 @@ input {
   cursor: pointer;
 }
 
+.camping-recommendations button span {
+  overflow-wrap: anywhere;
+}
+
 .camping-candidate-meta {
   color: var(--ink-muted-48);
   font-size: 12px;
@@ -1755,8 +1760,12 @@ input {
 
 .camping-interval-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-columns: minmax(96px, 1fr) 112px;
   gap: 8px;
+}
+
+.camping-interval-field {
+  grid-column: 1 / -1;
 }
 
 .floating-field .camping-interval-control input,
@@ -1779,6 +1788,7 @@ input {
 .camping-query-card {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .camping-query-card.has-availability {
@@ -1802,6 +1812,15 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.camping-query-head > div {
+  min-width: 0;
+}
+
+.camping-query-head strong,
+.camping-query-head small {
+  overflow-wrap: anywhere;
 }
 
 .camping-actions {
@@ -1856,20 +1875,65 @@ input {
   font-size: 13px;
 }
 
-.camping-match-list {
+.camping-match-groups {
   display: grid;
   gap: 8px;
+  max-height: 360px;
   margin: 0;
   padding: 0;
-  list-style: none;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
-.camping-match-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+.camping-match-group,
+.camping-match-date {
   border-top: 1px solid var(--hairline);
   padding-top: 8px;
+}
+
+.camping-match-group summary,
+.camping-match-date summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.camping-match-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--body);
+}
+
+.camping-match-group > summary small {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.camping-match-dates {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.camping-match-date {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding-left: 12px;
+}
+
+.flatpickr-calendar select,
+.flatpickr-calendar input {
+  width: auto;
+  min-height: 0;
+}
+
+.flatpickr-current-month {
+  height: 40px;
+  padding-top: 6px;
+  overflow: visible;
 }
 
 .travel-view .fund-open-link {
@@ -1941,9 +2005,9 @@ input {
   }
 
   .camping-query-head,
-  .camping-match-list li {
+  .camping-match-date {
     align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 }
 
