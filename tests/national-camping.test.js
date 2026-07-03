@@ -78,7 +78,19 @@ describe('national camping', () => {
     assert.equal(matches.length, 1);
     assert.equal(matches[0].site, '044');
     assert.deepEqual(matches[0].nights, ['2026-08-10', '2026-08-11']);
+    assert.equal(matches[0].checkoutUrl, 'https://www.recreation.gov/camping/campsites/100?checkin=08%2F10%2F2026&checkout=08%2F12%2F2026');
     assert.equal(matches[0].checkoutUrl, reservationUrl({ campgroundId: '232447', campsiteId: '100', startDate: '2026-08-10', endDate: '2026-08-12' }));
+  });
+
+  it('builds campsite reservation links with Recreation.gov date query format', () => {
+    assert.equal(
+      reservationUrl({ campgroundId: '232447', campsiteId: '100', startDate: '2026-09-04', endDate: '2026-09-06' }),
+      'https://www.recreation.gov/camping/campsites/100?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026',
+    );
+    assert.equal(
+      reservationUrl({ campgroundId: '232447', startDate: '2026-09-04', endDate: '2026-09-06' }),
+      'https://www.recreation.gov/camping/campgrounds/232447?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026',
+    );
   });
 
   it('builds weekend-only windows inside a search range', () => {

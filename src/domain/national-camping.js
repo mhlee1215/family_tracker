@@ -10,10 +10,12 @@ export function normalizeCampingDate(value) {
 }
 
 export function reservationUrl({ campgroundId, campsiteId, startDate, endDate }) {
-  const url = new URL(`https://www.recreation.gov/camping/campgrounds/${encodeURIComponent(campgroundId)}`);
-  if (startDate) url.searchParams.set('checkin', startDate);
-  if (endDate) url.searchParams.set('checkout', endDate);
-  if (campsiteId) url.searchParams.set('campsite', campsiteId);
+  const path = campsiteId
+    ? `campsites/${encodeURIComponent(campsiteId)}`
+    : `campgrounds/${encodeURIComponent(campgroundId)}`;
+  const url = new URL(`https://www.recreation.gov/camping/${path}`);
+  if (startDate) url.searchParams.set('checkin', recreationBookingDate(startDate));
+  if (endDate) url.searchParams.set('checkout', recreationBookingDate(endDate));
   return url.toString();
 }
 
@@ -143,6 +145,13 @@ function dateKey(date) {
 function optionalNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function recreationBookingDate(value) {
+  const date = normalizeCampingDate(value);
+  if (!date) return String(value || '');
+  const [year, month, day] = date.split('-');
+  return `${month}/${day}/${year}`;
 }
 
 function byRatingCount(left, right) {

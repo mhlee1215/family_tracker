@@ -139,14 +139,14 @@ test.describe('Family Tracker core flows', () => {
           ...Array.from({ length: 18 }, (_, index) => {
             const day = String(4 + index).padStart(2, '0');
             const checkout = String(6 + index).padStart(2, '0');
-            return { campgroundId: requestBody.campgroundId, campsiteId: '100', site: '044', loop: 'Upper Pines', campsiteType: 'STANDARD NONELECTRIC', typeOfUse: 'Overnight', startDate: `2026-09-${day}`, endDate: `2026-09-${checkout}`, nights: [`2026-09-${day}`], checkoutUrl: `https://www.recreation.gov/camping/campgrounds/${requestBody.campgroundId}?checkin=2026-09-${day}&checkout=2026-09-${checkout}` };
+            return { campgroundId: requestBody.campgroundId, campsiteId: '100', site: '044', loop: 'Upper Pines', campsiteType: 'STANDARD NONELECTRIC', typeOfUse: 'Overnight', startDate: `2026-09-${day}`, endDate: `2026-09-${checkout}`, nights: [`2026-09-${day}`], checkoutUrl: `https://www.recreation.gov/camping/campsites/100?checkin=09%2F${day}%2F2026&checkout=09%2F${checkout}%2F2026` };
           }),
           { campgroundId: requestBody.campgroundId, campsiteId: 'sail', site: 'Sail 1', loop: 'Anchoring', campsiteType: 'SAILING VESSEL', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/sail' },
           { campgroundId: requestBody.campgroundId, campsiteId: 'group', site: 'Group 1', loop: 'Group', campsiteType: 'GROUP STANDARD NONELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/group' },
           { campgroundId: requestBody.campgroundId, campsiteId: 'rv', site: 'RV 1', loop: 'RV', campsiteType: 'RV ELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/rv' },
           { campgroundId: requestBody.campgroundId, campsiteId: 'cabin', site: 'Cabin 1', loop: 'Cabin', campsiteType: 'CABIN ELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04'], checkoutUrl: 'https://www.recreation.gov/camping/campgrounds/cabin' },
         ]
-        : [{ campgroundId: requestBody.campgroundId, campsiteId: '200', site: '012', loop: 'Lower Pines', campsiteType: 'STANDARD NONELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: `https://www.recreation.gov/camping/campgrounds/${requestBody.campgroundId}?checkin=2026-09-04&checkout=2026-09-06` }];
+        : [{ campgroundId: requestBody.campgroundId, campsiteId: '200', site: '012', loop: 'Lower Pines', campsiteType: 'STANDARD NONELECTRIC', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: 'https://www.recreation.gov/camping/campsites/200?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026' }];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -232,6 +232,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('.camping-match-group').first()).toContainText('18 dates');
     await expect.poll(() => page.locator('.camping-match-groups').evaluate((element) => element.scrollHeight > element.clientHeight)).toBeTruthy();
     await expect(page.locator('#camping-query-list a[href*="recreation.gov"]')).toHaveCount(19);
+    await expect(page.locator('#camping-query-list a[href*="recreation.gov"]').first()).toHaveAttribute('href', 'https://www.recreation.gov/camping/campsites/100?checkin=09%2F04%2F2026&checkout=09%2F06%2F2026');
 
     await page.locator('[data-camping-action="edit"]').click();
     await expect(page.locator('#camping-save-query')).toHaveText('Update query');
