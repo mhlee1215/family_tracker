@@ -679,6 +679,13 @@
               <input id="camping-query-name" type="search" list="camping-candidates" placeholder="Upper Pines, Yosemite, or 94117" required>
               <datalist id="camping-candidates"></datalist>
             </label>
+            <fieldset class="camping-filter-grid" aria-label="Campground filters">
+              <legend>Filters</legend>
+              <label class="camping-filter"><input id="camping-filter-tent" type="checkbox" checked><span>Tent available</span></label>
+              <label class="camping-filter"><input id="camping-filter-sail" type="checkbox" checked><span>Exclude sail</span></label>
+              <label class="camping-filter"><input id="camping-filter-group" type="checkbox" checked><span>Exclude group campsite</span></label>
+              <label class="camping-filter"><input id="camping-filter-rv" type="checkbox" checked><span>Exclude RV only</span></label>
+            </fieldset>
             <div id="camping-recommendations" class="camping-recommendations hidden" aria-label="Recommended campgrounds"></div>
             <div class="camping-date-grid">
               <label class="floating-field"><span>Range start</span><input id="camping-start-date" type="date" required></label>
@@ -758,6 +765,6 @@
     <script src="/app/vendor/BetterScrollCore.min.js"></script>
     <script src="/app/vendor/BetterScrollWheel.min.js"></script>
     <script src="/app/vendor/flatpickr.min.js"></script>
-    <script type="module" src="/app/main.js?build=166"></script>
+    <script type="module" src="/app/main.js?build=167"></script>
   </body>
 </html>

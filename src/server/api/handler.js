@@ -1195,13 +1195,23 @@ function normalizeStoredCampingQueries(queries) {
     rangeEnd: String(query.rangeEnd || '').slice(0, 10),
     stayNights: Math.max(1, Math.min(14, Number.parseInt(query.stayNights, 10) || 2)),
     checkMinutes: Math.max(1, Math.min(43200, Number.parseInt(query.checkMinutes, 10) || 30)),
+    filters: normalizeStoredCampingFilters(query.filters),
     weekendOnly: Boolean(query.weekendOnly),
     autoConfirm: Boolean(query.autoConfirm),
-    matches: Array.isArray(query.matches) ? query.matches.slice(0, 20) : [],
+    matches: Array.isArray(query.matches) ? query.matches.slice(0, 500) : [],
     lastCheckedAt: String(query.lastCheckedAt || '').slice(0, 40),
     lastStatus: String(query.lastStatus || '').slice(0, 160),
     autoOpenedUrl: String(query.autoOpenedUrl || '').slice(0, 400),
   }));
+}
+
+function normalizeStoredCampingFilters(filters = {}) {
+  return {
+    tentAvailable: filters.tentAvailable !== false,
+    excludeSail: filters.excludeSail !== false,
+    excludeGroup: filters.excludeGroup !== false,
+    excludeRvOnly: filters.excludeRvOnly !== false,
+  };
 }
 
 function normalizeStoredNumber(value) {

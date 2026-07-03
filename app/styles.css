@@ -1688,7 +1688,25 @@ input {
   gap: 8px;
 }
 
-.camping-check {
+.camping-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.camping-filter-grid legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.camping-check,
+.camping-filter {
   display: flex;
   align-items: center;
   min-height: 44px;
@@ -1702,7 +1720,14 @@ input {
   line-height: 1.2;
 }
 
-.camping-check input {
+.camping-filter {
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.camping-check input,
+.camping-filter input {
   width: 18px;
   height: 18px;
   margin: 0;
@@ -1789,6 +1814,7 @@ input {
   display: grid;
   gap: 12px;
   min-width: 0;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.04);
 }
 
 .camping-query-card.has-availability {
@@ -1851,13 +1877,16 @@ input {
 
 .camping-query-meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
 }
 
 .camping-query-meta div {
   min-width: 0;
+  border-radius: 8px;
+  background: var(--surface-pearl);
+  padding: 8px;
 }
 
 .camping-query-meta dt,
@@ -1875,6 +1904,36 @@ input {
   font-size: 13px;
 }
 
+.camping-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.camping-filter-pills span {
+  border-radius: 9999px;
+  background: #eef5ff;
+  color: var(--primary);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.camping-match-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 8px;
+  background: var(--surface-pearl);
+  padding: 8px 10px;
+}
+
+.camping-match-summary span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .camping-match-groups {
   display: grid;
   gap: 8px;
@@ -1887,8 +1946,10 @@ input {
 
 .camping-match-group,
 .camping-match-date {
-  border-top: 1px solid var(--hairline);
-  padding-top: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+  padding: 8px;
 }
 
 .camping-match-group summary,
@@ -1899,15 +1960,30 @@ input {
 
 .camping-match-group > summary {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   color: var(--body);
 }
 
-.camping-match-group > summary small {
-  flex: 0 0 auto;
+.camping-match-group > summary span {
+  display: grid;
+  gap: 4px;
+}
+
+.camping-match-group > summary span small {
   color: var(--muted);
+  font-size: 12px;
+}
+
+.camping-match-group > summary em {
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  background: var(--surface-pearl);
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  padding: 4px 8px;
 }
 
 .camping-match-dates {
@@ -1921,7 +1997,7 @@ input {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 12px;
-  padding-left: 12px;
+  background: var(--surface-pearl);
 }
 
 .flatpickr-calendar select,
@@ -2000,6 +2076,7 @@ input {
 @media (max-width: 760px) {
   .camping-shell,
   .camping-date-grid,
+  .camping-filter-grid,
   .camping-query-meta {
     grid-template-columns: 1fr;
   }
