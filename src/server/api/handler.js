@@ -20,6 +20,7 @@ import {
 import { createBabyStore, getStorageConfig } from '../db/store-factory.js';
 import { getMediaStorageConfig, publicMediaStorageConfig } from '../media-config.js';
 import { buildMilkReminderJob, normalizeNotificationSettings } from '../../domain/milk-reminder.js';
+import { findCaliforniaStateAvailability, searchCaliforniaStateCampgrounds } from '../../domain/california-state-camping.js';
 import { findNationalAvailability, searchNationalCampgrounds } from '../../domain/national-camping.js';
 import { searchTravel, searchTravelDeals, sourceStatuses } from '../../domain/travel-search.js';
 import { createId } from '../../utils/ids.js';
@@ -348,9 +349,22 @@ async function handleApi(request, response) {
       return;
     }
 
+    if (request.method === 'GET' && requestUrl.pathname === '/api/camping/search') {
+      const query = requestUrl.searchParams.get('q') || '';
+      const provider = normalizeCampingProvider(requestUrl.searchParams.get('provider') || 'all', { allowAll: true });
+      sendJson(response, 200, await searchCampingCampgrounds(query, { provider }));
+      return;
+    }
+
     if (request.method === 'GET' && requestUrl.pathname === '/api/camping/national/search') {
       const query = requestUrl.searchParams.get('q') || '';
       sendJson(response, 200, { campgrounds: await searchNationalCampgrounds(query) });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/camping/california-state/search') {
+      const query = requestUrl.searchParams.get('q') || '';
+      sendJson(response, 200, { campgrounds: await searchCaliforniaStateCampgrounds(query) });
       return;
     }
 
@@ -1288,14 +1302,25 @@ async function runStoredCampingQuery(query) {
   if (!campgrounds.length || !campgrounds[0]?.id) throw new Error('Choose at least one campground before running.');
   if (!isStoredCampingRangeValid(query.rangeStart, query.rangeEnd)) throw new Error('A valid date range is required.');
   const results = await Promise.all(campgrounds.map(async (campground) => {
-    const matches = await findNationalAvailability({
+    const provider = normalizeCampingProvider(campground.provider || query.provider || 'national');
+    const request = {
       campgroundId: campground.id,
+      placeId: campground.placeId || query.placeId || '',
       rangeStart: query.rangeStart,
       rangeEnd: query.rangeEnd,
       stayNights: query.stayNights,
       weekendOnly: query.weekendOnly,
-    });
-    return matches.map((match) => ({ ...match, campgroundName: campground.name }));
+    };
+    const matches = provider === 'california_state'
+      ? await findCaliforniaStateAvailability(request)
+      : await findNationalAvailability(request);
+    return matches.map((match) => ({
+      ...match,
+      provider,
+      providerLabel: campingProviderLabel(provider),
+      campgroundName: campground.name,
+      bookingUrl: campground.bookingUrl || match.bookingUrl || '',
+    }));
   }));
   const rawMatches = results.flat();
   const matches = rawMatches.filter((match) => campingMatchPassesFilters(match, query.filters));
@@ -1338,7 +1363,40 @@ async function saveCampingMonitorSettings(scope, userId, settings) {
 
 function campingQueryCampgrounds(query) {
   if (Array.isArray(query.campgrounds) && query.campgrounds.length) return query.campgrounds;
-  return [{ id: query.campgroundId, name: query.campgroundName, location: query.location || '' }].filter((campground) => campground.id);
+  return [{
+    id: query.campgroundId,
+    provider: normalizeCampingProvider(query.provider || 'national'),
+    providerLabel: campingProviderLabel(query.provider || 'national'),
+    name: query.campgroundName,
+    location: query.location || '',
+    placeId: query.placeId || '',
+    bookingUrl: query.bookingUrl || '',
+  }].filter((campground) => campground.id);
+}
+
+async function searchCampingCampgrounds(query, { provider = 'all' } = {}) {
+  const sources = [];
+  if (provider === 'all' || provider === 'national') sources.push(['national', () => searchNationalCampgrounds(query)]);
+  if (provider === 'all' || provider === 'california_state') sources.push(['california_state', () => searchCaliforniaStateCampgrounds(query)]);
+  const settled = await Promise.allSettled(sources.map(async ([source, loader]) => ({ source, campgrounds: await loader() })));
+  const errors = [];
+  const campgrounds = settled.flatMap((result, index) => {
+    const source = sources[index][0];
+    if (result.status === 'rejected') {
+      errors.push({ source, error: result.reason?.message || 'Search failed.' });
+      return [];
+    }
+    return result.value.campgrounds.map((campground) => ({
+      ...campground,
+      provider: normalizeCampingProvider(campground.provider || source),
+      providerLabel: campingProviderLabel(campground.provider || source),
+    }));
+  }).sort((left, right) => {
+    const ratingDiff = normalizeStoredNumber(right.ratingCount) - normalizeStoredNumber(left.ratingCount);
+    if (ratingDiff) return ratingDiff;
+    return String(left.name || '').localeCompare(String(right.name || ''));
+  }).slice(0, 30);
+  return { campgrounds, errors };
 }
 
 function isStoredCampingRangeValid(startValue, endValue) {
@@ -1367,14 +1425,22 @@ function normalizeStoredCampingQueries(queries) {
   if (!Array.isArray(queries)) return [];
   return queries.slice(0, 50).filter((query) => query?.id).map((query) => ({
     id: String(query.id).slice(0, 120),
+    provider: normalizeCampingProvider(query.provider || 'national'),
+    providerLabel: campingProviderLabel(query.provider || 'national'),
     name: String(query.name || '').slice(0, 120),
     campgroundId: String(query.campgroundId || '').slice(0, 80),
     campgroundName: String(query.campgroundName || '').slice(0, 160),
     location: String(query.location || '').slice(0, 160),
+    placeId: String(query.placeId || '').slice(0, 80),
+    bookingUrl: String(query.bookingUrl || '').slice(0, 400),
     campgrounds: Array.isArray(query.campgrounds) ? query.campgrounds.slice(0, 20).map((campground) => ({
       id: String(campground.id || '').slice(0, 80),
+      provider: normalizeCampingProvider(campground.provider || query.provider || 'national'),
+      providerLabel: campingProviderLabel(campground.provider || query.provider || 'national'),
       name: String(campground.name || '').slice(0, 160),
       location: String(campground.location || '').slice(0, 160),
+      placeId: String(campground.placeId || '').slice(0, 80),
+      bookingUrl: String(campground.bookingUrl || '').slice(0, 400),
       rating: normalizeStoredNumber(campground.rating),
       ratingCount: normalizeStoredNumber(campground.ratingCount),
       campsiteCount: normalizeStoredNumber(campground.campsiteCount),
@@ -1402,6 +1468,17 @@ function normalizeStoredCampingFilters(filters = {}) {
     excludeGroup: filters.excludeGroup !== false,
     excludeRvOnly: filters.excludeRvOnly !== false,
   };
+}
+
+function normalizeCampingProvider(provider, { allowAll = false } = {}) {
+  const value = String(provider || '').trim().toLowerCase().replace(/-/g, '_');
+  if (allowAll && value === 'all') return 'all';
+  if (value === 'california_state' || value === 'ca_state' || value === 'reserve_california') return 'california_state';
+  return 'national';
+}
+
+function campingProviderLabel(provider) {
+  return normalizeCampingProvider(provider) === 'california_state' ? 'CA State' : 'National';
 }
 
 function normalizeStoredNumber(value) {

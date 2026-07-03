@@ -109,11 +109,14 @@ test.describe('Family Tracker core flows', () => {
     const availabilityRequests = [];
     let campingQueries = [];
     let campingMonitorSettings = { enabled: false, maxConcurrent: 2, lastStatus: '', lastRunAt: '' };
-    await page.route('**/api/camping/national/search**', async (route) => {
-      const query = new URL(route.request().url()).searchParams.get('q');
+    await page.route('**/api/camping/search**', async (route) => {
+      const url = new URL(route.request().url());
+      const query = url.searchParams.get('q');
       const campgrounds = query === '94117'
         ? Array.from({ length: 12 }, (_, index) => ({
           id: `near-${index}`,
+          provider: 'national',
+          providerLabel: 'National',
           name: `Nearby Campground ${index + 1}`,
           location: 'San Francisco, CA',
           rating: 4.1,
@@ -122,8 +125,8 @@ test.describe('Family Tracker core flows', () => {
           distance: 4.2 + index,
         }))
         : [
-          { id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA', rating: 4.4, ratingCount: 3830, campsiteCount: 235 },
-          { id: '232450', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA', rating: 4.1, ratingCount: 1200, campsiteCount: 60 },
+          { id: '232447', provider: 'national', providerLabel: 'National', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA', rating: 4.4, ratingCount: 3830, campsiteCount: 235 },
+          { id: '232450', provider: 'national', providerLabel: 'National', name: 'Lower Pines Campground', location: 'Yosemite National Park, CA', rating: 4.1, ratingCount: 1200, campsiteCount: 60 },
         ];
       await route.fulfill({
         status: 200,
@@ -206,6 +209,7 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-filter-rv')).toBeChecked();
     await expect(page.locator('#camping-recommendations button').first()).toContainText('3,830 ratings');
     await expect(page.locator('#camping-recommendations button').first()).toContainText('235 sites');
+    await expect(page.locator('#camping-recommendations button').first()).toContainText('National');
     await page.locator('#camping-recommendations button', { hasText: 'Upper Pines Campground' }).click();
     await page.locator('#camping-recommendations button', { hasText: 'Lower Pines Campground' }).click();
     await expect(page.locator('#camping-recommendations button.selected')).toHaveCount(2);
@@ -310,6 +314,97 @@ test.describe('Family Tracker core flows', () => {
     app.assertNoRuntimeErrors();
     await app.attachScenarioNarrative();
     await app.attachDiagnostics();
+  });
+
+  test('camping search supports california state provider', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    let campingQueries = [];
+    await page.route('**/api/camping/search**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('provider')).toBe('california_state');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          campgrounds: [{
+            id: '327',
+            provider: 'california_state',
+            providerLabel: 'CA State',
+            name: 'PINNACLES CAMPGROUND',
+            location: 'Pinnacles · Paicines · CA',
+            rating: 0,
+            ratingCount: 0,
+            campsiteCount: 134,
+            placeId: '42',
+            bookingUrl: 'https://www.reservecalifornia.com/park/42/327',
+          }],
+          errors: [],
+        }),
+      });
+    });
+    await page.route('**/api/camping/queries', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ queries: campingQueries }) });
+        return;
+      }
+      campingQueries = route.request().postDataJSON().queries || [];
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ queries: campingQueries }) });
+    });
+    await page.route('**/api/camping/monitor', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: { enabled: false, maxConcurrent: 2 } }) });
+    });
+    await page.route('**/api/camping/monitor/run', async (route) => {
+      const selectedId = route.request().postDataJSON().queryId;
+      campingQueries = campingQueries.map((query) => query.id !== selectedId ? query : {
+        ...query,
+        matches: [{
+          provider: 'california_state',
+          providerLabel: 'CA State',
+          campgroundId: '327',
+          campgroundName: 'PINNACLES CAMPGROUND',
+          campsiteId: '126',
+          site: 'Site 126',
+          campsiteType: 'STANDARD',
+          typeOfUse: 'Overnight',
+          startDate: '2026-09-04',
+          endDate: '2026-09-06',
+          checkoutUrl: 'https://www.reservecalifornia.com/park/42/327?site=126&arrivalDate=09-04-2026&departureDate=09-06-2026',
+        }],
+        lastCheckedAt: '2026-07-03T17:30:00.000Z',
+        lastStatus: '1 available.',
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ queries: campingQueries, settings: { enabled: false, maxConcurrent: 2, lastStatus: 'Monitor checked 1 search.' } }),
+      });
+    });
+
+    await app.loginAsDevAdmin('/camping');
+    await expect(page.locator('#camping-view.active')).toBeVisible();
+    await page.locator('#camping-provider').selectOption('california_state');
+    await page.locator('#camping-query-name').fill('Pinnacles');
+    await expect(page.locator('#camping-recommendations button')).toContainText('CA State');
+    await page.locator('#camping-recommendations button', { hasText: 'PINNACLES CAMPGROUND' }).click();
+    await page.locator('#camping-start-date').fill('2026-09-01');
+    await page.locator('#camping-end-date').fill('2026-09-08');
+    await page.locator('#camping-stay-nights').fill('2');
+    await page.locator('#camping-save-query').click();
+    await expect(page.locator('#camping-query-list')).toContainText('PINNACLES CAMPGROUND');
+    expect(campingQueries[0].campgrounds[0]).toMatchObject({
+      provider: 'california_state',
+      placeId: '42',
+      bookingUrl: 'https://www.reservecalifornia.com/park/42/327',
+    });
+
+    await page.locator('[data-camping-action="run"]').click();
+    await expect(page.locator('#camping-query-list')).toContainText('1 available.');
+    await expect(page.locator('#camping-query-list a[href*="reservecalifornia.com"]')).toHaveAttribute(
+      'href',
+      'https://www.reservecalifornia.com/park/42/327?site=126&arrivalDate=09-04-2026&departureDate=09-06-2026',
+    );
+
+    app.assertNoRuntimeErrors();
   });
 
   test('camping run action reports invalid saved search instead of getting stuck', async ({ page }, testInfo) => {
