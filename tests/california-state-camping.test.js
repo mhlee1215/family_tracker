@@ -100,6 +100,37 @@ describe('california state camping', () => {
     assert.equal(matches[0].checkoutUrl, 'https://www.reservecalifornia.com/park/42/327?site=126&arrivalDate=09-04-2026&departureDate=09-06-2026');
   });
 
+  it('limits ReserveCalifornia availability windows for Worker subrequest budgets', async () => {
+    const requestedBodies = [];
+    const matches = await findCaliforniaStateAvailability({
+      campgroundId: '327',
+      placeId: '42',
+      rangeStart: '2026-09-01',
+      rangeEnd: '2026-09-10',
+      stayNights: 2,
+      weekendOnly: true,
+      windowOffset: 1,
+      maxWindows: 1,
+    }, {
+      fetchImpl: async (_url, options = {}) => {
+        requestedBodies.push(JSON.parse(options.body));
+        return okJson({
+          Facility: {
+            FacilityId: 327,
+            PlaceId: 42,
+            Units: { 126: unit('126', 'Site 126', ['Available', 'Available']) },
+          },
+        });
+      },
+    });
+
+    assert.deepEqual(requestedBodies.map((body) => [body.StartDate, body.EndDate]), [
+      ['09-05-2026', '09-07-2026'],
+    ]);
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].checkoutUrl, 'https://www.reservecalifornia.com/park/42/327?site=126&arrivalDate=09-05-2026&departureDate=09-07-2026');
+  });
+
   it('parses ReserveCalifornia unit slices', () => {
     const matches = parseReserveCaliforniaAvailability({
       Facility: {
