@@ -1844,7 +1844,8 @@ async function saveCampingQuery(event) {
   await saveCampingQueries();
   resetCampingForm();
   renderCampingQueries();
-  scheduleCampingQuery(query);
+  if (shouldAutoScheduleCampingQuery(query)) scheduleCampingQuery(query);
+  else clearCampingTimer(query.id);
   renderCampingStatus(`Saved ${query.name}.`);
 }
 
@@ -2152,7 +2153,8 @@ async function deleteCampingQuery(queryId) {
     renderCampingStatus(`Deleted ${query.name || query.campgroundName}.`);
   } catch (error) {
     state.camping.queries = previousQueries;
-    scheduleCampingQuery(query);
+    if (shouldAutoScheduleCampingQuery(query)) scheduleCampingQuery(query);
+    else clearCampingTimer(query.id);
     renderCampingQueries();
     renderCampingStatus(`Could not delete ${query.name || query.campgroundName}: ${error.message || 'Save failed.'}`);
   }
@@ -2178,14 +2180,25 @@ function runAllCampingQueries() {
 }
 
 function scheduleCampingQueries() {
-  state.camping.queries.forEach(scheduleCampingQuery);
+  state.camping.queries.forEach((query) => {
+    if (shouldAutoScheduleCampingQuery(query)) scheduleCampingQuery(query);
+    else clearCampingTimer(query.id);
+  });
   renderCampingQueries();
 }
 
 function scheduleCampingQuery(query) {
+  if (!shouldAutoScheduleCampingQuery(query)) {
+    clearCampingTimer(query.id);
+    return;
+  }
   clearCampingTimer(query.id);
   const delay = normalizeCampingNumber(query.checkMinutes, 30, 1, 43_200) * 60_000;
   state.camping.timers.set(query.id, window.setInterval(() => runCampingQuery(query.id), delay));
+}
+
+function shouldAutoScheduleCampingQuery(query) {
+  return Boolean(query?.autoConfirm && campingQueryCampgrounds(query).length === 1);
 }
 
 function initializeCampingDatePickers() {

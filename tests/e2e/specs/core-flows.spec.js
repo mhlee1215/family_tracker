@@ -351,6 +351,47 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-status')).toContainText('Could not delete Delete sync fails: Sync failed');
   });
 
+  test('camping saved searches do not auto-run unless auto reservation is enabled', async ({ page }, testInfo) => {
+    const app = new AppHarness(page, testInfo);
+    await page.addInitScript(() => {
+      window.__familyTrackerIntervals = [];
+      const originalSetInterval = window.setInterval;
+      window.setInterval = (callback, delay, ...args) => {
+        window.__familyTrackerIntervals.push({ source: String(callback), delay });
+        return originalSetInterval(callback, delay, ...args);
+      };
+    });
+    await page.route('**/api/camping/queries', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queries: [{
+              id: 'manual-only-camping',
+              name: 'Manual only camping',
+              campgrounds: [{ id: '232447', name: 'Upper Pines Campground', location: 'Yosemite National Park, CA' }],
+              rangeStart: '2026-09-01',
+              rangeEnd: '2026-09-03',
+              stayNights: 2,
+              checkMinutes: 1,
+              filters: {},
+              weekendOnly: false,
+              autoConfirm: false,
+              matches: [],
+            }],
+          }),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+    await app.loginAsDevAdmin('/camping');
+    await expect(page.locator('#camping-query-list')).toContainText('Manual only camping');
+    const campingIntervals = await page.evaluate(() => window.__familyTrackerIntervals.filter((item) => item.source.includes('runCampingQuery')));
+    expect(campingIntervals).toEqual([]);
+  });
+
   test('travel tab aggregates flight lookup and saves a deal watch', async ({ page }, testInfo) => {
     const app = new AppHarness(page, testInfo);
     let searchRequest = null;
