@@ -395,6 +395,7 @@ const elements = {
   campingCheckMinutes: $('#camping-check-minutes'),
   campingCheckUnit: $('#camping-check-unit'),
   campingWeekendOnly: $('#camping-weekend-only'),
+  campingMonitorQuery: $('#camping-monitor-query'),
   campingAutoConfirm: $('#camping-auto-confirm'),
   campingSaveQuery: $('#camping-save-query'),
   campingResetQuery: $('#camping-reset-query'),
@@ -1839,6 +1840,7 @@ async function saveCampingQuery(event) {
     checkMinutes: readCampingIntervalMinutes(),
     filters: readCampingFilters(),
     weekendOnly: Boolean(elements.campingWeekendOnly?.checked),
+    monitorEnabled: Boolean(elements.campingMonitorQuery?.checked),
     autoConfirm: !multipleCampgrounds && Boolean(elements.campingAutoConfirm?.checked),
     matches: [],
     lastCheckedAt: '',
@@ -2007,6 +2009,7 @@ function renderCampingQuery(query) {
       <div><dt>Sites</dt><dd>${campgrounds.length}</dd></div>
       <div><dt>Nights</dt><dd>${query.stayNights}${query.weekendOnly ? ' · weekends' : ''}</dd></div>
       <div><dt>Every</dt><dd>${escapeHtml(formatCampingInterval(query.checkMinutes))}</dd></div>
+      <div><dt>Monitor</dt><dd>${query.monitorEnabled ? 'on' : 'off'}</dd></div>
       <div><dt>Auto</dt><dd>${query.autoConfirm ? 'on' : 'off'}</dd></div>
     </dl>
     <p class="settings-note">${escapeHtml(query.lastStatus || 'Not checked yet.')}${query.lastCheckedAt ? ` Last: ${escapeHtml(relativeDateTime(query.lastCheckedAt))}` : ''}</p>
@@ -2125,6 +2128,7 @@ function editCampingQuery(query) {
   setCampingIntervalControls(query.checkMinutes || 30);
   setCampingFilters(query.filters);
   elements.campingWeekendOnly.checked = Boolean(query.weekendOnly);
+  elements.campingMonitorQuery.checked = Boolean(query.monitorEnabled);
   elements.campingAutoConfirm.checked = Boolean(query.autoConfirm);
   syncCampingAutoConfirmAvailability();
   elements.campingSaveQuery.textContent = 'Update query';

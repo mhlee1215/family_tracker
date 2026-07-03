@@ -1236,7 +1236,7 @@ async function runCampingMonitorTick() {
   for (const row of scopes) {
     const settings = normalizeCampingMonitorSettings(row.settings);
     if (!settings.enabled || !Array.isArray(row.queries) || !row.queries.length) continue;
-    if (!row.queries.some((query) => isCampingQueryDue(query))) continue;
+    if (!row.queries.some((query) => isCampingQueryMonitorEnabled(query) && isCampingQueryDue(query))) continue;
     await runCampingMonitorForScope(
       { familyId: row.familyId, userId: row.userId },
       { dueOnly: true, queries: row.queries, settings },
@@ -1261,7 +1261,7 @@ async function runCampingMonitorForScope(scope, options = {}) {
       if (options.queryId) return query.id === String(options.queryId);
       if (requestedIds.length) return requestedIds.includes(query.id);
       if (options.force) return true;
-      if (options.dueOnly) return isCampingQueryDue(query);
+      if (options.dueOnly) return isCampingQueryMonitorEnabled(query) && isCampingQueryDue(query);
       return true;
     }).sort((left, right) => requestedIds.length ? requestedIds.indexOf(left.id) - requestedIds.indexOf(right.id) : 0);
     const maxConcurrent = Math.min(settings.maxConcurrent, 1);
@@ -1447,6 +1447,10 @@ function isCampingQueryDue(query) {
   return !Number.isFinite(lastCheckedAt) || Date.now() - lastCheckedAt >= intervalMs;
 }
 
+function isCampingQueryMonitorEnabled(query) {
+  return Boolean(query?.monitorEnabled);
+}
+
 function normalizeCampingMonitorSettings(settings = {}, overrides = {}) {
   const merged = { ...settings, ...overrides };
   return {
@@ -1564,6 +1568,7 @@ function normalizeStoredCampingQueries(queries) {
     checkMinutes: Math.max(1, Math.min(43200, Number.parseInt(query.checkMinutes, 10) || 30)),
     filters: normalizeStoredCampingFilters(query.filters),
     weekendOnly: Boolean(query.weekendOnly),
+    monitorEnabled: Boolean(query.monitorEnabled),
     autoConfirm: Boolean(query.autoConfirm),
     scanCursor: Math.max(0, Number.parseInt(query.scanCursor, 10) || 0),
     matches: Array.isArray(query.matches) ? query.matches.slice(0, 500) : [],
