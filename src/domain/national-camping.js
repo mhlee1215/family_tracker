@@ -71,10 +71,14 @@ export function searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNi
   return windows;
 }
 
-export async function findNationalAvailability({ campgroundId, startDate, endDate, rangeStart, rangeEnd, stayNights, weekendOnly = false }, { fetchImpl = fetch } = {}) {
+export async function findNationalAvailability({ campgroundId, startDate, endDate, rangeStart, rangeEnd, stayNights, weekendOnly = false, windowOffset = 0, maxWindows = Number.POSITIVE_INFINITY }, { fetchImpl = fetch } = {}) {
   const campground = String(campgroundId || '').trim();
   if (!campground) throw new Error('Campground is required.');
-  const windows = searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights, weekendOnly });
+  const allWindows = searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights, weekendOnly });
+  if (!allWindows.length) return [];
+  const offset = Math.max(0, Number.parseInt(windowOffset, 10) || 0) % allWindows.length;
+  const limit = Math.max(1, Number.isFinite(Number(maxWindows)) ? Number.parseInt(maxWindows, 10) || 1 : allWindows.length);
+  const windows = allWindows.slice(offset, offset + limit);
   const start = windows[0].startDate;
   const end = windows[windows.length - 1].endDate;
 

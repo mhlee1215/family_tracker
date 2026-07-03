@@ -170,6 +170,118 @@ test('camping monitor run continues chunked California availability searches in 
   }
 });
 
+test('camping monitor run continues chunked national availability searches in background', async () => {
+  const originalCwd = process.cwd();
+  const originalFetch = globalThis.fetch;
+  const originalEnv = {
+    CAMPING_MONITOR_CONTINUE_DELAY_MS: process.env.CAMPING_MONITOR_CONTINUE_DELAY_MS,
+    CAMPING_MONITOR_DISABLED: process.env.CAMPING_MONITOR_DISABLED,
+    DATABASE_PROVIDER: process.env.DATABASE_PROVIDER,
+    TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
+    TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+  const tempCwd = mkdtempSync(join(tmpdir(), 'family-tracker-national-continuation-api-'));
+
+  process.chdir(tempCwd);
+  process.env.CAMPING_MONITOR_CONTINUE_DELAY_MS = '0';
+  process.env.CAMPING_MONITOR_DISABLED = '1';
+  process.env.DATABASE_PROVIDER = 'sqlite';
+  delete process.env.TURSO_DATABASE_URL;
+  delete process.env.TURSO_AUTH_TOKEN;
+  process.env.NODE_ENV = 'production';
+
+  try {
+    const handler = await import(`../src/server/api/handler.js?test=national-continuation-${Date.now()}`);
+    const waitUntilPromises = [];
+    const requestedMonths = [];
+    const waitUntil = (promise) => waitUntilPromises.push(promise);
+    const selfFetch = async (url, options = {}) => {
+      if (String(url).startsWith('https://family.test/api/')) {
+        return handler.handleWebApiRequest(new Request(url, options), { waitUntil, selfFetch });
+      }
+      requestedMonths.push(new URL(String(url)).searchParams.get('start_date').slice(0, 7));
+      const availabilities = {};
+      for (let day = 1; day <= 20; day += 1) {
+        availabilities[`2026-09-${String(day).padStart(2, '0')}T00:00:00Z`] = 'Available';
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          campsites: {
+            100: {
+              campsite_id: '100',
+              site: '044',
+              loop: 'Upper Pines',
+              campsite_type: 'STANDARD NONELECTRIC',
+              campsite_reserve_type: 'Site-Specific',
+              availabilities,
+            },
+          },
+        }),
+      };
+    };
+    globalThis.fetch = selfFetch;
+
+    const loginResponse = await handler.handleWebApiRequest(new Request('https://family.test/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'admin-test' }),
+    }), { waitUntil, selfFetch });
+    const sessionCookie = loginResponse.headers.get('set-cookie');
+    const query = {
+      id: 'national-continuation',
+      provider: 'national',
+      name: 'Upper Pines',
+      campgrounds: [{ id: '232447', provider: 'national', name: 'Upper Pines Campground' }],
+      rangeStart: '2026-09-01',
+      rangeEnd: '2026-09-20',
+      stayNights: 2,
+      checkMinutes: 30,
+      weekendOnly: false,
+      filters: { tentAvailable: true, excludeSail: true, excludeGroup: true, excludeRvOnly: true },
+    };
+    await handler.handleWebApiRequest(new Request('https://family.test/api/camping/queries', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({ queries: [query] }),
+    }), { waitUntil, selfFetch });
+
+    const runResponse = await handler.handleWebApiRequest(new Request('https://family.test/api/camping/monitor/run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({ queryId: query.id }),
+    }), { waitUntil, selfFetch });
+    const runPayload = await runResponse.json();
+    assert.equal(runResponse.status, 200, JSON.stringify(runPayload));
+    assert.ok(runPayload.continuation?.queryIds.includes(query.id));
+
+    for (let guard = 0; waitUntilPromises.length && guard < 10; guard += 1) {
+      const pending = waitUntilPromises.splice(0);
+      await Promise.all(pending);
+    }
+
+    const queriesResponse = await handler.handleWebApiRequest(new Request('https://family.test/api/camping/queries', {
+      headers: { cookie: sessionCookie },
+    }), { waitUntil, selfFetch });
+    const savedQuery = (await queriesResponse.json()).queries[0];
+
+    assert.equal(savedQuery.scanCursor, 0);
+    assert.equal(savedQuery.progress, '');
+    assert.deepEqual(requestedMonths, ['2026-09', '2026-09']);
+    assert.equal(savedQuery.matches.length, 18);
+    assert.equal(savedQuery.matches[0].startDate, '2026-09-01');
+    assert.equal(savedQuery.matches.at(-1).startDate, '2026-09-18');
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('POST /api/logs preserves button input source through API responses', async () => {
   const originalCwd = process.cwd();
   const originalEnv = {
