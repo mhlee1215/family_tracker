@@ -134,10 +134,17 @@ test.describe('Family Tracker core flows', () => {
       availabilityRequests.push(requestBody);
       await new Promise((resolve) => setTimeout(resolve, 100));
       const isUpperPines = requestBody.campgroundId === '232447';
+      const matches = isUpperPines
+        ? Array.from({ length: 18 }, (_, index) => {
+          const day = String(4 + index).padStart(2, '0');
+          const checkout = String(6 + index).padStart(2, '0');
+          return { campgroundId: requestBody.campgroundId, campsiteId: '100', site: '044', loop: 'Upper Pines', startDate: `2026-09-${day}`, endDate: `2026-09-${checkout}`, nights: [`2026-09-${day}`], checkoutUrl: `https://www.recreation.gov/camping/campgrounds/${requestBody.campgroundId}?checkin=2026-09-${day}&checkout=2026-09-${checkout}` };
+        })
+        : [{ campgroundId: requestBody.campgroundId, campsiteId: '200', site: '012', loop: 'Lower Pines', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: `https://www.recreation.gov/camping/campgrounds/${requestBody.campgroundId}?checkin=2026-09-04&checkout=2026-09-06` }];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ matches: [{ campgroundId: requestBody.campgroundId, campsiteId: isUpperPines ? '100' : '200', site: isUpperPines ? '044' : '012', loop: isUpperPines ? 'Upper Pines' : 'Lower Pines', startDate: '2026-09-04', endDate: '2026-09-06', nights: ['2026-09-04', '2026-09-05'], checkoutUrl: `https://www.recreation.gov/camping/campgrounds/${requestBody.campgroundId}?checkin=2026-09-04&checkout=2026-09-06` }] }),
+        body: JSON.stringify({ matches }),
       });
     });
 
@@ -164,6 +171,8 @@ test.describe('Family Tracker core flows', () => {
     await page.keyboard.press('Escape');
     await page.locator('#camping-end-date').fill('2026-11-15');
     await page.locator('#camping-stay-nights').fill('2');
+    await page.locator('#camping-check-minutes').fill('1');
+    await expect(page.locator('#camping-check-minutes')).toHaveValue('1');
     await page.locator('#camping-check-minutes').fill('2');
     await page.locator('#camping-check-unit').selectOption('hour');
     await page.locator('#camping-weekend-only').check();
@@ -172,6 +181,7 @@ test.describe('Family Tracker core flows', () => {
       page.locator('#camping-save-query').click(),
     ]);
     expect(saveQueriesResponse.ok()).toBeTruthy();
+    await saveQueriesResponse.finished();
 
     await expect(page.locator('#camping-query-list')).toContainText('Upper Pines Campground');
     await expect(page.locator('#camping-query-list')).toContainText('Lower Pines Campground');
@@ -203,7 +213,10 @@ test.describe('Family Tracker core flows', () => {
     await expect(page.locator('#camping-query-list')).toContainText('Available');
     await expect(page.locator('#camping-query-list')).toContainText('Site 044');
     await expect(page.locator('#camping-query-list')).toContainText('Site 012');
-    await expect(page.locator('#camping-query-list a[href*="recreation.gov"]')).toHaveCount(2);
+    await expect(page.locator('.camping-match-group')).toHaveCount(2);
+    await expect(page.locator('.camping-match-group').first()).toContainText('18 dates');
+    await expect.poll(() => page.locator('.camping-match-groups').evaluate((element) => element.scrollHeight > element.clientHeight)).toBeTruthy();
+    await expect(page.locator('#camping-query-list a[href*="recreation.gov"]')).toHaveCount(19);
 
     await page.locator('[data-camping-action="edit"]').click();
     await expect(page.locator('#camping-save-query')).toHaveText('Update query');
@@ -220,7 +233,12 @@ test.describe('Family Tracker core flows', () => {
       expect(dialog.message()).toContain('Delete saved search "Upper Pines Campground, Lower Pines Campground"?');
       await dialog.accept();
     });
-    await page.locator('[data-camping-action="delete"]').click();
+    const [deleteQueriesResponse] = await Promise.all([
+      page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().includes('/api/camping/queries')),
+      page.locator('[data-camping-action="delete"]').click(),
+    ]);
+    expect(deleteQueriesResponse.ok()).toBeTruthy();
+    await deleteQueriesResponse.finished();
     await expect(page.locator('#camping-query-list')).toContainText('No saved searches yet.');
     await app.captureStep('Managed national campsite search', 'Camping tab saved a recurring weekend search, checked availability, and allowed edit/delete.');
 
