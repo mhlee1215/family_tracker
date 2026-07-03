@@ -53,17 +53,24 @@ export async function searchCaliforniaStateCampgrounds(query, { fetchImpl = fetc
   return results.slice(0, 20);
 }
 
-export async function findCaliforniaStateAvailability({ campgroundId, placeId, startDate, endDate, rangeStart, rangeEnd, stayNights, weekendOnly = false }, { fetchImpl = fetch } = {}) {
+export async function findCaliforniaStateAvailability({ campgroundId, placeId, startDate, endDate, rangeStart, rangeEnd, stayNights, weekendOnly = false, windowOffset = 0, maxWindows = Number.POSITIVE_INFINITY }, { fetchImpl = fetch } = {}) {
   const facilityId = String(campgroundId || '').trim();
   if (!facilityId) throw new Error('Campground is required.');
-  const windows = searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights, weekendOnly });
-  const results = await Promise.all(windows.map((window) => fetchAvailabilityWindow({
+  const allWindows = searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights, weekendOnly });
+  if (!allWindows.length) return [];
+  const offset = Math.max(0, Number.parseInt(windowOffset, 10) || 0) % allWindows.length;
+  const limit = Math.max(1, Number.isFinite(Number(maxWindows)) ? Number.parseInt(maxWindows, 10) || 1 : allWindows.length);
+  const windows = allWindows.slice(offset, offset + limit);
+  const results = [];
+  for (const window of windows) {
+    results.push(await fetchAvailabilityWindow({
     facilityId,
     placeId,
     startDate: window.startDate,
     endDate: window.endDate,
     fetchImpl,
-  })));
+    }));
+  }
   return results.flat();
 }
 

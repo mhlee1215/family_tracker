@@ -21,13 +21,15 @@ import { createBabyStore, getStorageConfig } from '../db/store-factory.js';
 import { getMediaStorageConfig, publicMediaStorageConfig } from '../media-config.js';
 import { buildMilkReminderJob, normalizeNotificationSettings } from '../../domain/milk-reminder.js';
 import { findCaliforniaStateAvailability, searchCaliforniaStateCampgrounds } from '../../domain/california-state-camping.js';
-import { findNationalAvailability, searchNationalCampgrounds } from '../../domain/national-camping.js';
+import { findNationalAvailability, searchNationalCampgrounds, searchWindows } from '../../domain/national-camping.js';
 import { searchTravel, searchTravelDeals, sourceStatuses } from '../../domain/travel-search.js';
 import { createId } from '../../utils/ids.js';
 import { localDateKeyFromIso, normalizeTimeZone } from '../../utils/time.js';
 import { colorForBabyEventType } from '../../utils/tracker-colors.js';
 
 const port = Number(process.env.PORT || 4174);
+const CAMPING_QUERIES_PER_INVOCATION = 1;
+const CAMPING_AVAILABILITY_SUBREQUEST_BUDGET = 20;
 let storageConfig;
 let mediaStorageConfig;
 let store;
@@ -1257,11 +1259,13 @@ async function runCampingMonitorForScope(scope, options = {}) {
       if (options.dueOnly) return isCampingQueryDue(query);
       return true;
     });
-    const maxConcurrent = settings.maxConcurrent;
+    const maxConcurrent = Math.min(settings.maxConcurrent, 1);
+    const runnableQueries = selectedQueries.slice(0, CAMPING_QUERIES_PER_INVOCATION);
+    const deferredCount = Math.max(0, selectedQueries.length - runnableQueries.length);
     let completed = 0;
     let failed = 0;
-    for (let index = 0; index < selectedQueries.length; index += maxConcurrent) {
-      const batch = selectedQueries.slice(index, index + maxConcurrent);
+    for (let index = 0; index < runnableQueries.length; index += maxConcurrent) {
+      const batch = runnableQueries.slice(index, index + maxConcurrent);
       const results = await Promise.all(batch.map(async (query) => {
         try {
           return await runStoredCampingQuery(query);
@@ -1282,8 +1286,8 @@ async function runCampingMonitorForScope(scope, options = {}) {
       }
     }
     const now = new Date().toISOString();
-    const status = selectedQueries.length
-      ? `Monitor checked ${completed} search${completed === 1 ? '' : 'es'}${failed ? ` with ${failed} failure${failed === 1 ? '' : 's'}` : ''}.`
+    const status = runnableQueries.length
+      ? `Monitor checked ${completed} search${completed === 1 ? '' : 'es'}${failed ? ` with ${failed} failure${failed === 1 ? '' : 's'}` : ''}${deferredCount ? `; ${deferredCount} deferred for the next run` : ''}.`
       : 'No saved searches were due.';
     const savedQueries = await store.saveCampingQueries(queries, scope);
     const savedSettings = await saveCampingMonitorSettings(scope, scope.userId, {
@@ -1301,7 +1305,19 @@ async function runStoredCampingQuery(query) {
   const campgrounds = campingQueryCampgrounds(query);
   if (!campgrounds.length || !campgrounds[0]?.id) throw new Error('Choose at least one campground before running.');
   if (!isStoredCampingRangeValid(query.rangeStart, query.rangeEnd)) throw new Error('A valid date range is required.');
-  const results = await Promise.all(campgrounds.map(async (campground) => {
+  const caCampgroundCount = campgrounds.filter((campground) => normalizeCampingProvider(campground.provider || query.provider || 'national') === 'california_state').length;
+  const windowCount = searchWindows({
+    rangeStart: query.rangeStart,
+    rangeEnd: query.rangeEnd,
+    stayNights: query.stayNights,
+    weekendOnly: query.weekendOnly,
+  }).length;
+  const windowOffset = windowCount ? Math.max(0, Number.parseInt(query.scanCursor, 10) || 0) % windowCount : 0;
+  const maxWindowsPerCaliforniaCampground = caCampgroundCount
+    ? Math.max(1, Math.floor(CAMPING_AVAILABILITY_SUBREQUEST_BUDGET / caCampgroundCount))
+    : CAMPING_AVAILABILITY_SUBREQUEST_BUDGET;
+  const results = [];
+  for (const campground of campgrounds) {
     const provider = normalizeCampingProvider(campground.provider || query.provider || 'national');
     const request = {
       campgroundId: campground.id,
@@ -1310,26 +1326,35 @@ async function runStoredCampingQuery(query) {
       rangeEnd: query.rangeEnd,
       stayNights: query.stayNights,
       weekendOnly: query.weekendOnly,
+      windowOffset,
+      maxWindows: provider === 'california_state' ? maxWindowsPerCaliforniaCampground : Number.POSITIVE_INFINITY,
     };
     const matches = provider === 'california_state'
       ? await findCaliforniaStateAvailability(request)
       : await findNationalAvailability(request);
-    return matches.map((match) => ({
+    results.push(matches.map((match) => ({
       ...match,
       provider,
       providerLabel: campingProviderLabel(provider),
       campgroundName: campground.name,
       bookingUrl: campground.bookingUrl || match.bookingUrl || '',
-    }));
-  }));
+    })));
+  }
   const rawMatches = results.flat();
   const matches = rawMatches.filter((match) => campingMatchPassesFilters(match, query.filters));
+  const partialScan = caCampgroundCount > 0 && maxWindowsPerCaliforniaCampground < windowCount;
+  const nextScanCursor = partialScan ? (windowOffset + maxWindowsPerCaliforniaCampground) % windowCount : 0;
   return {
     ...query,
+    scanCursor: nextScanCursor,
     matches,
     progress: '',
     lastCheckedAt: new Date().toISOString(),
-    lastStatus: formatCampingAvailabilityStatus(matches.length, rawMatches.length),
+    lastStatus: formatCampingAvailabilityStatus(matches.length, rawMatches.length, partialScan ? {
+      checkedStart: windowOffset + 1,
+      checkedEnd: Math.min(windowOffset + maxWindowsPerCaliforniaCampground, windowCount),
+      total: windowCount,
+    } : null),
     pendingReservationUrl: query.autoConfirm && campgrounds.length === 1 && matches[0] ? matches[0].checkoutUrl : '',
   };
 }
@@ -1415,10 +1440,11 @@ function campingMatchPassesFilters(match, filters = {}) {
   return true;
 }
 
-function formatCampingAvailabilityStatus(visibleCount, rawCount) {
-  if (!rawCount) return 'No sites available.';
-  if (visibleCount === rawCount) return `${visibleCount} available.`;
-  return `${visibleCount} available after filters (${rawCount} total).`;
+function formatCampingAvailabilityStatus(visibleCount, rawCount, scan = null) {
+  const suffix = scan ? ` Checked dates ${scan.checkedStart}-${scan.checkedEnd} of ${scan.total}; next run continues.` : '';
+  if (!rawCount) return `No sites available.${suffix}`;
+  if (visibleCount === rawCount) return `${visibleCount} available.${suffix}`;
+  return `${visibleCount} available after filters (${rawCount} total).${suffix}`;
 }
 
 function normalizeStoredCampingQueries(queries) {
@@ -1453,6 +1479,7 @@ function normalizeStoredCampingQueries(queries) {
     filters: normalizeStoredCampingFilters(query.filters),
     weekendOnly: Boolean(query.weekendOnly),
     autoConfirm: Boolean(query.autoConfirm),
+    scanCursor: Math.max(0, Number.parseInt(query.scanCursor, 10) || 0),
     matches: Array.isArray(query.matches) ? query.matches.slice(0, 500) : [],
     lastCheckedAt: String(query.lastCheckedAt || '').slice(0, 40),
     lastStatus: String(query.lastStatus || '').slice(0, 160),
