@@ -1,5 +1,6 @@
 const RECREATION_SEARCH_URL = 'https://www.recreation.gov/api/search';
 const RECREATION_AVAILABILITY_URL = 'https://www.recreation.gov/api/camps/availability/campground';
+const ZIP_LOOKUP_URL = 'https://api.zippopotam.us/us';
 
 export function normalizeCampingDate(value) {
   const text = String(value || '').trim();
@@ -21,8 +22,15 @@ export async function searchNationalCampgrounds(query, { fetchImpl = fetch } = {
   if (search.length < 2) return [];
   const url = new URL(RECREATION_SEARCH_URL);
   url.searchParams.set('fq', 'entity_type:campground');
-  url.searchParams.set('q', search);
-  url.searchParams.set('size', '8');
+  const zipCoordinates = await lookupZipCoordinates(search, fetchImpl);
+  if (zipCoordinates) {
+    url.searchParams.set('lat', zipCoordinates.latitude);
+    url.searchParams.set('lng', zipCoordinates.longitude);
+    url.searchParams.set('radius', '75');
+  } else {
+    url.searchParams.set('q', search);
+  }
+  url.searchParams.set('size', '20');
   const response = await fetchImpl(url, { headers: recreationHeaders() });
   if (!response.ok) throw new Error('Recreation.gov search failed.');
   const data = await response.json();
@@ -33,9 +41,10 @@ export async function searchNationalCampgrounds(query, { fetchImpl = fetch } = {
     rating: optionalNumber(item.average_rating),
     ratingCount: optionalNumber(item.number_of_ratings),
     campsiteCount: optionalNumber(item.campsites_count),
+    distance: optionalNumber(item.distance),
     reservable: Boolean(item.reservable || item.campsites_count),
   })).filter((item) => item.id && item.name)
-    .sort((left, right) => right.ratingCount - left.ratingCount);
+    .sort(zipCoordinates ? byDistance : byRatingCount);
 }
 
 export function searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights = 2, weekendOnly = false }) {
@@ -129,6 +138,31 @@ function dateKey(date) {
 function optionalNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function byRatingCount(left, right) {
+  return right.ratingCount - left.ratingCount;
+}
+
+function byDistance(left, right) {
+  const leftDistance = left.distance > 0 ? left.distance : Number.POSITIVE_INFINITY;
+  const rightDistance = right.distance > 0 ? right.distance : Number.POSITIVE_INFINITY;
+  return leftDistance - rightDistance || byRatingCount(left, right);
+}
+
+async function lookupZipCoordinates(search, fetchImpl) {
+  if (!/^\d{5}$/.test(search)) return null;
+  try {
+    const response = await fetchImpl(`${ZIP_LOOKUP_URL}/${search}`, { headers: { accept: 'application/json' } });
+    if (!response.ok) return null;
+    const place = (await response.json()).places?.[0];
+    const latitude = Number(place?.latitude);
+    const longitude = Number(place?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude: String(latitude), longitude: String(longitude) };
+  } catch {
+    return null;
+  }
 }
 
 function recreationHeaders() {
