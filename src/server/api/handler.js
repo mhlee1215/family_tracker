@@ -1186,6 +1186,9 @@ function normalizeStoredCampingQueries(queries) {
       id: String(campground.id || '').slice(0, 80),
       name: String(campground.name || '').slice(0, 160),
       location: String(campground.location || '').slice(0, 160),
+      rating: normalizeStoredNumber(campground.rating),
+      ratingCount: normalizeStoredNumber(campground.ratingCount),
+      campsiteCount: normalizeStoredNumber(campground.campsiteCount),
     })).filter((campground) => campground.id && campground.name) : [],
     rangeStart: String(query.rangeStart || '').slice(0, 10),
     rangeEnd: String(query.rangeEnd || '').slice(0, 10),
@@ -1198,6 +1201,11 @@ function normalizeStoredCampingQueries(queries) {
     lastStatus: String(query.lastStatus || '').slice(0, 160),
     autoOpenedUrl: String(query.autoOpenedUrl || '').slice(0, 400),
   }));
+}
+
+function normalizeStoredNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
 async function rebuildMilkReminderJobForUser(scope, userId, options = {}) {

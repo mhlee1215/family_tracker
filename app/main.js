@@ -1917,10 +1917,30 @@ function renderCampingCandidates(candidates) {
     button.dataset.campgroundId = campground.id;
     button.setAttribute('aria-pressed', String(selected));
     button.classList.toggle('selected', selected);
-    button.textContent = campground.location ? `${campground.name} - ${campground.location}` : campground.name;
+    const title = document.createElement('span');
+    title.textContent = campground.location ? `${campground.name} - ${campground.location}` : campground.name;
+    button.append(title);
+    const meta = formatCampingCandidateMeta(campground);
+    if (meta) {
+      const metaLine = document.createElement('small');
+      metaLine.className = 'camping-candidate-meta';
+      metaLine.textContent = meta;
+      button.append(metaLine);
+    }
     return button;
   }));
   syncCampingAutoConfirmAvailability();
+}
+
+function formatCampingCandidateMeta(campground = {}) {
+  const rating = Number(campground.rating);
+  const ratingCount = Number(campground.ratingCount);
+  const campsiteCount = Number(campground.campsiteCount);
+  const parts = [];
+  if (Number.isFinite(rating) && rating > 0) parts.push(`★ ${rating.toFixed(1)}`);
+  if (Number.isFinite(ratingCount) && ratingCount > 0) parts.push(`${ratingCount.toLocaleString()} ratings`);
+  if (Number.isFinite(campsiteCount) && campsiteCount > 0) parts.push(`${campsiteCount.toLocaleString()} sites`);
+  return parts.join(' · ');
 }
 
 function resolveSelectedCampgrounds() {

@@ -30,8 +30,12 @@ export async function searchNationalCampgrounds(query, { fetchImpl = fetch } = {
     id: String(item.entity_id || item.asset_id || ''),
     name: String(item.name || item.entity_name || item.asset_name || '').trim(),
     location: String(item.location || item.city || item.state_code || '').trim(),
+    rating: optionalNumber(item.average_rating),
+    ratingCount: optionalNumber(item.number_of_ratings),
+    campsiteCount: optionalNumber(item.campsites_count),
     reservable: Boolean(item.reservable || item.campsites_count),
-  })).filter((item) => item.id && item.name);
+  })).filter((item) => item.id && item.name)
+    .sort((left, right) => right.ratingCount - left.ratingCount);
 }
 
 export function searchWindows({ rangeStart, rangeEnd, startDate, endDate, stayNights = 2, weekendOnly = false }) {
@@ -120,6 +124,11 @@ function nightsBetween(startDate, endDate) {
 
 function dateKey(date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+function optionalNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function recreationHeaders() {

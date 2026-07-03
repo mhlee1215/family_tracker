@@ -1718,6 +1718,8 @@ input {
 }
 
 .camping-recommendations button {
+  display: grid;
+  gap: 3px;
   width: 100%;
   border: 1px solid var(--hairline);
   border-radius: 8px;
@@ -1729,6 +1731,12 @@ input {
   line-height: 1.25;
   text-align: left;
   cursor: pointer;
+}
+
+.camping-candidate-meta {
+  color: var(--ink-muted-48);
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .camping-recommendations button:hover,
